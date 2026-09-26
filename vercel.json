@@ -1,10 +1,14 @@
 {
-  "version": 2,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "cd client && npm install && npm run build",
-  "includeFiles": [
-    "client/dist/**",
-    "public/**"
-  ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": [
+        "client/dist/**",
+        "public/**"
+      ]
+    }
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
   ]

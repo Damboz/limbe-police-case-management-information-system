@@ -1,9 +1,9 @@
 ﻿-- ============================================================
 -- Limbe Police CMS - Neon (PostgreSQL) Schema + Seed (SQL Editor safe)
--- Runs entirely inside the target database (limbe_police_cms):
+-- Runs entirely inside the target database (limbe_police):
 --   - no CREATE DATABASE (already connected)
 --   - no psql meta-commands (\connect / \set ON_ERROR_STOP)
--- Usage: open Neon SQL Editor for the limbe_police_cms database
+-- Usage: open Neon SQL Editor for the limbe_police database
 --        and paste the whole file. Drops + recreates tables.
 -- ============================================================
 

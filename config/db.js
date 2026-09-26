@@ -12,7 +12,7 @@ types.setTypeParser(types.builtins.INT8, (value) => value === null ? null : pars
 types.setTypeParser(types.builtins.NUMERIC, (value) => value === null ? null : parseFloat(value));
 
 
-const dbName = process.env.PGDATABASE || process.env.DB_NAME || 'limbe_police_cms';
+const dbName = process.env.PGDATABASE || process.env.DB_NAME || 'limbe_police';
 const sslRequired = ['require', 'verify-ca', 'verify-full'].includes((process.env.PGSSLMODE || '').toLowerCase());
 const configuredHost = process.env.PGHOST || process.env.DB_HOST || 'localhost';
 
@@ -88,6 +88,18 @@ async function resolveIpv4(host) {
 // connection times out. Probe the strategies in order and keep the one that works.
 async function resolveWorkingConfig() {
     const base = baseConfig();
+
+    // The IPv4 fallback exists for local networks that advertise IPv6 records the
+    // machine cannot actually reach. A serverless host has working IPv6, and on it
+    // every failed probe costs a full connect timeout on each cold start, so skip
+    // probing in production and let the first real query open the connection. A
+    // cold TLS + SCRAM handshake against Neon regularly outlasts the probe timeout,
+    // which made the probe report an unreachable database that the pool then reached
+    // without trouble - a wasted timeout and a misleading error on every cold start.
+    if (process.env.NODE_ENV === 'production' && !process.env.DB_IPV4_FALLBACK) {
+        return base;
+    }
+
     const failures = [];
 
     const direct = await canConnect(base);
@@ -96,15 +108,6 @@ async function resolveWorkingConfig() {
         return base;
     }
     failures.push(`hostname ${base.host} -> ${direct.reason}`);
-
-    // The IPv4 fallback exists for local networks that advertise IPv6 records the
-    // machine cannot actually reach. A serverless host has working IPv6, and on it
-    // every failed probe costs a 6-second timeout on each cold start, so only look
-    // for a fallback address outside production.
-    if (process.env.NODE_ENV === 'production' && !process.env.DB_IPV4_FALLBACK) {
-        console.error(`[db] Could not reach PostgreSQL [${dbName}] via ${base.host}: ${direct.reason}`);
-        return base;
-    }
 
     const addresses = await resolveIpv4(base.host);
     for (const address of addresses) {

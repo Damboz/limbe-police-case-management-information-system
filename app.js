@@ -45,9 +45,18 @@ app.use((req, res, next) => {
 // survive across the separate, short-lived instances a serverless host creates.
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
+// Falling back to a fixed secret would let anyone who has read the source forge an
+// admin session cookie, so refuse to start rather than sign one with a known key.
+const SESSION_SECRET = process.env.SESSION_SECRET;
+if (!SESSION_SECRET) {
+    throw new Error(
+        'SESSION_SECRET must be set. Add it to .env for local runs, or to the project environment variables on Vercel.'
+    );
+}
+
 app.use(cookieSession({
     name: 'limbe.sid',
-    keys: [process.env.SESSION_SECRET || 'limbe_police_cms_secure_session_key'],
+    keys: [SESSION_SECRET],
     maxAge: 1000 * 60 * 60 * 8,
     httpOnly: true,
     sameSite: 'lax',
