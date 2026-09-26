@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "buildCommand": "cd client && npm install && npm run build",
+  "includeFiles": [
+    "client/dist/**",
+    "public/**"
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ]
+}
