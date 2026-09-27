@@ -33,7 +33,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
                     </div>
                     <div className="lh-sm">
                         <div className="fw-bold text-white fs-6">Limbe Police Station</div>
-                        <small className="text-white-50 d-block" style={{ fontSize: '0.7rem' }}>Case Management System</small>
+                        <small className="text-white-50 d-block" style={{ fontSize: '0.7rem' }}>Case Management Information System</small>
                     </div>
                 </div>
 
