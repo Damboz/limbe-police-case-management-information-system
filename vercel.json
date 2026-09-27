@@ -3,10 +3,7 @@
   "buildCommand": "cd client && npm install && npm run build",
   "functions": {
     "api/index.js": {
-      "includeFiles": [
-        "client/dist/**",
-        "public/**"
-      ]
+      "includeFiles": "{client/dist,public}/**"
     }
   },
   "rewrites": [
