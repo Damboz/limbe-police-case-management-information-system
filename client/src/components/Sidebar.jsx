@@ -1,4 +1,5 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { roleFlags } from '../lib/roles';
 import { initials } from '../lib/format';
@@ -9,12 +10,111 @@ function linkClass({ isActive }) {
 }
 
 
+function matchesPath(to, pathname, end) {
+    if (!to) return false;
+    const base = to.replace(/\/+$/, '');
+    if (end) return pathname === base;
+    return pathname === base || pathname.startsWith(`${base}/`);
+}
+
+
+function SidebarSection({ id, title, open, isCurrent, onToggle, children }) {
+    return (
+        <li className={`sidebar-section${open ? ' open' : ''}${isCurrent ? ' current' : ''}`}>
+            <button
+                type="button"
+                className="sidebar-section-toggle"
+                onClick={onToggle}
+                aria-expanded={open}
+                aria-controls={`sidebar-section-${id}`}
+            >
+                <span>{title}</span>
+                <i className="bi bi-chevron-down sidebar-section-chevron" aria-hidden="true" />
+            </button>
+            <div id={`sidebar-section-${id}`} className="sidebar-section-body" role="group" aria-label={title}>
+                <ul>{children}</ul>
+            </div>
+        </li>
+    );
+}
+
+
 export default function Sidebar({ open = false, onClose = () => {} }) {
     const { user, logout, homePath } = useAuth();
     const navigate = useNavigate();
+    const { pathname } = useLocation();
     const { isInvestigator, isCommander, isAdmin, isIntake } = roleFlags(user);
 
+    const sections = useMemo(() => {
+        const commanderReports = isCommander || isAdmin;
+
+        return [
+            {
+                id: 'core',
+                title: 'Core Operations',
+                links: [
+                    { to: homePath, icon: 'bi-speedometer2', label: 'Dashboard', end: true },
+                    { to: '/cases', icon: 'bi-folder2-open', label: 'Case Register' },
+                    isIntake && { to: '/cases/search', icon: 'bi-search', label: 'Smart Search' },
+                    (isInvestigator || commanderReports) && { to: '/evidence', icon: 'bi-box-seam', label: 'Evidence Ledger' }
+                ].filter(Boolean)
+            },
+            {
+                id: 'analytics',
+                title: 'Analytics & Reports',
+                links: [
+                    commanderReports && { to: '/supervisor/analytics', icon: 'bi-graph-up-arrow', label: 'Analytics & Hotspots' },
+                    (isInvestigator || isIntake) && { to: '/my-analytics', icon: 'bi-graph-up-arrow', label: 'My Analytics' },
+                    isInvestigator && { href: '/reports/my-cases', icon: 'bi-file-earmark-person', label: 'My Case Report' },
+                    commanderReports && { href: '/supervisor/reports/station-performance', icon: 'bi-file-earmark-bar-graph', label: 'Station Performance PDF' },
+                    commanderReports && { href: '/supervisor/reports/crime-statistics', icon: 'bi-file-earmark-text', label: 'Crime Statistics PDF' },
+                    commanderReports && { href: '/supervisor/reports/officer-productivity', icon: 'bi-file-earmark-person', label: 'Officer Productivity PDF' }
+                ].filter(Boolean)
+            },
+            {
+                id: 'admin',
+                title: 'Administration',
+                links: isAdmin ? [
+                    { to: '/admin/dashboard', icon: 'bi-shield-lock', label: 'Admin Overview' },
+                    { to: '/admin/users', icon: 'bi-people', label: 'Personnel Accounts' },
+                    { to: '/admin/audit-logs', icon: 'bi-journal-text', label: 'Security Audit Logs' }
+                ] : []
+            },
+            {
+                id: 'account',
+                title: 'Account',
+                links: [
+                    { to: '/change-password', icon: 'bi-key-fill text-warning', label: 'Change Password' }
+                ]
+            }
+        ].filter(section => section.links.length > 0);
+    }, [homePath, isInvestigator, isCommander, isAdmin, isIntake]);
+
+    const currentSectionId = useMemo(() => {
+        const match = sections.find(section => section.links.some(link => matchesPath(link.to, pathname, link.end)));
+        return match ? match.id : null;
+    }, [sections, pathname]);
+
+    const [openSections, setOpenSections] = useState(() => {
+        const first = sections.find(section => section.links.some(link => matchesPath(link.to, pathname, link.end))) || sections[0];
+        return new Set(first ? [first.id] : []);
+    });
+
+    useEffect(() => {
+        if (!currentSectionId) return;
+        setOpenSections(prev => (prev.has(currentSectionId) ? prev : new Set([...prev, currentSectionId])));
+    }, [currentSectionId]);
+
     const close = () => onClose();
+
+    const toggleSection = (id) => {
+        setOpenSections(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
 
     const handleLogout = async () => {
         close();
@@ -38,140 +138,41 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
                 </div>
 
                 <ul className="sidebar-menu">
-                    <li className="sidebar-heading">Core Operations</li>
-
-                    <li>
-                        <NavLink
-                            to={homePath}
-                            className={linkClass}
-                            onClick={close}
-                            end
+                    {sections.map(section => (
+                        <SidebarSection
+                            key={section.id}
+                            id={section.id}
+                            title={section.title}
+                            open={openSections.has(section.id)}
+                            isCurrent={currentSectionId === section.id}
+                            onToggle={() => toggleSection(section.id)}
                         >
-                            <i className="bi bi-speedometer2" />
-                            <span>Dashboard</span>
-                        </NavLink>
-                    </li>
+                            {section.links.map(link => (
+                                <li key={link.label}>
+                                    {link.href ? (
+                                        <a href={link.href} className="sidebar-link" onClick={close}>
+                                            <i className={`bi ${link.icon}`} />
+                                            <span>{link.label}</span>
+                                        </a>
+                                    ) : (
+                                        <NavLink to={link.to} className={linkClass} onClick={close} end={link.end}>
+                                            <i className={`bi ${link.icon}`} />
+                                            <span>{link.label}</span>
+                                        </NavLink>
+                                    )}
+                                </li>
+                            ))}
 
-                    <li>
-                        <NavLink to="/cases" className={linkClass} onClick={close}>
-                            <i className="bi bi-folder2-open" />
-                            <span>Case Register</span>
-                        </NavLink>
-                    </li>
-
-                    {isIntake && (
-                        <li>
-                            <NavLink to="/cases/search" className={linkClass} onClick={close}>
-                                <i className="bi bi-search" />
-                                <span>Smart Search</span>
-                            </NavLink>
-                        </li>
-                    )}
-
-                    {(isInvestigator || isCommander || isAdmin) && (
-                        <li>
-                            <NavLink to="/evidence" className={linkClass} onClick={close}>
-                                <i className="bi bi-box-seam" />
-                                <span>Evidence Ledger</span>
-                            </NavLink>
-                        </li>
-                    )}
-
-                    {(isCommander || isAdmin || isInvestigator || isIntake) && (
-                        <>
-                            <li className="sidebar-heading mt-3">Analytics &amp; Reports</li>
-
-                            {(isCommander || isAdmin) && (
+                            {section.id === 'account' && (
                                 <li>
-                                    <NavLink to="/supervisor/analytics" className={linkClass} onClick={close}>
-                                        <i className="bi bi-graph-up-arrow" />
-                                        <span>Analytics &amp; Hotspots</span>
-                                    </NavLink>
+                                    <button type="button" className="sidebar-link text-danger border-0 bg-transparent w-100 text-start" onClick={handleLogout}>
+                                        <i className="bi bi-box-arrow-right" />
+                                        <span>Sign Out</span>
+                                    </button>
                                 </li>
                             )}
-
-                            {(isInvestigator || isIntake) && (
-                                <li>
-                                    <NavLink to="/my-analytics" className={linkClass} onClick={close}>
-                                        <i className="bi bi-graph-up-arrow" />
-                                        <span>My Analytics</span>
-                                    </NavLink>
-                                </li>
-                            )}
-
-                            {isInvestigator && (
-                                <li>
-                                    <a href="/reports/my-cases" className="sidebar-link">
-                                        <i className="bi bi-file-earmark-person" />
-                                        <span>My Case Report</span>
-                                    </a>
-                                </li>
-                            )}
-
-                            {(isCommander || isAdmin) && (
-                                <>
-                                    <li>
-                                        <a href="/supervisor/reports/station-performance" className="sidebar-link">
-                                            <i className="bi bi-file-earmark-bar-graph" />
-                                            <span>Station Performance PDF</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="/supervisor/reports/crime-statistics" className="sidebar-link">
-                                            <i className="bi bi-file-earmark-text" />
-                                            <span>Crime Statistics PDF</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="/supervisor/reports/officer-productivity" className="sidebar-link">
-                                            <i className="bi bi-file-earmark-person" />
-                                            <span>Officer Productivity PDF</span>
-                                        </a>
-                                    </li>
-                                </>
-                            )}
-                        </>
-                    )}
-
-                    {isAdmin && (
-                        <>
-                            <li className="sidebar-heading mt-3">Administration</li>
-                            <li>
-                                <NavLink to="/admin/dashboard" className={linkClass} onClick={close}>
-                                    <i className="bi bi-shield-lock" />
-                                    <span>Admin Overview</span>
-                                </NavLink>
-                            </li>
-                            <li>
-                                <NavLink to="/admin/users" className={linkClass} onClick={close}>
-                                    <i className="bi bi-people" />
-                                    <span>Personnel Accounts</span>
-                                </NavLink>
-                            </li>
-                            <li>
-                                <NavLink to="/admin/audit-logs" className={linkClass} onClick={close}>
-                                    <i className="bi bi-journal-text" />
-                                    <span>Security Audit Logs</span>
-                                </NavLink>
-                            </li>
-                        </>
-                    )}
-
-                    <li className="sidebar-heading mt-3">Account</li>
-
-                    <li>
-                        <NavLink to="/change-password" className={linkClass} onClick={close}>
-                            <i className="bi bi-key-fill text-warning" />
-                            <span>Change Password</span>
-                        </NavLink>
-                    </li>
-
-                    <li>
-                        <button type="button" className="sidebar-link text-danger border-0 bg-transparent w-100 text-start" onClick={handleLogout}>
-                            <i className="bi bi-box-arrow-right" />
-                            <span>Sign Out</span>
-                        </button>
-                    </li>
+                        </SidebarSection>
+                    ))}
                 </ul>
 
                 <div className="sidebar-footer">

@@ -225,13 +225,83 @@ a:hover {
   flex: 1;
 }
 
-.sidebar-heading {
+.sidebar-section {
+  list-style: none;
+}
+
+.sidebar-section + .sidebar-section {
+  margin-top: 0.5rem;
+}
+
+.sidebar-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
   padding: 0.75rem 1.25rem 0.35rem;
+  background: transparent;
+  border: 0;
+  text-align: left;
   font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: rgb(148, 163, 184);
+  transition: color 0.15s ease;
+}
+
+.sidebar-section-toggle:hover {
+  color: rgb(255, 255, 255);
+}
+
+.sidebar-section-toggle:focus-visible {
+  outline: 2px solid var(--mps-gold);
+  outline-offset: -2px;
+}
+
+.sidebar-section.current > .sidebar-section-toggle {
+  color: var(--mps-gold);
+}
+
+.sidebar-section-chevron {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  line-height: 1;
+  transition: transform 0.25s ease;
+}
+
+.sidebar-section.open > .sidebar-section-toggle .sidebar-section-chevron {
+  transform: rotate(180deg);
+}
+
+.sidebar-section-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.sidebar-section.open > .sidebar-section-body {
+  grid-template-rows: 1fr;
+}
+
+@supports not (grid-template-rows: 0fr) {
+  .sidebar-section-body {
+    max-height: 0;
+    transition: max-height 0.25s ease;
+  }
+
+  .sidebar-section.open > .sidebar-section-body {
+    max-height: 30rem;
+  }
+}
+
+.sidebar-section-body > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .sidebar-link {
