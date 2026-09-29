@@ -84,12 +84,12 @@ They never import each other's code — they only talk over HTTP.
 limbe-police-case-management-information-system/
   package.json       npm workspaces root. Installs both halves and delegates scripts.
   vercel.json        Deploy config for the single serverless function.
+  api/index.js        Vercel's entrypoint. A one-line shim that re-exports backend/app.js.
 
   client/            The React front end (Vite). Builds into client/dist.
     public/          Static files copied as-is into the build (CSS, logo).
     src/             All the React code.
   backend/           The Express server (CommonJS).
-    api/index.js         The file Vercel runs. It just re-exports app.js.
     app.js               Builds the Express app: cookies, routes, error handling.
     .env                 Database and session settings. Never committed.
     routes/              Lists which URL does what. (apiRoutes.js, reportRoutes.js)
@@ -99,6 +99,14 @@ limbe-police-case-management-information-system/
     utils/               Small helpers used everywhere.
     config/db.js         Creates the database connection and a shortcut for running queries.
 ```
+
+**Why is there an `api/` folder at the root if the server is in `backend/`?**
+Vercel only treats files in `/api` at the repository root as serverless functions. A
+function at `backend/api/index.js` is invisible to it — the build fails with
+*"No entrypoint found"*, because Vercel gives up on the function and falls back to
+treating the whole repo as a plain Node app, then looks for an `app.js` or `index.js`
+at the root and finds neither. So `api/index.js` is a deliberate three-line shim whose
+only job is to point Vercel at the real server.
 
 **Why two folders?** The front end and the back end change for different reasons and
 have different toolchains — Vite/JSX versus plain Node. Keeping them apart means a
@@ -1383,29 +1391,38 @@ matter which folder you launch from.
 ## 21. Deployment
 
 The app is **one Express server serving both the API and the React build**, so on
-Vercel it's deployed as a single serverless function. `backend/api/index.js` is the
-entrypoint and contains three lines:
+Vercel it's deployed as a single serverless function. `api/index.js` at the repository
+root is the entrypoint, and it is only a shim:
 
 ```js
-const app = require('../app');
+const app = require('../backend/app');
 module.exports = app;
 ```
+
+It has to sit there rather than in `backend/` because Vercel discovers functions only
+in the root `/api` directory — see [the note in section 2](#2-the-files-and-why-there-are-so-many).
 
 `vercel.json` does three things:
 
 ```json
 {
   "$schema": "https://openapi.vercel.com/vercel.json",
+  "framework": null,
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "functions": {
-    "backend/api/index.js": {
+    "api/index.js": {
       "includeFiles": "client/dist/**"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/backend/api/index" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
 }
 ```
+
+**`framework: null`** disables Vercel's framework auto-detection. This repo contains a
+Vite app, and without this Vercel can decide it is a Vite project and try to build it
+as a static site instead of running the serverless function. Declaring the preset
+explicitly removes the guesswork.
 
 **`installCommand` / `buildCommand`** install and build from the workspace root rather
 than from inside `client/`. With npm workspaces the client's dependencies are hoisted
