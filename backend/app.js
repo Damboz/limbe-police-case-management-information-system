@@ -8,7 +8,9 @@ const cookieSession = require('cookie-session');
 const { wantsJson } = require('./utils/http');
 
 
-dotenv.config();
+// Resolve .env relative to this file rather than the working directory, so the
+// server finds it whether it is started from the repo root or from backend/.
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 
 const app = express();
@@ -19,12 +21,14 @@ const apiRoutes = require('./routes/apiRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 
 
-const CLIENT_DIST = path.join(__dirname, 'client', 'dist');
+// The React client is a separate project that builds into client/dist. The
+// backend mounts that build so a single deployed server can serve both halves.
+const CLIENT_ROOT = path.join(__dirname, '..', 'client');
+const CLIENT_DIST = path.join(CLIENT_ROOT, 'dist');
 const CLIENT_INDEX = path.join(CLIENT_DIST, 'index.html');
 const HAS_CLIENT_BUILD = fs.existsSync(CLIENT_INDEX);
 
 
-app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
@@ -79,14 +83,13 @@ app.use(reportRoutes);
 if (HAS_CLIENT_BUILD) {
     app.use(express.static(CLIENT_DIST, { index: false, maxAge: '1h' }));
 
+    // Any other extensionless GET is a client-side route, so hand back the SPA
+    // shell and let React Router decide what to render.
     app.use((req, res, next) => {
         if (req.method !== 'GET' && req.method !== 'HEAD') {
             return next();
         }
         if (req.path.startsWith('/api')) {
-            return next();
-        }
-        if (req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/logo')) {
             return next();
         }
         if (path.extname(req.path)) {
@@ -139,7 +142,7 @@ if (require.main === module) {
         if (HAS_CLIENT_BUILD) {
             console.log('React client build detected and mounted.');
         } else {
-            console.log('No React client build found at client/dist - run "npm run build" in the client folder.');
+            console.log('No React client build found at client/dist - run "npm run build" from the repo root.');
         }
     });
 }

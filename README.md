@@ -34,7 +34,7 @@ first time it shows up.
 15. [`supervisorApiController.js` — command-level oversight](#15-supervisorapicontrollerjs--command-level-oversight)
 16. [`reportsApiController.js` and `generalApiController.js`](#16-reportsapicontrollerjs-and-generalapicontrollerjs)
 17. [`pdfController.js` — generating the PDF reports](#17-pdfcontrollerjs--generating-the-pdf-reports)
-18. [`controllers/database/` — the schema](#18-controllersdatabase--the-schema)
+18. [`backend/controllers/database/` — the schema](#18-backendcontrollersdatabase--the-schema)
 
 **Part 4 — Reference**
 19. [Every endpoint in one table](#19-every-endpoint-in-one-table)
@@ -77,17 +77,38 @@ A beginner's instinct is to put everything in one file. This project deliberatel
 doesn't, and the reason shows up immediately: **the code that decides *what* to do
 (the controller) is completely separate from the code that *does* it (the service).**
 
+The repository is split into two independent projects, `backend/` and `client/`.
+They never import each other's code — they only talk over HTTP.
+
 ```
-client/         The React front end. Built into client/dist, then served by Express.
-api/index.js    The file Vercel runs. It just re-exports app.js.
-app.js          Builds the Express app: static files, cookies, routes, error handling.
-routes/         Lists which URL does what. (apiRoutes.js, reportRoutes.js)
-middleware/     The guards that check who you are before you get in.
-controllers/    One file per area of the app. This is what this README is mostly about.
-services/       All the SQL lives here.
-utils/          Small helpers used everywhere.
-config/db.js    Creates the database connection and a shortcut for running queries.
+limbe-police-case-management-information-system/
+  package.json       npm workspaces root. Installs both halves and delegates scripts.
+  vercel.json        Deploy config for the single serverless function.
+
+  client/            The React front end (Vite). Builds into client/dist.
+    public/          Static files copied as-is into the build (CSS, logo).
+    src/             All the React code.
+  backend/           The Express server (CommonJS).
+    api/index.js         The file Vercel runs. It just re-exports app.js.
+    app.js               Builds the Express app: cookies, routes, error handling.
+    .env                 Database and session settings. Never committed.
+    routes/              Lists which URL does what. (apiRoutes.js, reportRoutes.js)
+    middleware/          The guards that check who you are before you get in.
+    controllers/         One file per area of the app. This is what this README is mostly about.
+    services/            All the SQL lives here.
+    utils/               Small helpers used everywhere.
+    config/db.js         Creates the database connection and a shortcut for running queries.
 ```
+
+**Why two folders?** The front end and the back end change for different reasons and
+have different toolchains — Vite/JSX versus plain Node. Keeping them apart means a
+React refactor can't break the API, and either half can be tested on its own.
+
+**Why does the backend still serve `client/dist`?** Because it keeps one deployable
+and, more importantly, keeps the session cookie working. The login cookie is scoped
+to one host; if the client were deployed to a different domain, the browser would
+refuse to send it. The client calls the API over relative paths (`/api/...`), so
+wherever the page is served from, the API is at the same origin.
 
 **Why split controllers from services?** Three reasons:
 
@@ -216,8 +237,15 @@ const caseService = require('../services/caseService');   // load someone else's
 module.exports = { create, search };                      // offer my code to others
 ```
 
-The `../` means "go up one folder." So this file lives in `controllers/api/`, and
-`../services/caseService` is `services/caseService` at the project root.
+The `../` means "go up one folder." So this file lives in `backend/controllers/api/`,
+and `../services/caseService` is `backend/services/caseService`. The `require` paths
+are relative to the file doing the requiring, so a file that moves up a folder needs
+one more `../`.
+
+> **Path convention:** from here on, backend paths are written relative to
+> `backend/` and client paths relative to `client/`, to keep the diagrams readable.
+> Prefixed, they read `backend/controllers/api/caseApiController.js` and
+> `client/src/api/client.js`.
 
 ## 4. How this app is put together
 
@@ -273,7 +301,7 @@ you're running locally and want to see what's happening.
 **3. `express.json()`** parses the request body. For a `GET` there's usually nothing,
 so `req.body` ends up `undefined`.
 
-**4. That `undefined` gets fixed.** Look at `app.js:36`:
+**4. That `undefined` gets fixed.** Look at `app.js:40`:
 
 ```js
 app.use((req, res, next) => {
@@ -352,7 +380,7 @@ instances. A session stored in server memory would be lost between requests — 
 be logged out constantly. A session that travels in the cookie is unaffected.
 
 The trade-off is size (cookies max out around 4KB) and the need for a signing secret.
-Which brings us to `app.js:50`:
+Which brings us to `app.js:54`:
 
 ```js
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -1152,7 +1180,7 @@ with `TRIM(incident_location) != ''`.
 Per-officer totals and resolution rates, with the same divide guard. Names the report
 by rank, name, and badge number.
 
-## 18. `controllers/database/` — the schema
+## 18. `backend/controllers/database/` — the schema
 
 Two SQL files, run once against an empty database. Not runtime code.
 
@@ -1293,25 +1321,36 @@ immediately after install.
 | GET | `/supervisor/reports/crime-statistics` | auth, SC/Admin | `exportCrimeStatsPDF` |
 | GET | `/supervisor/reports/officer-productivity` | auth, SC/Admin | `exportOfficerProductivityPDF` |
 
-One more, defined in `app.js:67` rather than a router: `GET /api/health` returns
+One more, defined in `app.js:71` rather than a router: `GET /api/health` returns
 `{ status: 'UP' }` with no auth, for uptime checks.
 
 ## 20. Setup
 
+One install at the repo root covers both halves — the root `package.json` is an
+**npm workspace**, so `npm install` pulls down the backend's dependencies and the
+client's in one go.
+
 ```bash
 npm install
-psql -U postgres -f controllers/database/init.sql
-cp .env.example .env      # then fill it in — see below
-npm run dev               # nodemon app.js, restarts on save
+psql -U postgres -f backend/controllers/database/init.sql
+npm run build      # builds client/ into client/dist
+npm run dev        # nodemon on :3000 AND vite on :5173
 ```
 
-The React app runs separately while developing:
+`npm run dev` starts both halves at once. To run them separately in two terminals:
 
 ```bash
-cd client && npm install && npm run dev
+npm run dev:backend   # nodemon app.js, restarts on save  -> http://localhost:3000
+npm run dev:client    # vite dev server with HMR          -> http://localhost:5173
 ```
 
-`.env` needs:
+Open **http://localhost:5173** while developing. Vite proxies `/api`, `/reports` and
+`/supervisor/reports` to the backend, so the browser still sees a single origin and
+the session cookie works normally. Open **http://localhost:3000** only after
+`npm run build`, which is the production arrangement where Express serves the built
+React app itself.
+
+`backend/.env` needs:
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -1324,19 +1363,28 @@ cd client && npm install && npm run dev
 | `PGSSLMODE` | unset | set `require` for Neon |
 | `NODE_ENV` | unset | `production` enables `secure` cookies |
 
+There is no `.env.example` checked in, so create the file and fill it in yourself:
+
+```bash
+cat > backend/.env
+```
+
 Generate a session secret with:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-`.env` is in `.gitignore` — never commit it. It holds the database password.
+`backend/.env` is in `.gitignore` — never commit it. It holds the database password.
+It sits inside `backend/` rather than the repo root because it configures the server
+only; `app.js` resolves it relative to its own location, so the server finds it no
+matter which folder you launch from.
 
 ## 21. Deployment
 
 The app is **one Express server serving both the API and the React build**, so on
-Vercel it's deployed as a single serverless function. `api/index.js` is the entrypoint
-and contains three lines:
+Vercel it's deployed as a single serverless function. `backend/api/index.js` is the
+entrypoint and contains three lines:
 
 ```js
 const app = require('../app');
@@ -1347,39 +1395,47 @@ module.exports = app;
 
 ```json
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd client && npm install && npm run build",
+  "$schema": "https://openapi.vercel.com/vercel.json",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
   "functions": {
-    "api/index.js": {
-      "includeFiles": "{client/dist,public}/**"
+    "backend/api/index.js": {
+      "includeFiles": "client/dist/**"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/backend/api/index" }]
 }
 ```
 
-**`buildCommand`** runs `npm install` and `npm run build` inside `client/`, producing
-`client/dist`. This happens *before* the function is packaged, which is what makes
-`app.js:24` work:
+**`installCommand` / `buildCommand`** install and build from the workspace root rather
+than from inside `client/`. With npm workspaces the client's dependencies are hoisted
+to the root `node_modules`, so a `cd client && npm install` would be building against
+a second, redundant copy. `npm run build` delegates to the client workspace and
+produces `client/dist`. This happens *before* the function is packaged, which is what
+makes `app.js:29` work:
 
 ```js
 const HAS_CLIENT_BUILD = fs.existsSync(CLIENT_INDEX);
 ```
 
 If `client/dist/index.html` exists, Express mounts it and adds the history fallback
-(the `app.use` block at `app.js:82` that sends any non-API, non-file path to
+(the `app.use` block at `app.js:88` that sends any non-API, non-file path to
 `index.html`, so a hard refresh on `/dashboard` doesn't 404).
 
-**`includeFiles`** drags those built files into the function bundle. Two things about
+**`includeFiles`** drags the built client into the function bundle. Two things about
 it, both learned the hard way:
 
 - It must be a **single string**, not an array. The schema types it as a string, and
-  Vercel rejects an array with *"should be string."* Multiple directories are done with
-  brace expansion: `"{client/dist,public}/**"`.
+  Vercel rejects an array with *"should be string."*
 - It's **required**. `app.js` reads `client/dist` with `fs.existsSync` and
   `express.static`, which is invisible to Vercel's dependency tracer (it follows
   `require` calls, not filesystem reads). Without `includeFiles` the build succeeds and
   the app then 404s every page, because the files aren't in the bundle.
+
+The glob is just `client/dist/**` now that the static assets moved to
+`client/public/`. Vite copies them into `client/dist` at build time, so `public` no
+longer needs bundling — and `app.js` no longer calls `express.static` on a `public`
+folder, because the backend has no static assets of its own.
 
 **`rewrites`** sends any unmatched path to the function. Together with the
 `app.js` fallback that's what makes a client-side route like `/dashboard` work on a
