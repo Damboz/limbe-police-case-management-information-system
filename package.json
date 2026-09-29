@@ -2,22 +2,26 @@
   "name": "limbe-police-cms",
   "version": "1.0.0",
   "private": true,
-  "description": "Limbe Police Station Case Management System - Express API and React client",
-  "workspaces": [
-    "backend",
-    "client"
-  ],
+  "description": "Limbe Police Station Case Management System",
+  "main": "app.js",
   "scripts": {
-    "dev": "concurrently -n backend,client -c blue,magenta \"npm:dev:backend\" \"npm:dev:client\"",
-    "dev:backend": "npm run dev --workspace backend",
-    "dev:client": "npm run dev --workspace client",
-    "build": "npm run build --workspace client",
-    "start": "npm run start --workspace backend"
+    "start": "node app.js",
+    "dev": "nodemon app.js"
   },
   "engines": {
     "node": ">=18"
   },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-session": "^2.1.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "morgan": "^1.11.0",
+    "pdfkit": "^0.19.1",
+    "pg": "^8.16.0"
+  },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "nodemon": "^3.1.14"
   }
 }
