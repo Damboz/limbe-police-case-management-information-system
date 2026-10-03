@@ -17,6 +17,10 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ADDED: Render terminates HTTPS at its proxy, so without this Express sees every
+// request as plain HTTP and cookie-session refuses to set a Secure cookie.
+app.set('trust proxy', 1);
+
 
 const apiRoutes = require('./routes/apiRoutes');
 const reportRoutes = require('./routes/reportRoutes');
@@ -31,9 +35,11 @@ app.use(express.urlencoded({ extended: true }));
 // cross-origin call. An allowlist is required rather than '*': with credentials the
 // CORS spec forbids the wildcard, and a blanket origin would let any site on the
 // internet try to act as a logged-in officer.
+// CHANGED: trailing slashes are stripped, because browsers send the Origin header
+// without one and a value like "https://app.vercel.app/" would never match.
 const ALLOWED_ORIGINS = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
     .split(',')
-    .map(origin => origin.trim())
+    .map(origin => origin.trim().replace(/\/+$/, ''))
     .filter(Boolean);
 
 app.use(cors({
@@ -41,6 +47,8 @@ app.use(cors({
         // No Origin header: same-origin request, curl, or a server-side call.
         if (!origin) return callback(null, true);
         if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+        // ADDED: name the rejected origin so a misconfigured CLIENT_ORIGIN is easy to spot in Render's logs.
+        console.warn(`CORS rejected origin: ${origin} (allowed: ${ALLOWED_ORIGINS.join(', ')})`);
         return callback(new Error(`Origin ${origin} is not allowed by CORS.`));
     },
     credentials: true
@@ -111,7 +119,6 @@ app.use((req, res) => {
         path: req.originalUrl
     });
 });
-
 
 app.use((err, req, res, next) => {
     // A rejected CORS origin arrives here as a plain Error. Answer it as 403: the
