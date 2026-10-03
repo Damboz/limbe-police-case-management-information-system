@@ -1,3 +1,10 @@
+// The API is deployed separately from this app, so its origin cannot be assumed.
+// An empty value keeps requests relative, which is what the Vite dev proxy uses.
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+export const apiUrl = (path) => `${API_BASE}${path}`;
+
+
 class ApiError extends Error {
     constructor(message, status, payload) {
         super(message);
@@ -11,7 +18,9 @@ class ApiError extends Error {
 async function request(path, { method = 'GET', body, signal } = {}) {
     const options = {
         method,
-        credentials: 'same-origin',
+        // 'include' rather than 'same-origin': the session cookie belongs to the API
+        // origin, which is a different site once the frontend is deployed separately.
+        credentials: 'include',
         headers: { Accept: 'application/json' },
         signal
     };
@@ -23,7 +32,7 @@ async function request(path, { method = 'GET', body, signal } = {}) {
 
     let res;
     try {
-        res = await fetch(`/api${path}`, options);
+        res = await fetch(apiUrl(`/api${path}`), options);
     } catch (err) {
         if (err.name === 'AbortError') throw err;
         throw new ApiError('Cannot reach the server. Check your connection and try again.', 0, null);
@@ -62,7 +71,7 @@ function fileNameFromDisposition(header, fallback) {
 async function requestBlob(path, { method = 'POST', body, fileName = 'document.pdf' } = {}) {
     const options = {
         method,
-        credentials: 'same-origin',
+        credentials: 'include',
         headers: { Accept: 'application/pdf, application/json' }
     };
 
@@ -73,7 +82,7 @@ async function requestBlob(path, { method = 'POST', body, fileName = 'document.p
 
     let res;
     try {
-        res = await fetch(`/api${path}`, options);
+        res = await fetch(apiUrl(path), options);
     } catch (err) {
         throw new ApiError('Cannot reach the server. Check your connection and try again.', 0, null);
     }
@@ -115,6 +124,22 @@ function toQuery(params) {
     const str = search.toString();
     return str ? `?${str}` : '';
 }
+
+
+// The PDF reports live outside /api and are plain GETs. A bare <a href> cannot reach
+// them once the API is on another origin, so they are fetched and saved from memory.
+const PDF_REPORTS = {
+    myCases: { path: '/reports/my-cases', fileName: 'My_Cases_Report.pdf' },
+    stationPerformance: { path: '/supervisor/reports/station-performance', fileName: 'Station_Performance_Report.pdf' },
+    crimeStatistics: { path: '/supervisor/reports/crime-statistics', fileName: 'Crime_Statistics_Report.pdf' },
+    officerProductivity: { path: '/supervisor/reports/officer-productivity', fileName: 'Officer_Productivity_Report.pdf' }
+};
+
+export const downloadPdfReport = (key) => {
+    const report = PDF_REPORTS[key];
+    if (!report) return Promise.reject(new ApiError('Unknown report.', 0, null));
+    return requestBlob(report.path, { method: 'GET', fileName: report.fileName });
+};
 
 
 export const api = {

@@ -1,0 +1,34 @@
+# Render blueprint for the Limbe Police Station CMS API.
+#
+# The React frontend is a separate Vercel project; this service only answers API
+# and PDF requests. Set CLIENT_ORIGIN in the Render dashboard to your Vercel
+# domain — the default below only permits local development.
+services:
+  - type: web
+    name: limbe-police-cms-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: PGHOST
+        sync: false
+      - key: PGDATABASE
+        sync: false
+      - key: PGUSER
+        sync: false
+      - key: PGPASSWORD
+        sync: false
+      - key: PGSSLMODE
+        value: require
+      - key: PGPORT
+        value: 5432

@@ -1,25 +1,17 @@
-const { wantsJson } = require('../utils/http');
-
-
 const ADMIN_MESSAGE = 'Access Denied. System Administrator permissions required.';
 const ROLE_MESSAGE = 'Access Denied. You do not have permission to view this resource.';
 
 
-// Browsers navigating to a PDF download get bounced into the SPA login page;
-// the SPA handles both routes, so no server-rendered error pages are needed.
+// This service only speaks JSON. It used to redirect browsers into the SPA on an
+// auth failure, but the SPA is a separate deployment now, and a redirect would send
+// the request to the API's own origin and hand the caller an HTML login page.
 function denyUnauthenticated(req, res) {
-    if (wantsJson(req)) {
-        return res.status(401).json({ success: false, error: 'Please log in to access this page.' });
-    }
-    return res.redirect('/login');
+    return res.status(401).json({ success: false, error: 'Please log in to access this page.' });
 }
 
 
 function denyForbidden(req, res, message) {
-    if (wantsJson(req)) {
-        return res.status(403).json({ success: false, error: message });
-    }
-    return res.redirect('/403');
+    return res.status(403).json({ success: false, error: message });
 }
 
 

@@ -78,16 +78,22 @@ doesn't, and the reason shows up immediately: **the code that decides *what* to 
 (the controller) is completely separate from the code that *does* it (the service).**
 
 ```
-client/         The React front end. Built into client/dist, then served by Express.
-api/index.js    The file Vercel runs. It just re-exports app.js.
-app.js          Builds the Express app: static files, cookies, routes, error handling.
-routes/         Lists which URL does what. (apiRoutes.js, reportRoutes.js)
-middleware/     The guards that check who you are before you get in.
-controllers/    One file per area of the app. This is what this README is mostly about.
-services/       All the SQL lives here.
-utils/          Small helpers used everywhere.
-config/db.js    Creates the database connection and a shortcut for running queries.
+backend/          The API. Deployed to Render.
+  app.js          Builds the Express app: CORS, cookies, routes, error handling.
+  routes/         Lists which URL does what. (apiRoutes.js, reportRoutes.js)
+  middleware/     The guards that check who you are before you get in.
+  controllers/    One file per area of the app. This is what this README is mostly about.
+  services/       All the SQL lives here.
+  utils/          Small helpers used everywhere.
+  config/db.js    Creates the database connection and a shortcut for running queries.
+frontend/client/  The React app. Deployed to Vercel as static files.
+  public/         Static files copied verbatim into dist/ (css/, logo/).
+  vite.config.js  Dev server and its proxy to the local API.
 ```
+
+The two halves have separate `package.json` files, separate `node_modules`, and deploy
+to separate hosts. Express answers JSON and PDF requests only; it no longer serves the
+React build.
 
 **Why split controllers from services?** Three reasons:
 
@@ -216,8 +222,8 @@ const caseService = require('../services/caseService');   // load someone else's
 module.exports = { create, search };                      // offer my code to others
 ```
 
-The `../` means "go up one folder." So this file lives in `controllers/api/`, and
-`../services/caseService` is `services/caseService` at the project root.
+The `../` means "go up one folder." So this file lives in `backend/controllers/api/`, and
+`../services/caseService` is `backend/services/caseService`.
 
 ## 4. How this app is put together
 
@@ -273,7 +279,7 @@ you're running locally and want to see what's happening.
 **3. `express.json()`** parses the request body. For a `GET` there's usually nothing,
 so `req.body` ends up `undefined`.
 
-**4. That `undefined` gets fixed.** Look at `app.js:36`:
+**4. That `undefined` gets fixed.** Look at `app.js:53`:
 
 ```js
 app.use((req, res, next) => {
@@ -346,13 +352,13 @@ This project uses **`cookie-session`**, which is the good version of this idea: 
 of keeping session data *on the server* (in memory or a database) and putting only an
 ID in the cookie, it encrypts **the whole session** into the cookie itself.
 
-**Why does that matter here specifically?** Because on Vercel, your function is
-recreated constantly and different requests are handled by different, temporary
-instances. A session stored in server memory would be lost between requests — you'd
-be logged out constantly. A session that travels in the cookie is unaffected.
+**Why does that matter here specifically?** Because the API runs on Render, where
+instances are recycled and can be more than one at a time. A session stored in server
+memory would be lost between requests — you'd be logged out constantly. A session that
+travels in the cookie is unaffected, because the browser carries it.
 
 The trade-off is size (cookies max out around 4KB) and the need for a signing secret.
-Which brings us to `app.js:50`:
+Which brings us to `app.js:83`:
 
 ```js
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -533,7 +539,7 @@ await logAudit(req, user.id, 'CASE_REGISTERED',
 
 That writes a row to `audit_logs` with the action, a readable description, the
 timestamp, and the officer's **IP address**. `utils/audit.js` gets the IP from
-`x-forwarded-for`, a header Vercel sets to tell you the real client address when the
+`x-forwarded-for`, a header Render sets to tell you the real client address when the
 request passed through a proxy.
 
 **One deliberate decision:** `logAudit` wraps its database call in a try/catch and
@@ -1293,29 +1299,37 @@ immediately after install.
 | GET | `/supervisor/reports/crime-statistics` | auth, SC/Admin | `exportCrimeStatsPDF` |
 | GET | `/supervisor/reports/officer-productivity` | auth, SC/Admin | `exportOfficerProductivityPDF` |
 
-One more, defined in `app.js:67` rather than a router: `GET /api/health` returns
+One more, defined in `app.js:93` rather than a router: `GET /api/health` returns
 `{ status: 'UP' }` with no auth, for uptime checks.
 
 ## 20. Setup
 
 ```bash
+cd backend
 npm install
 psql -U postgres -f controllers/database/init.sql
 cp .env.example .env      # then fill it in — see below
 npm run dev               # nodemon app.js, restarts on save
 ```
 
-The React app runs separately while developing:
+The React app runs separately while developing, in its own terminal:
 
 ```bash
-cd client && npm install && npm run dev
+cd frontend/client && npm install && npm run dev
 ```
 
-`.env` needs:
+Vite's dev server runs on port 5173 and proxies `/api`, `/reports` and
+`/supervisor/reports` through to Express on port 3000. That keeps every request
+same-origin in development, so the cookie session behaves the same as it will in
+production. Static assets need no proxy: they live in `frontend/client/public/` and
+Vite copies them into `dist/`.
+
+`backend/.env` needs:
 
 | Variable | Default | Notes |
 |---|---|---|
 | `SESSION_SECRET` | **none** | mandatory — the app won't start without it |
+| `CLIENT_ORIGIN` | `http://localhost:5173` | comma-separated allowlist of browser origins |
 | `PGHOST` / `DB_HOST` | `localhost` | both spellings work |
 | `PGUSER` / `DB_USER` | `postgres` | |
 | `PGPASSWORD` / `DB_PASSWORD` | `''` | |
@@ -1330,65 +1344,102 @@ Generate a session secret with:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-`.env` is in `.gitignore` — never commit it. It holds the database password.
+`backend/.env` is covered by `.gitignore` — never commit it. It holds the database
+password. `app.js` loads it by absolute path, so it works no matter which folder you
+start the app from; a root-level `.env` is read as a fallback and never overrides it.
 
 ## 21. Deployment
 
-The app is **one Express server serving both the API and the React build**, so on
-Vercel it's deployed as a single serverless function. `api/index.js` is the entrypoint
-and contains three lines:
+The two halves deploy separately, to two different hosts:
+
+| Piece | Host | What it serves |
+|---|---|---|
+| `frontend/client/` | **Vercel** | the built React app, as static files |
+| `backend/` | **Render** | the JSON API and the PDF routes |
+
+That split is what makes the auth work. The browser loads the app from
+`*.vercel.app` and calls the API on `*.onrender.com`, which are different origins, so
+every request is cross-origin and three things have to line up.
+
+### Cookies must be `SameSite=None`
+
+`app.js` sets the session cookie to `SameSite=None; Secure` when `CLIENT_ORIGIN`
+points at a real domain, which is the only combination a browser accepts for a
+third-party cookie. Same-origin `Lax` would work in local development but the cookie
+would never be sent once the two hosts diverge, and login would appear to succeed and
+then silently fail on the next request.
+
+`SameSite=None` is what makes **CSRF** possible in principle. The protection is the
+CORS allowlist: `CLIENT_ORIGIN` is an exact-origin list, so a hostile page cannot read
+responses or ride the session. Keep it to your real frontend domain and nothing else.
+
+### The frontend must not use relative `/api` URLs
+
+`client.js` builds every request from `VITE_API_URL`:
 
 ```js
-const app = require('../app');
-module.exports = app;
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 ```
 
-`vercel.json` does three things:
+Unset, that is an empty string and requests stay relative — which is exactly what the
+Vite dev proxy wants. Set on Vercel, it becomes the absolute Render URL. It is also
+why `credentials` had to change from `'same-origin'` to `'include'`: a relative request
+is same-origin, an absolute one to Render is not.
+
+### PDF reports are fetched, not linked
+
+The four `/reports/*` routes sit outside `/api` and were plain `<a href>` links. A bare
+link across origins **navigates** to the API host instead of downloading, which would
+kick the user out of the app. They now go through `downloadPdfReport()`, which fetches
+the PDF and saves it from a blob, exactly like the suspect invitation letters already
+did.
+
+### Vercel — the frontend
+
+Point the project at **`frontend/client`** as the Root Directory. Vercel detects Vite
+and builds it; `frontend/client/vercel.json` only adds the SPA history fallback:
 
 ```json
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd client && npm install && npm run build",
-  "functions": {
-    "api/index.js": {
-      "includeFiles": "{client/dist,public}/**"
-    }
-  },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }]
 }
 ```
 
-**`buildCommand`** runs `npm install` and `npm run build` inside `client/`, producing
-`client/dist`. This happens *before* the function is packaged, which is what makes
-`app.js:24` work:
+Static assets must live in **`frontend/client/public/`** so Vite copies them into
+`dist/`. When they sat in `frontend/public/`, outside the Vite root, the build
+succeeded but silently omitted them — they used to be served by Express instead.
 
-```js
-const HAS_CLIENT_BUILD = fs.existsSync(CLIENT_INDEX);
-```
+Set one environment variable, for **Production**:
 
-If `client/dist/index.html` exists, Express mounts it and adds the history fallback
-(the `app.use` block at `app.js:82` that sends any non-API, non-file path to
-`index.html`, so a hard refresh on `/dashboard` doesn't 404).
+| Variable | Value |
+|---|---|
+| `VITE_API_URL` | `https://<your-render-service>.onrender.com` |
 
-**`includeFiles`** drags those built files into the function bundle. Two things about
-it, both learned the hard way:
+No trailing slash. Anything prefixed `VITE_` is baked into the bundle at build time,
+so changing it means a rebuild.
 
-- It must be a **single string**, not an array. The schema types it as a string, and
-  Vercel rejects an array with *"should be string."* Multiple directories are done with
-  brace expansion: `"{client/dist,public}/**"`.
-- It's **required**. `app.js` reads `client/dist` with `fs.existsSync` and
-  `express.static`, which is invisible to Vercel's dependency tracer (it follows
-  `require` calls, not filesystem reads). Without `includeFiles` the build succeeds and
-  the app then 404s every page, because the files aren't in the bundle.
+### Render — the backend
 
-**`rewrites`** sends any unmatched path to the function. Together with the
-`app.js` fallback that's what makes a client-side route like `/dashboard` work on a
-hard refresh. (`/(.*)` is a regex meaning "anything" — a normal path pattern, not
-something to worry about.)
+`render.yaml` is a **blueprint**: pushing the repo with that file present creates the
+service with the right settings. It sets `rootDir: backend`, `npm install`,
+`npm start`, and points the health check at `/api/health`.
 
-Set these in the Vercel dashboard under **Settings → Environment Variables**:
-`SESSION_SECRET`, `NODE_ENV=production`, and your `PG*` values with
-`PGSSLMODE=require`.
+Fill in the blanks in the Render dashboard, or set them as `sync: false` secrets:
+
+| Variable | Notes |
+|---|---|
+| `CLIENT_ORIGIN` | your Vercel domain — **must** match, or login fails |
+| `SESSION_SECRET` | `generateValue: true` in the blueprint creates one |
+| `PGHOST`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` | your Neon credentials |
+| `PGSSLMODE` | `require` |
+| `NODE_ENV` | `production` |
+
+Deploy the **backend first**. Vercel needs the Render URL to bake into `VITE_API_URL`,
+and Render needs the Vercel domain for `CLIENT_ORIGIN`. Neither can be filled in until
+the other exists, so: create the Render service, copy its URL into Vercel, then set
+`CLIENT_ORIGIN` on Render.
 
 ## 22. Things that are wrong with the code
 

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../api/client';
+import { api, downloadPdfReport } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
 import { useToast } from '../../context/ToastContext';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner } from '../../components/ui';
@@ -25,7 +25,7 @@ function Metric({ label, value, icon, tone, color }) {
 }
 
 
-function ExportMenu({ label, icon, items }) {
+function ExportMenu({ label, icon, items, onSelectReport }) {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
 
@@ -60,10 +60,17 @@ function ExportMenu({ label, icon, items }) {
             {open && (
                 <ul className="dropdown-menu dropdown-menu-end show shadow-sm">
                     {items.map(item => (
-                        <li key={item.href}>
-                            <a className="dropdown-item small" href={item.href} onClick={() => setOpen(false)}>
+                        <li key={item.report}>
+                            <button
+                                type="button"
+                                className="dropdown-item small"
+                                onClick={() => {
+                                    setOpen(false);
+                                    onSelectReport(item.report);
+                                }}
+                            >
                                 <i className={`bi ${item.icon} me-2`} />{item.label}
-                            </a>
+                            </button>
                         </li>
                     ))}
                 </ul>
@@ -107,6 +114,14 @@ export default function SupervisorDashboard() {
 
     const [actionError, setActionError] = useState(null);
     const [busy, setBusy] = useState(false);
+
+    const handleSelectReport = useCallback(async (key) => {
+        try {
+            await downloadPdfReport(key);
+        } catch (err) {
+            toast.error(err.message || 'Could not download the report.');
+        }
+    }, [toast]);
 
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
@@ -180,10 +195,11 @@ export default function SupervisorDashboard() {
                             label="Export Reports"
                             icon="bi-file-earmark-pdf-fill"
                             items={[
-                                { href: '/supervisor/reports/station-performance', label: 'Station Performance', icon: 'bi-bar-chart-line' },
-                                { href: '/supervisor/reports/crime-statistics', label: 'Crime Statistics', icon: 'bi-graph-up' },
-                                { href: '/supervisor/reports/officer-productivity', label: 'Officer Productivity', icon: 'bi-person-lines-fill' }
+                                { report: 'stationPerformance', label: 'Station Performance', icon: 'bi-bar-chart-line' },
+                                { report: 'crimeStatistics', label: 'Crime Statistics', icon: 'bi-graph-up' },
+                                { report: 'officerProductivity', label: 'Officer Productivity', icon: 'bi-person-lines-fill' }
                             ]}
+                            onSelectReport={handleSelectReport}
                         />
                     </>
                 }

@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../api/client';
+import { api, downloadPdfReport } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
+import { useToast } from '../../context/ToastContext';
 import { Alert, EmptyState, PageHeader, Spinner } from '../../components/ui';
 import ChartCanvas, { CHART_COLORS } from '../../components/ChartCanvas';
 import usePageTitle from '../../hooks/usePageTitle';
@@ -35,7 +36,20 @@ function Metric({ label, value, icon, tone, color, width = 'col-xl-4' }) {
 
 export default function Analytics() {
     const { data, error, loading } = useApiData(api.supervisorAnalytics);
+    const toast = useToast();
+    const [downloading, setDownloading] = useState(false);
     usePageTitle('Crime Trend Analytics & Hotspots');
+
+    const handleExport = useCallback(async () => {
+        setDownloading(true);
+        try {
+            await downloadPdfReport('crimeStatistics');
+        } catch (err) {
+            toast.error(err.message || 'Could not download the report.');
+        } finally {
+            setDownloading(false);
+        }
+    }, [toast]);
 
     const monthlyData = useMemo(() => ({
         labels: (data?.monthlyTrends || []).map(m => m.month_label),
@@ -96,9 +110,10 @@ export default function Analytics() {
                         <Link to="/supervisor/dashboard" className="btn btn-outline-navy btn-sm">
                             <i className="bi bi-arrow-left me-1" />Back to Dashboard
                         </Link>
-                        <a href="/supervisor/reports/crime-statistics" className="btn btn-navy btn-sm">
-                            <i className="bi bi-file-earmark-pdf-fill me-1" />Export PDF
-                        </a>
+                        <button type="button" className="btn btn-navy btn-sm" onClick={handleExport} disabled={downloading}>
+                            <i className="bi bi-file-earmark-pdf-fill me-1" />
+                            {downloading ? 'Preparing...' : 'Export PDF'}
+                        </button>
                     </>
                 }
             />

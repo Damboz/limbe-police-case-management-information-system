@@ -39,7 +39,7 @@ function SidebarSection({ id, title, open, isCurrent, onToggle, children }) {
 }
 
 
-export default function Sidebar({ open = false, onClose = () => {} }) {
+export default function Sidebar({ open = false, onClose = () => {}, onDownloadReport = () => {} }) {
     const { user, logout, homePath } = useAuth();
     const navigate = useNavigate();
     const { pathname } = useLocation();
@@ -65,10 +65,10 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
                 links: [
                     commanderReports && { to: '/supervisor/analytics', icon: 'bi-graph-up-arrow', label: 'Analytics & Hotspots' },
                     (isInvestigator || isIntake) && { to: '/my-analytics', icon: 'bi-graph-up-arrow', label: 'My Analytics' },
-                    isInvestigator && { href: '/reports/my-cases', icon: 'bi-file-earmark-person', label: 'My Case Report' },
-                    commanderReports && { href: '/supervisor/reports/station-performance', icon: 'bi-file-earmark-bar-graph', label: 'Station Performance PDF' },
-                    commanderReports && { href: '/supervisor/reports/crime-statistics', icon: 'bi-file-earmark-text', label: 'Crime Statistics PDF' },
-                    commanderReports && { href: '/supervisor/reports/officer-productivity', icon: 'bi-file-earmark-person', label: 'Officer Productivity PDF' }
+                    isInvestigator && { report: 'myCases', icon: 'bi-file-earmark-person', label: 'My Case Report' },
+                    commanderReports && { report: 'stationPerformance', icon: 'bi-file-earmark-bar-graph', label: 'Station Performance PDF' },
+                    commanderReports && { report: 'crimeStatistics', icon: 'bi-file-earmark-text', label: 'Crime Statistics PDF' },
+                    commanderReports && { report: 'officerProductivity', icon: 'bi-file-earmark-person', label: 'Officer Productivity PDF' }
                 ].filter(Boolean)
             },
             {
@@ -149,11 +149,11 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
                         >
                             {section.links.map(link => (
                                 <li key={link.label}>
-                                    {link.href ? (
-                                        <a href={link.href} className="sidebar-link" onClick={close}>
+                                    {link.report ? (
+                                        <button type="button" className="sidebar-link w-100 border-0 bg-transparent text-start" onClick={() => { close(); onDownloadReport(link.report); }}>
                                             <i className={`bi ${link.icon}`} />
                                             <span>{link.label}</span>
-                                        </a>
+                                        </button>
                                     ) : (
                                         <NavLink to={link.to} className={linkClass} onClick={close} end={link.end}>
                                             <i className={`bi ${link.icon}`} />
