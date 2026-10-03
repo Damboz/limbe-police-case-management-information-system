@@ -86,7 +86,7 @@ backend/          The API. Deployed to Render.
   services/       All the SQL lives here.
   utils/          Small helpers used everywhere.
   config/db.js    Creates the database connection and a shortcut for running queries.
-frontend/client/  The React app. Deployed to Vercel as static files.
+frontend/         The React app. Deployed to Vercel as static files.
   public/         Static files copied verbatim into dist/ (css/, logo/).
   vite.config.js  Dev server and its proxy to the local API.
 ```
@@ -1315,13 +1315,13 @@ npm run dev               # nodemon app.js, restarts on save
 The React app runs separately while developing, in its own terminal:
 
 ```bash
-cd frontend/client && npm install && npm run dev
+cd frontend && npm install && npm run dev
 ```
 
 Vite's dev server runs on port 5173 and proxies `/api`, `/reports` and
 `/supervisor/reports` through to Express on port 3000. That keeps every request
 same-origin in development, so the cookie session behaves the same as it will in
-production. Static assets need no proxy: they live in `frontend/client/public/` and
+production. Static assets need no proxy: they live in `frontend/public/` and
 Vite copies them into `dist/`.
 
 `backend/.env` needs:
@@ -1354,7 +1354,7 @@ The two halves deploy separately, to two different hosts:
 
 | Piece | Host | What it serves |
 |---|---|---|
-| `frontend/client/` | **Vercel** | the built React app, as static files |
+| `frontend/` | **Vercel** | the built React app, as static files |
 | `backend/` | **Render** | the JSON API and the PDF routes |
 
 That split is what makes the auth work. The browser loads the app from
@@ -1396,20 +1396,28 @@ did.
 
 ### Vercel — the frontend
 
-Point the project at **`frontend/client`** as the Root Directory. Vercel detects Vite
-and builds it; `frontend/client/vercel.json` only adds the SPA history fallback:
+Point the project at **`frontend`** as the Root Directory. Vercel detects Vite
+and builds it; `frontend/vercel.json` only adds the SPA history fallback:
 
 ```json
 {
+  "framework": "vite",
+  "installCommand": "npm install --include=dev",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }]
 }
 ```
 
-Static assets must live in **`frontend/client/public/`** so Vite copies them into
-`dist/`. When they sat in `frontend/public/`, outside the Vite root, the build
-succeeded but silently omitted them — they used to be served by Express instead.
+`installCommand` is not optional in practice. `vite` is a devDependency, so if
+`NODE_ENV=production` is set anywhere in the project's environment variables, the
+install step skips devDependencies and the build dies with
+`sh: vite: command not found` / `exited with 127`. `--include=dev` makes the step
+immune to that.
+
+Static assets must live in **`frontend/public/`** so Vite copies them into `dist/`.
+When they sat outside the Vite root, the build succeeded but silently omitted
+them — Express used to serve them instead.
 
 Set one environment variable, for **Production**:
 
