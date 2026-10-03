@@ -279,7 +279,7 @@ you're running locally and want to see what's happening.
 **3. `express.json()`** parses the request body. For a `GET` there's usually nothing,
 so `req.body` ends up `undefined`.
 
-**4. That `undefined` gets fixed.** Look at `app.js:53`:
+**4. That `undefined` gets fixed.** Look at `app.js:52`:
 
 ```js
 app.use((req, res, next) => {
@@ -358,7 +358,7 @@ memory would be lost between requests — you'd be logged out constantly. A sess
 travels in the cookie is unaffected, because the browser carries it.
 
 The trade-off is size (cookies max out around 4KB) and the need for a signing secret.
-Which brings us to `app.js:83`:
+Which brings us to `app.js:82`:
 
 ```js
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -1299,7 +1299,7 @@ immediately after install.
 | GET | `/supervisor/reports/crime-statistics` | auth, SC/Admin | `exportCrimeStatsPDF` |
 | GET | `/supervisor/reports/officer-productivity` | auth, SC/Admin | `exportOfficerProductivityPDF` |
 
-One more, defined in `app.js:93` rather than a router: `GET /api/health` returns
+One more, defined in `app.js:92` rather than a router: `GET /api/health` returns
 `{ status: 'UP' }` with no auth, for uptime checks.
 
 ## 20. Setup
