@@ -138,9 +138,9 @@ export default function CaseRegister() {
                                 </div>
 
                                 <div className="mb-3">
-                                    <label htmlFor="unit_id" className="form-label">Assigned Unit <span className="text-danger">*</span></label>
+                                    <label htmlFor="unit_id" className="form-label">Assigned Branch <span className="text-danger">*</span></label>
                                     <select className="form-select" id="unit_id" value={form.unit_id} onChange={set('unit_id')} required>
-                                        <option value="">-- Select Unit --</option>
+                                        <option value="">-- Select Branch --</option>
                                         {units.map(unit => (
                                             <option key={unit.id} value={unit.id}>{unit.code} — {unit.name}</option>
                                         ))}
