@@ -1,30 +1,21 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import Footer from './Footer';
-import { downloadPdfReport } from '../api/client';
-import { useToast } from '../context/ToastContext';
+import useReportExport from '../hooks/useReportExport';
 
 
 export default function Layout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const toast = useToast();
-
-    const handleDownloadReport = useCallback(async (key) => {
-        try {
-            await downloadPdfReport(key);
-        } catch (err) {
-            toast.error(err.message || 'Could not download the report.');
-        }
-    }, [toast]);
+    const { requestReport, modal } = useReportExport('Generate Report');
 
     return (
         <div className="app-wrapper">
             <Sidebar
                 open={sidebarOpen}
                 onClose={() => setSidebarOpen(false)}
-                onDownloadReport={handleDownloadReport}
+                onDownloadReport={requestReport}
             />
             <div className="main-content">
                 <Topbar onToggleSidebar={() => setSidebarOpen(v => !v)} />
@@ -33,6 +24,7 @@ export default function Layout() {
                 </main>
                 <Footer />
             </div>
+            {modal}
         </div>
     );
 }

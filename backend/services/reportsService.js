@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { ok, fail } = require('../utils/result');
+const { periodAnd } = require('../utils/reportPeriod');
 const { isAssignedInvestigator } = require('./assignmentService');
 
 
@@ -83,8 +84,9 @@ async function getMyAnalytics(user) {
 }
 
 
-async function getCasesForReport(user) {
+async function getCasesForReport(user, period) {
     const { isInvestigator } = buildScope(user);
+    const window = periodAnd(period, 'c.created_at');
 
     const [cases] = await db.execute(`
         SELECT c.*, cc.name AS crime_category
@@ -93,8 +95,9 @@ async function getCasesForReport(user) {
         ${isInvestigator
             ? 'WHERE c.id IN (SELECT ci.case_id FROM case_investigators ci WHERE ci.investigator_id = ?)'
             : 'WHERE c.intake_officer_id = ?'}
+        ${window.sql}
         ORDER BY c.created_at DESC
-    `, [user.id]);
+    `, [user.id, ...window.params]);
 
     return cases;
 }

@@ -1,12 +1,11 @@
-import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, downloadPdfReport } from '../api/client';
+import { api } from '../api/client';
 import { useApiData } from '../hooks/useApiData';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
 import { roleFlags } from '../lib/roles';
 import { Alert, PageHeader, Spinner } from '../components/ui';
 import usePageTitle from '../hooks/usePageTitle';
+import useReportExport from '../hooks/useReportExport';
 
 
 function Metric({ label, value, icon, tone, color }) {
@@ -28,19 +27,7 @@ function Metric({ label, value, icon, tone, color }) {
 
 export default function MyAnalytics() {
     const { user } = useAuth();
-    const toast = useToast();
-    const [downloading, setDownloading] = useState(false);
-
-    const handleExport = useCallback(async () => {
-        setDownloading(true);
-        try {
-            await downloadPdfReport('myCases');
-        } catch (err) {
-            toast.error(err.message || 'Could not download the report.');
-        } finally {
-            setDownloading(false);
-        }
-    }, [toast]);
+    const { requestReport, modal, busy: downloading } = useReportExport('My Case Report');
     const { isInvestigator } = roleFlags(user);
     const { data, error, loading } = useApiData(api.myAnalytics);
     usePageTitle('My Case Analytics');
@@ -65,7 +52,7 @@ export default function MyAnalytics() {
                     : 'Trends and metrics for the cases you registered at the intake desk.'}
                 actions={
                     <>
-                        <button type="button" className="btn btn-navy btn-sm" onClick={handleExport} disabled={downloading}>
+                        <button type="button" className="btn btn-navy btn-sm" onClick={() => requestReport('myCases')} disabled={downloading}>
                             <i className="bi bi-file-earmark-arrow-down me-1" />
                             {downloading ? 'Preparing...' : 'Export PDF Report'}
                         </button>
@@ -192,6 +179,8 @@ export default function MyAnalytics() {
                     </div>
                 </div>
             </div>
+
+            {modal}
         </>
     );
 }

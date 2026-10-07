@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, downloadPdfReport } from '../../api/client';
+import { api } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
 import { useToast } from '../../context/ToastContext';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner } from '../../components/ui';
 import { formatDate } from '../../lib/format';
 import usePageTitle from '../../hooks/usePageTitle';
+import useReportExport from '../../hooks/useReportExport';
 
 
 function Metric({ label, value, icon, tone, color }) {
@@ -115,13 +116,7 @@ export default function SupervisorDashboard() {
     const [actionError, setActionError] = useState(null);
     const [busy, setBusy] = useState(false);
 
-    const handleSelectReport = useCallback(async (key) => {
-        try {
-            await downloadPdfReport(key);
-        } catch (err) {
-            toast.error(err.message || 'Could not download the report.');
-        }
-    }, [toast]);
+    const { requestReport, modal: reportPeriodModal } = useReportExport('Export Report');
 
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
@@ -199,7 +194,7 @@ export default function SupervisorDashboard() {
                                 { report: 'crimeStatistics', label: 'Crime Statistics', icon: 'bi-graph-up' },
                                 { report: 'officerProductivity', label: 'Officer Productivity', icon: 'bi-person-lines-fill' }
                             ]}
-                            onSelectReport={handleSelectReport}
+                            onSelectReport={requestReport}
                         />
                     </>
                 }
@@ -551,6 +546,8 @@ export default function SupervisorDashboard() {
                     </form>
                 </Modal>
             )}
+
+            {reportPeriodModal}
         </>
     );
 }

@@ -2,9 +2,10 @@ const db = require('../config/db');
 const PDFDocument = require('pdfkit');
 const reportsService = require('../services/reportsService');
 const { OVERDUE_DAYS_THRESHOLD } = require('../services/caseService');
+const { resolvePeriod, periodWhere, periodAnd } = require('../utils/reportPeriod');
 
 
-function drawReportHeader(doc, reportTitle) {
+function drawReportHeader(doc, reportTitle, period) {
     doc.fillColor('#0274B0')
         .fontSize(18)
         .text('Limbe Police Station', { align: 'center' });
@@ -12,6 +13,10 @@ function drawReportHeader(doc, reportTitle) {
     doc.fillColor('#1E293B')
         .fontSize(13)
         .text(reportTitle, { align: 'center' });
+
+    doc.fillColor('#1E293B')
+        .fontSize(10)
+        .text(`Period: ${period.label}`, { align: 'center' });
 
     doc.fillColor('#64748B')
         .fontSize(9)
@@ -38,11 +43,17 @@ function drawRestrictedFooter(doc) {
         .text('RESTRICTED — OFFICIAL USE ONLY | Malawi Police Service — Limbe Station', { align: 'center' });
 }
 
+function reportFileName(base, period) {
+    const suffix = period.key === 'all' ? '' : `_${period.key}`;
+    return `${base}${suffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
+}
+
 
 exports.exportMyCasesPDF = async (req, res, next) => {
     try {
         const user = req.session.user;
-        const cases = await reportsService.getCasesForReport(user);
+        const period = resolvePeriod(req.query.period);
+        const cases = await reportsService.getCasesForReport(user, period);
 
         const activeCount = cases.filter(c => c.status === 'Under Investigation').length;
         const closedCount = cases.filter(c => c.status === 'Closed').length;
@@ -50,10 +61,10 @@ exports.exportMyCasesPDF = async (req, res, next) => {
 
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="My_Case_Report_${user.badge_number}_${new Date().toISOString().slice(0, 10)}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${reportFileName(`My_Case_Report_${user.badge_number}`, period)}"`);
         doc.pipe(res);
 
-        drawReportHeader(doc, 'My Case Report');
+        drawReportHeader(doc, 'My Case Report', period);
 
         drawSectionTitle(doc, 'Summary');
         doc.text(`Total Cases: ${totalCount}`);
@@ -65,7 +76,7 @@ exports.exportMyCasesPDF = async (req, res, next) => {
         doc.moveDown(0.3);
 
         if (cases.length === 0) {
-            doc.text('No cases on record for this officer.');
+            doc.text('No cases on record for this officer during the selected period.');
         } else {
             cases.forEach(c => {
                 doc.font('Helvetica-Bold')
@@ -87,33 +98,39 @@ exports.exportMyCasesPDF = async (req, res, next) => {
 
 exports.exportStationPerformancePDF = async (req, res, next) => {
     try {
+        const period = resolvePeriod(req.query.period);
+        const inWindow = periodWhere(period, 'created_at');
+        const inWindowAnd = periodAnd(period, 'c.created_at');
+
         const [[totals]] = await db.execute(`
             SELECT
                 COUNT(*) AS totalCases,
-                SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS closedCases,
-                SUM(CASE WHEN status NOT IN ('Closed', 'Archived') THEN 1 ELSE 0 END) AS activeCases,
-                SUM(CASE WHEN status = 'Under Investigation' AND CURRENT_DATE - created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END) AS overdueCases
+                COALESCE(SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END), 0) AS closedCases,
+                COALESCE(SUM(CASE WHEN status NOT IN ('Closed', 'Archived') THEN 1 ELSE 0 END), 0) AS activeCases,
+                COALESCE(SUM(CASE WHEN status = 'Under Investigation' AND CURRENT_DATE - created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END), 0) AS overdueCases
             FROM cases
-        `);
+            ${inWindow.sql}
+        `, inWindow.params);
 
         const [categoryBreakdown] = await db.execute(`
             SELECT cc.name, COUNT(c.id) AS total
             FROM crime_categories cc
             LEFT JOIN cases c ON cc.id = c.category_id
+            ${inWindowAnd.sql}
             GROUP BY cc.id, cc.name
             ORDER BY total DESC
-        `);
+        `, inWindowAnd.params);
 
         const [workload] = await db.execute(`
             SELECT u.rank_title, u.first_name, u.last_name, u.badge_number,
                 COUNT(DISTINCT c.id) AS active_cases
             FROM users u
             LEFT JOIN case_investigators ci ON u.id = ci.investigator_id
-            LEFT JOIN cases c ON ci.case_id = c.id AND c.status = 'Under Investigation'
+            LEFT JOIN cases c ON ci.case_id = c.id AND c.status = 'Under Investigation' ${inWindowAnd.sql}
             WHERE u.role IN ('Investigating Officer', 'investigator') AND u.is_active = 1
             GROUP BY u.id
             ORDER BY active_cases DESC
-        `);
+        `, inWindowAnd.params);
 
         const resolutionRate = totals.totalCases > 0
             ? ((totals.closedCases / totals.totalCases) * 100).toFixed(1)
@@ -121,10 +138,10 @@ exports.exportStationPerformancePDF = async (req, res, next) => {
 
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Station_Performance_Report_${new Date().toISOString().slice(0, 10)}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${reportFileName('Station_Performance_Report', period)}"`);
         doc.pipe(res);
 
-        drawReportHeader(doc, 'Station Performance Report');
+        drawReportHeader(doc, 'Station Performance Report', period);
 
         drawSectionTitle(doc, 'Overview');
         doc.text(`Total Cases Recorded: ${totals.totalCases}`);
@@ -134,9 +151,13 @@ exports.exportStationPerformancePDF = async (req, res, next) => {
         doc.text(`Overall Resolution Rate: ${resolutionRate}%`);
 
         drawSectionTitle(doc, 'Crime Category Breakdown');
-        categoryBreakdown.forEach(c => {
-            doc.text(`${c.name}: ${c.total} case(s)`);
-        });
+        if (categoryBreakdown.length === 0) {
+            doc.text('No category data available.');
+        } else {
+            categoryBreakdown.forEach(c => {
+                doc.text(`${c.name}: ${c.total} case(s)`);
+            });
+        }
 
         drawSectionTitle(doc, 'Investigator Workload (Active Cases)');
         if (workload.length === 0) {
@@ -156,39 +177,56 @@ exports.exportStationPerformancePDF = async (req, res, next) => {
 };
 
 
+// The grouping granularity follows the selected period: days for daily/weekly/
+// monthly windows, months for yearly and all-time windows.
+const TREND_GROUPS = {
+    daily: { fmt: "TO_CHAR(created_at, 'Dy DD Mon YYYY')", key: "TO_CHAR(created_at, 'YYYY-MM-DD')", header: 'Daily Case Volume (Today)' },
+    weekly: { fmt: "TO_CHAR(created_at, 'Dy DD Mon')", key: "TO_CHAR(created_at, 'YYYY-MM-DD')", header: 'Daily Case Volume (This Week)' },
+    monthly: { fmt: "TO_CHAR(created_at, 'DD Mon')", key: "TO_CHAR(created_at, 'YYYY-MM-DD')", header: 'Daily Case Volume (This Month)' },
+    yearly: { fmt: "TO_CHAR(created_at, 'Mon YYYY')", key: "TO_CHAR(created_at, 'YYYY-MM')", header: 'Monthly Case Volume (This Year)' },
+    all: { fmt: "TO_CHAR(created_at, 'Mon YYYY')", key: "TO_CHAR(created_at, 'YYYY-MM')", header: 'Monthly Case Volume (Last 12 Months)' }
+};
+
+
 exports.exportCrimeStatsPDF = async (req, res, next) => {
     try {
+        const period = resolvePeriod(req.query.period);
+        const inWindow = periodWhere(period, 'created_at');
+        const inWindowAnd = periodAnd(period, 'created_at');
+        const group = TREND_GROUPS[period.key];
+
         const [monthlyTrends] = await db.execute(`
             SELECT
-                TO_CHAR(created_at, 'Mon YYYY') AS month_label,
+                ${group.fmt} AS month_label,
                 COUNT(*) AS total_cases,
-                SUM(CASE WHEN priority IN ('High', 'Critical') THEN 1 ELSE 0 END) AS severe_cases
+                COALESCE(SUM(CASE WHEN priority IN ('High', 'Critical') THEN 1 ELSE 0 END), 0) AS severe_cases
             FROM cases
-            WHERE created_at >= CURRENT_DATE - INTERVAL '12 months'
-            GROUP BY TO_CHAR(created_at, 'YYYY-MM'), month_label
-            ORDER BY TO_CHAR(created_at, 'YYYY-MM') ASC
-        `);
+            ${period.start ? inWindow.sql : "WHERE created_at >= CURRENT_DATE - INTERVAL '12 months'"}
+            GROUP BY ${group.key}, month_label
+            ORDER BY ${group.key} ASC
+        `, period.start ? inWindow.params : []);
 
         const [hotspots] = await db.execute(`
             SELECT
                 incident_location,
                 COUNT(*) AS incident_count,
-                SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS resolved_count
+                COALESCE(SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END), 0) AS resolved_count
             FROM cases
             WHERE incident_location IS NOT NULL AND TRIM(incident_location) != ''
+            ${inWindowAnd.sql}
             GROUP BY incident_location
             ORDER BY incident_count DESC
             LIMIT 10
-        `);
+        `, inWindowAnd.params);
 
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Crime_Statistics_Report_${new Date().toISOString().slice(0, 10)}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${reportFileName('Crime_Statistics_Report', period)}"`);
         doc.pipe(res);
 
-        drawReportHeader(doc, 'Monthly Crime Statistics Report');
+        drawReportHeader(doc, 'Crime Statistics Report', period);
 
-        drawSectionTitle(doc, 'Monthly Case Volume (Last 12 Months)');
+        drawSectionTitle(doc, group.header);
         if (monthlyTrends.length === 0) {
             doc.text('No case data available for the selected period.');
         } else {
@@ -217,26 +255,29 @@ exports.exportCrimeStatsPDF = async (req, res, next) => {
 
 exports.exportOfficerProductivityPDF = async (req, res, next) => {
     try {
+        const period = resolvePeriod(req.query.period);
+        const inWindowAnd = periodAnd(period, 'c.created_at');
+
         const [officers] = await db.execute(`
             SELECT
                 u.badge_number, u.rank_title, u.first_name, u.last_name,
                 COUNT(ci.case_id) AS total_assigned,
-                SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END) AS total_closed,
-                SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS total_active
+                COALESCE(SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END), 0) AS total_closed,
+                COALESCE(SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END), 0) AS total_active
             FROM users u
             LEFT JOIN case_investigators ci ON u.id = ci.investigator_id
-            LEFT JOIN cases c ON ci.case_id = c.id
+            LEFT JOIN cases c ON ci.case_id = c.id ${inWindowAnd.sql}
             WHERE u.role IN ('Investigating Officer', 'investigator') AND u.is_active = 1
             GROUP BY u.id
             ORDER BY total_assigned DESC
-        `);
+        `, inWindowAnd.params);
 
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Officer_Productivity_Report_${new Date().toISOString().slice(0, 10)}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${reportFileName('Officer_Productivity_Report', period)}"`);
         doc.pipe(res);
 
-        drawReportHeader(doc, 'Officer Productivity Report');
+        drawReportHeader(doc, 'Officer Productivity Report', period);
 
         drawSectionTitle(doc, 'Investigator Case Metrics');
         if (officers.length === 0) {

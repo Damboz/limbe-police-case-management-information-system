@@ -135,10 +135,10 @@ const PDF_REPORTS = {
     officerProductivity: { path: '/supervisor/reports/officer-productivity', fileName: 'Officer_Productivity_Report.pdf' }
 };
 
-export const downloadPdfReport = (key) => {
+export const downloadPdfReport = (key, { period } = {}) => {
     const report = PDF_REPORTS[key];
     if (!report) return Promise.reject(new ApiError('Unknown report.', 0, null));
-    return requestBlob(report.path, { method: 'GET', fileName: report.fileName });
+    return requestBlob(`${report.path}${toQuery({ period })}`, { method: 'GET', fileName: report.fileName });
 };
 
 
