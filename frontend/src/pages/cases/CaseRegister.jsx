@@ -14,7 +14,7 @@ const EMPTY = {
     complainant_id_number: '',
     complainant_address: '',
     category_id: '',
-    unit_id: '',
+    branch_id: '',
     priority: 'Medium',
     incident_location: '',
     incident_datetime: '',
@@ -60,7 +60,7 @@ export default function CaseRegister() {
     if (error) return <Alert variant="danger" message={error} />;
 
     const categories = data?.categories || [];
-    const units = data?.units || [];
+    const branches = data?.branches || [];
 
     return (
         <>
@@ -138,11 +138,11 @@ export default function CaseRegister() {
                                 </div>
 
                                 <div className="mb-3">
-                                    <label htmlFor="unit_id" className="form-label">Assigned Branch <span className="text-danger">*</span></label>
-                                    <select className="form-select" id="unit_id" value={form.unit_id} onChange={set('unit_id')} required>
+                                    <label htmlFor="branch_id" className="form-label">Assigned Branch <span className="text-danger">*</span></label>
+                                    <select className="form-select" id="branch_id" value={form.branch_id} onChange={set('branch_id')} required>
                                         <option value="">-- Select Branch --</option>
-                                        {units.map(unit => (
-                                            <option key={unit.id} value={unit.id}>{unit.code} — {unit.name}</option>
+                                        {branches.map(branch => (
+                                            <option key={branch.id} value={branch.id}>{branch.code} — {branch.name}</option>
                                         ))}
                                     </select>
                                 </div>

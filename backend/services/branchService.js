@@ -11,7 +11,7 @@ function isBranchOfficer(user) {
 
 
 async function getDashboard(user) {
-    const unitId = user.unit_id;
+    const branchId = user.branch_id;
 
     const [[kpi]] = await db.execute(`
         SELECT
@@ -21,8 +21,8 @@ async function getDashboard(user) {
             SUM(CASE WHEN er.status = 'Requested' AND er.report_type IS NOT NULL THEN 1 ELSE 0 END) AS delayed_external_count
         FROM cases c
         LEFT JOIN external_reports er ON c.id = er.case_id AND er.status = 'Requested'
-        WHERE c.unit_id = ?
-    `, [unitId]);
+        WHERE c.branch_id = ?
+    `, [branchId]);
 
     const [pendingReviews] = await db.execute(`
         SELECT 
@@ -39,20 +39,20 @@ async function getDashboard(user) {
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
         LEFT JOIN case_investigators ci ON c.id = ci.case_id
         LEFT JOIN users inv ON ci.investigator_id = inv.id
-        WHERE c.unit_id = ? AND c.branch_review_status = 'Pending Review' AND c.requested_status IS NOT NULL
+        WHERE c.branch_id = ? AND c.branch_review_status = 'Pending Review' AND c.requested_status IS NOT NULL
         GROUP BY c.id, cc.name
         ORDER BY c.status_requested_at ASC
-    `, [unitId]);
+    `, [branchId]);
 
     const [returnedCases] = await db.execute(`
         SELECT c.id, c.ob_number AS case_number, c.incident_details AS title,
                cc.name AS crime_category, c.priority, c.updated_at
         FROM cases c
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
-        WHERE c.unit_id = ? AND c.branch_review_status = 'Returned'
+        WHERE c.branch_id = ? AND c.branch_review_status = 'Returned'
         ORDER BY c.updated_at DESC
         LIMIT 20
-    `, [unitId]);
+    `, [branchId]);
 
     const [branchActiveCases] = await db.execute(`
         SELECT 
@@ -67,17 +67,17 @@ async function getDashboard(user) {
             STRING_AGG(CONCAT(inv.rank_title, ' ', inv.first_name, ' ', inv.last_name)
                 , ', ' ORDER BY ci.is_lead DESC, inv.last_name) AS investigator_names,
             (SELECT COUNT(*) FROM cases c2
-                WHERE c2.unit_id = c.unit_id
+                WHERE c2.branch_id = c.branch_id
                   AND c2.status IN ('Reported', 'Under Investigation')) AS total_branch_active
         FROM cases c
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
         LEFT JOIN case_investigators ci ON c.id = ci.case_id
         LEFT JOIN users inv ON ci.investigator_id = inv.id
-        WHERE c.unit_id = ? AND c.status IN ('Reported', 'Under Investigation')
+        WHERE c.branch_id = ? AND c.status IN ('Reported', 'Under Investigation')
         GROUP BY c.id, cc.name
         ORDER BY days_open DESC
         LIMIT 30
-    `, [unitId]);
+    `, [branchId]);
 
     const [delayedExternalReports] = await db.execute(`
         SELECT 
@@ -94,13 +94,13 @@ async function getDashboard(user) {
         JOIN cases c ON er.case_id = c.id
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
         LEFT JOIN users req ON er.requested_by = req.id
-        WHERE c.unit_id = ? AND er.status = 'Requested'
+        WHERE c.branch_id = ? AND er.status = 'Requested'
         ORDER BY er.requested_at ASC
-    `, [unitId]);
+    `, [branchId]);
 
     const [branchRow] = await db.execute(
         'SELECT id, code, name FROM station_branch WHERE id = ?',
-        [unitId]
+        [branchId]
     );
 
     const [[branchCaseStats]] = await db.execute(`
@@ -113,8 +113,8 @@ async function getDashboard(user) {
             COALESCE(SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END), 0) AS closed_count,
             COALESCE(SUM(CASE WHEN c.branch_review_status = 'Returned' THEN 1 ELSE 0 END), 0) AS returned_count
         FROM cases c
-        WHERE c.unit_id = ?
-    `, [unitId]);
+        WHERE c.branch_id = ?
+    `, [branchId]);
 
     const [branchCases] = await db.execute(`
         SELECT 
@@ -133,30 +133,30 @@ async function getDashboard(user) {
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
         LEFT JOIN case_investigators ci ON c.id = ci.case_id
         LEFT JOIN users inv ON ci.investigator_id = inv.id
-        WHERE c.unit_id = ?
+        WHERE c.branch_id = ?
         GROUP BY c.id, cc.name
         ORDER BY c.created_at DESC
         LIMIT 100
-    `, [unitId]);
+    `, [branchId]);
 
     const [investigators] = await db.execute(`
-        SELECT u.id, u.badge_number, u.rank_title, u.first_name, u.last_name, u.unit_id,
-               su.name AS unit_name,
+        SELECT u.id, u.badge_number, u.rank_title, u.first_name, u.last_name, u.branch_id,
+               su.name AS branch_name,
                (SELECT COUNT(*) FROM case_investigators ci
                  JOIN cases ca ON ci.case_id = ca.id
                  WHERE ci.investigator_id = u.id AND ca.status = 'Under Investigation') AS active_case_count
         FROM users u
-        LEFT JOIN station_branch su ON u.unit_id = su.id
+        LEFT JOIN station_branch su ON u.branch_id = su.id
         WHERE u.role IN ('Investigating Officer', 'investigator') AND u.is_active = 1
         ORDER BY active_case_count ASC
     `);
 
     return ok({
         role: user.role,
-        branchUnitId: unitId,
+        branchId: branchId,
         branch: branchRow.length > 0
             ? { id: branchRow[0].id, code: branchRow[0].code, name: branchRow[0].name }
-            : { id: unitId, code: '', name: 'My Branch' },
+            : { id: branchId, code: '', name: 'My Branch' },
         kpi: {
             pendingReviews: kpi.pending_review_count || 0,
             returned: kpi.returned_count || 0,
@@ -196,7 +196,7 @@ async function reviewCase(user, caseId, decision, comment) {
     }
 
     const [caseRows] = await db.execute(`
-        SELECT id, ob_number, unit_id, requested_status, branch_review_status
+        SELECT id, ob_number, branch_id, requested_status, branch_review_status
         FROM cases WHERE id = ?
     `, [caseId]);
 
@@ -205,7 +205,7 @@ async function reviewCase(user, caseId, decision, comment) {
     }
 
     const current = caseRows[0];
-    if (!user.unit_id || current.unit_id !== user.unit_id) {
+    if (!user.branch_id || current.branch_id !== user.branch_id) {
         return fail(403, 'This case does not belong to your branch.');
     }
     if (current.branch_review_status !== 'Pending Review' || !current.requested_status) {
@@ -264,11 +264,11 @@ async function proposeReassignment(user, caseId, currentInvestigatorId, proposed
         return fail(400, 'Please provide a reason for the proposed reassignment.');
     }
 
-    const [caseRows] = await db.execute('SELECT id, ob_number, unit_id FROM cases WHERE id = ?', [caseId]);
+    const [caseRows] = await db.execute('SELECT id, ob_number, branch_id FROM cases WHERE id = ?', [caseId]);
     if (caseRows.length === 0) {
         return fail(404, 'Case not found.');
     }
-    if (!user.unit_id || caseRows[0].unit_id !== user.unit_id) {
+    if (!user.branch_id || caseRows[0].branch_id !== user.branch_id) {
         return fail(403, 'This case does not belong to your branch.');
     }
 
@@ -313,7 +313,7 @@ async function requestExternalReport(user, caseId, reportType, notes) {
         return fail(400, 'Invalid external report type.');
     }
 
-    const [caseRows] = await db.execute('SELECT id, unit_id FROM cases WHERE id = ?', [caseId]);
+    const [caseRows] = await db.execute('SELECT id, branch_id FROM cases WHERE id = ?', [caseId]);
     if (caseRows.length === 0) {
         return fail(404, 'Case not found.');
     }
@@ -339,7 +339,7 @@ async function markExternalReportReceived(user, reportId, notes) {
     }
 
     const [reportRows] = await db.execute(`
-        SELECT er.*, c.unit_id FROM external_reports er
+        SELECT er.*, c.branch_id FROM external_reports er
         JOIN cases c ON er.case_id = c.id
         WHERE er.id = ?
     `, [reportId]);
@@ -349,7 +349,7 @@ async function markExternalReportReceived(user, reportId, notes) {
     }
 
     const report = reportRows[0];
-    if (!user.unit_id || report.unit_id !== user.unit_id) {
+    if (!user.branch_id || report.branch_id !== user.branch_id) {
         return fail(403, 'This report does not belong to your branch.');
     }
     if (report.status === 'Received') {

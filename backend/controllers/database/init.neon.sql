@@ -93,14 +93,14 @@ CREATE TABLE users (
   password_hash varchar(255) NOT NULL,
   role          varchar(50)  NOT NULL DEFAULT 'Counter/Intake Officer',
   role_id       int DEFAULT NULL,
-  unit_id       int DEFAULT NULL,
+  branch_id       int DEFAULT NULL,
   is_active     smallint     NOT NULL DEFAULT 1,
   created_at    timestamptz  NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    timestamptz  NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (badge_number),
   UNIQUE (email),
   CONSTRAINT users_ibfk_1 FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE SET NULL,
-  CONSTRAINT users_ibfk_2 FOREIGN KEY (unit_id) REFERENCES station_branch (id) ON DELETE SET NULL,
+  CONSTRAINT users_ibfk_2 FOREIGN KEY (branch_id) REFERENCES station_branch (id) ON DELETE SET NULL,
   CONSTRAINT chk_users_role CHECK (role IN (
       'Admin', 'admin', 'Station Commander', 'supervisor',
       'Investigating Officer', 'investigator',
@@ -115,7 +115,7 @@ CREATE INDEX idx_users_email ON users (email);
 -- NOTE: Passwords below are bcrypt hashes of their default password.
 -- Admin default password: Admin@12345
 -- Other accounts may have different passwords set through the UI.
-INSERT INTO users (id, badge_number, rank_title, first_name, last_name, email, phone_number, password_hash, role, role_id, unit_id, is_active) VALUES
+INSERT INTO users (id, badge_number, rank_title, first_name, last_name, email, phone_number, password_hash, role, role_id, branch_id, is_active) VALUES
 (2,  'LIM-001',   'Inspector',         'Station',    'Administrator', 'admin@limbe.police.mw',        '+265999000000', '$2b$10$EBMaLazalQcIxcMvkk2Mbe8MV3YhJ59Ursv4W7WSeiJPMAJyu..iW', 'Admin',                  1, 1, 1),
 (4,  'LIM-002',   'Station Commander', 'George',     'Dambo',         'dambogeorge992@gmail.com',     '+265996697165', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Station Commander',      2, 1, 1),
 (5,  'Huka',      'Station Commander', 'Rexious',    'Huka',          'rexioushuka@gmail.com',        '099793884938',  '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Station Commander',      2, NULL, 1),
@@ -143,7 +143,7 @@ CREATE TABLE cases (
   complainant_address    text,
   complainant_gender     varchar(10) DEFAULT 'Other',
   category_id            int NOT NULL,
-  unit_id                int NOT NULL,
+  branch_id                int NOT NULL,
   priority               varchar(10) DEFAULT 'Medium',
   incident_datetime      timestamp DEFAULT NULL,
   incident_location      varchar(255) NOT NULL,
@@ -168,7 +168,7 @@ CREATE TABLE cases (
   updated_at             timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (ob_number),
   CONSTRAINT cases_ibfk_1 FOREIGN KEY (category_id) REFERENCES crime_categories (id),
-  CONSTRAINT cases_ibfk_2 FOREIGN KEY (unit_id) REFERENCES station_branch (id),
+  CONSTRAINT cases_ibfk_2 FOREIGN KEY (branch_id) REFERENCES station_branch (id),
   CONSTRAINT cases_ibfk_3 FOREIGN KEY (intake_officer_id) REFERENCES users (id),
   CONSTRAINT fk_case_status_requested_by FOREIGN KEY (status_requested_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_case_branch_reviewed_by FOREIGN KEY (branch_reviewed_by) REFERENCES users (id) ON DELETE SET NULL,
@@ -185,7 +185,7 @@ CREATE INDEX idx_cases_status ON cases (status);
 CREATE INDEX idx_cases_requested_status ON cases (requested_status);
 CREATE INDEX idx_cases_status_requested_by ON cases (status_requested_by);
 
-INSERT INTO cases (id, ob_number, complainant_name, complainant_id_number, complainant_phone, complainant_address, complainant_gender, category_id, unit_id, priority, incident_datetime, incident_location, incident_details, intake_officer_id, status, requested_status, status_request_notes, status_requested_by, status_requested_at, branch_review_status, branch_reviewed_by, branch_reviewed_at, forwarded_at, file_location, court_date, court_outcome, prosecution_query, prosecution_query_at, prosecution_query_resolved_at, created_at, updated_at) VALUES
+INSERT INTO cases (id, ob_number, complainant_name, complainant_id_number, complainant_phone, complainant_address, complainant_gender, category_id, branch_id, priority, incident_datetime, incident_location, incident_details, intake_officer_id, status, requested_status, status_request_notes, status_requested_by, status_requested_at, branch_review_status, branch_reviewed_by, branch_reviewed_at, forwarded_at, file_location, court_date, court_outcome, prosecution_query, prosecution_query_at, prosecution_query_resolved_at, created_at, updated_at) VALUES
 (1, 'OB-20260816-0001', 'George Dambo',    NULL,       '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 5, 3, 'Medium', '2025-03-21 12:00:00', 'Chichiri',            'mdjmsmskakamd',                          6,  'Under Investigation', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-08-16 14:30:27', '2026-08-19 09:33:04'),
 (2, 'OB-20260905-0001', 'Patrick Magule',  '004939939', '08840399483', 'Lumbadzi, Lilongwe Malawi', 'Male', 6, 2, 'High',   '2026-09-05 11:45:00', 'Zingwangwa Market',   'fjjkfkdjsKLKAJGJDKSKFHSJKSKKKSHFHFH',   9,  'Reported',           NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-09-05 09:45:58', '2026-09-16 16:02:53'),
 (3, 'OB-20260905-0002', 'George Dambo',    'pfoodld',  '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 7, 3, 'Medium', '2026-09-03 12:42:00', 'oflsllsld',           'kqalL;;dlszmmdk',                        2,  'Under Investigation', 'Closed', 'gdjjs', 26, '2026-09-16 16:40:50', 'Pending Review', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-09-05 10:43:05', '2026-09-16 16:40:50');

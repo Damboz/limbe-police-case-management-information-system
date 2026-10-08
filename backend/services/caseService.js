@@ -29,14 +29,14 @@ async function listCasesForUser(user) {
             SELECT 
                 c.id, c.ob_number, c.complainant_name, c.priority, c.status, c.created_at,
                 cc.name AS crime_category,
-                su.name AS unit_name,
+                su.name AS branch_name,
                 CONCAT(intake.rank_title, ' ', intake.first_name, ' ', intake.last_name) AS intake_officer_name,
                 STRING_AGG(CONCAT(assigned.rank_title, ' ', assigned.first_name, ' ', assigned.last_name),
                     ', ' ORDER BY ci.is_lead DESC, assigned.last_name) AS assigned_officer_name,
                 COUNT(DISTINCT ci.investigator_id) AS investigator_count
             FROM cases c
             LEFT JOIN crime_categories cc ON c.category_id = cc.id
-            LEFT JOIN station_branch su ON c.unit_id = su.id
+            LEFT JOIN station_branch su ON c.branch_id = su.id
             LEFT JOIN users intake ON c.intake_officer_id = intake.id
             LEFT JOIN case_investigators ci ON c.id = ci.case_id
             LEFT JOIN users assigned ON ci.investigator_id = assigned.id
@@ -56,11 +56,11 @@ async function listCasesForUser(user) {
     } else if (BRANCH_ROLES.includes(user.role)) {
         query = `
             ${baseSelect}
-            WHERE c.unit_id = ?
+            WHERE c.branch_id = ?
             GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
             ORDER BY c.created_at DESC
         `;
-        params = [user.unit_id];
+        params = [user.branch_id];
     } else if (PROSECUTOR_ROLES.includes(user.role)) {
         query = `
             ${baseSelect}
@@ -83,8 +83,8 @@ async function listCasesForUser(user) {
 
 async function getCaseFormOptions() {
     const [categories] = await db.execute('SELECT id, name, severity_level FROM crime_categories ORDER BY name ASC');
-    const [units] = await db.execute('SELECT id, code, name FROM station_branch ORDER BY name ASC');
-    return { categories, units };
+    const [branches] = await db.execute('SELECT id, code, name FROM station_branch ORDER BY name ASC');
+    return { categories, branches };
 }
 
 
@@ -102,7 +102,7 @@ async function createCase(intakeOfficerId, body) {
         complainant_address,
         complainant_gender,
         category_id,
-        unit_id,
+        branch_id,
         priority,
         incident_datetime,
         incident_location,
@@ -116,7 +116,7 @@ async function createCase(intakeOfficerId, body) {
         suspect_address
     } = body;
 
-    if (!complainant_name || !complainant_phone || !category_id || !unit_id || !incident_location || !incident_details) {
+    if (!complainant_name || !complainant_phone || !category_id || !branch_id || !incident_location || !incident_details) {
         return fail(400, 'Please complete all required fields before submitting.');
     }
 
@@ -134,7 +134,7 @@ async function createCase(intakeOfficerId, body) {
     const [caseResult] = await db.execute(
         `INSERT INTO cases (
             ob_number, complainant_name, complainant_id_number, complainant_phone,
-            complainant_address, complainant_gender, category_id, unit_id, priority,
+            complainant_address, complainant_gender, category_id, branch_id, priority,
             incident_datetime, incident_location, incident_details, intake_officer_id, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Reported')`,
         [
@@ -145,7 +145,7 @@ async function createCase(intakeOfficerId, body) {
             complainant_address || null,
             complainant_gender || 'Other',
             category_id,
-            unit_id,
+            branch_id,
             priority || 'Medium',
             incident_datetime || null,
             incident_location,
@@ -268,12 +268,12 @@ async function getCaseDetail(caseId, user) {
         SELECT 
             c.*,
             cc.name AS crime_category,
-            su.name AS unit_name,
+            su.name AS branch_name,
             CONCAT(intake.rank_title, ' ', intake.first_name, ' ', intake.last_name) AS intake_officer_name,
             CONCAT(req_user.rank_title, ' ', req_user.first_name, ' ', req_user.last_name) AS status_requested_by_name
         FROM cases c
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
-        LEFT JOIN station_branch su ON c.unit_id = su.id
+        LEFT JOIN station_branch su ON c.branch_id = su.id
         LEFT JOIN users intake ON c.intake_officer_id = intake.id
         LEFT JOIN users req_user ON c.status_requested_by = req_user.id
         WHERE c.id = ?
@@ -284,7 +284,7 @@ async function getCaseDetail(caseId, user) {
     }
     const caseItem = rows[0];
 
-    if (BRANCH_ROLES.includes(user.role) && (!user.unit_id || caseItem.unit_id !== user.unit_id)) {
+    if (BRANCH_ROLES.includes(user.role) && (!user.branch_id || caseItem.branch_id !== user.branch_id)) {
         return fail(403, 'You can only access cases from your own branch.');
     }
 

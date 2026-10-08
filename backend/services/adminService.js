@@ -68,9 +68,9 @@ async function getUsers(query) {
     let sql = `
         SELECT u.id, u.badge_number, u.rank_title, u.first_name, u.last_name, u.email, 
                u.role, u.role_id, u.phone_number, u.is_active, u.created_at,
-               su.name AS unit_name
+               su.name AS branch_name
         FROM users u
-        LEFT JOIN station_branch su ON u.unit_id = su.id
+        LEFT JOIN station_branch su ON u.branch_id = su.id
         WHERE (u.badge_number LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)
     `;
     const params = [search, search, search, search];
@@ -94,14 +94,14 @@ async function getUsers(query) {
 
 async function getPersonnelFormOptions() {
     const [roles] = await db.execute('SELECT * FROM roles ORDER BY id ASC');
-    const [units] = await db.execute('SELECT * FROM station_branch ORDER BY name ASC');
-    return { roles, units };
+    const [branches] = await db.execute('SELECT * FROM station_branch ORDER BY name ASC');
+    return { roles, branches };
 }
 
 
 async function getUserToEdit(userId) {
     const [users] = await db.execute(
-        'SELECT id, badge_number, rank_title, first_name, last_name, email, phone_number, role, role_id, unit_id, is_active FROM users WHERE id = ?',
+        'SELECT id, badge_number, rank_title, first_name, last_name, email, phone_number, role, role_id, branch_id, is_active FROM users WHERE id = ?',
         [userId]
     );
     if (users.length === 0) {
@@ -112,7 +112,7 @@ async function getUserToEdit(userId) {
 
 
 async function createUser(body) {
-    const { badge_number, rank_title, first_name, last_name, email, phone_number, role, unit_id, password } = body;
+    const { badge_number, rank_title, first_name, last_name, email, phone_number, role, branch_id, password } = body;
 
     if (!badge_number || !first_name || !last_name || !email || !role || !password) {
         return fail(400, 'Please complete all required fields.');
@@ -128,9 +128,9 @@ async function createUser(body) {
     }
 
     const roleMap = getRoleMapping(role);
-    const parsedUnitId = unit_id ? parseInt(unit_id, 10) : null;
+    const parsedBranchId = branch_id ? parseInt(branch_id, 10) : null;
 
-    if (roleMap.role_id === 5 && !parsedUnitId) {
+    if (roleMap.role_id === 5 && !parsedBranchId) {
         return fail(400, 'Please select the branch that this Branch In-charge heads.');
     }
 
@@ -139,7 +139,7 @@ async function createUser(body) {
     const [result] = await db.execute(`
         INSERT INTO users (
             badge_number, rank_title, first_name, last_name, email, 
-            phone_number, role, role_id, unit_id, password_hash, is_active
+            phone_number, role, role_id, branch_id, password_hash, is_active
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     `, [
@@ -151,7 +151,7 @@ async function createUser(body) {
         phone_number ? phone_number.trim() : null,
         roleMap.role,
         roleMap.role_id,
-        parsedUnitId,
+        parsedBranchId,
         hashedPassword
     ]);
 
@@ -166,7 +166,7 @@ async function createUser(body) {
 
 
 async function updateUser(userId, body) {
-    const { rank_title, first_name, last_name, email, phone_number, role, unit_id } = body;
+    const { rank_title, first_name, last_name, email, phone_number, role, branch_id } = body;
 
     if (!first_name || !last_name || !email || !role) {
         return fail(400, 'First Name, Last Name, Email, and Role are required fields.');
@@ -182,15 +182,15 @@ async function updateUser(userId, body) {
     }
 
     const roleMap = getRoleMapping(role);
-    const parsedUnitId = unit_id ? parseInt(unit_id, 10) : null;
+    const parsedBranchId = branch_id ? parseInt(branch_id, 10) : null;
 
-    if (roleMap.role_id === 5 && !parsedUnitId) {
+    if (roleMap.role_id === 5 && !parsedBranchId) {
         return fail(400, 'Please select the branch that this Branch In-charge heads.');
     }
 
     await db.execute(`
         UPDATE users 
-        SET rank_title = ?, first_name = ?, last_name = ?, email = ?, phone_number = ?, role = ?, role_id = ?, unit_id = ?
+        SET rank_title = ?, first_name = ?, last_name = ?, email = ?, phone_number = ?, role = ?, role_id = ?, branch_id = ?
         WHERE id = ?
     `, [
         rank_title ? rank_title.trim() : null,
@@ -200,7 +200,7 @@ async function updateUser(userId, body) {
         phone_number ? phone_number.trim() : null,
         roleMap.role,
         roleMap.role_id,
-        parsedUnitId,
+        parsedBranchId,
         userId
     ]);
 

@@ -660,7 +660,7 @@ The biggest and most important file. All ten functions read the officer from
 ### `list` — `GET /api/cases`
 
 Returns the case list. The service builds a long query that joins cases to their crime
-category, unit, intake officer, and assigned investigators, and aggregates
+category, branch, intake officer, and assigned investigators, and aggregates
 `STRING_AGG` so you get one row per case with the officers' names already joined into
 "Detective Banda, Detective Phiri" rather than repeated rows.
 
@@ -669,7 +669,7 @@ gets the entire station. See [issue #2](#22-things-that-are-wrong-with-the-code)
 
 ### `formOptions` — `GET /api/cases/new`
 
-Returns `{ categories, units }` so the new-case form's dropdowns come from the
+Returns `{ categories, branches }` so the new-case form's dropdowns come from the
 database instead of being hardcoded in JavaScript. Small, but it means adding a crime
 category is a database change, not a code change.
 
@@ -876,7 +876,7 @@ const options = await adminService.getPersonnelFormOptions();
 res.json({ success: true, data: { ...result, ...options } });
 ```
 
-The edit form needs the user *and* the role/unit dropdowns. Fetching both server-side
+The edit form needs the user *and* the role/branch dropdowns. Fetching both server-side
 and merging them into one response saves the browser a second round trip.
 
 ### `createUser` — `POST /admin/users` → `201`
@@ -1212,7 +1212,7 @@ the rows, so the log of what someone did survives their account.
 
 The `case_investigators` cascade is the one to be careful with — see issue #6.
 
-Both files also seed demo data — roles, units, crime categories, an admin
+Both files also seed demo data — roles, branches, crime categories, an admin
 (`LIM-001`), sample cases, notes, and audit rows — so the app has something to show
 immediately after install.
 

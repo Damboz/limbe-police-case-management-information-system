@@ -42,7 +42,7 @@ export default function CaseList() {
                                 <th>Category</th>
                                 <th>Priority</th>
                                 <th>Status</th>
-                                <th>Unit</th>
+                                <th>Branch</th>
                                 <th>Intake Officer</th>
                                 <th>Assigned To</th>
                                 <th>Date Registered</th>
@@ -67,7 +67,7 @@ export default function CaseList() {
                                         <td className="small">{item.crime_category || '—'}</td>
                                         <td><PriorityBadge priority={item.priority} /></td>
                                         <td><StatusBadge status={item.status} /></td>
-                                        <td className="small text-muted">{item.unit_name || '—'}</td>
+                                        <td className="small text-muted">{item.branch_name || '—'}</td>
                                         <td className="small">{item.intake_officer_name || '—'}</td>
                                         <td className="small">
                                             {item.assigned_officer_name

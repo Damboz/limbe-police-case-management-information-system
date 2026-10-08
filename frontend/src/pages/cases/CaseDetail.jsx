@@ -274,8 +274,8 @@ export default function CaseDetail() {
                             <span className="fw-semibold">{caseItem.crime_category}</span>
                         </div>
                         <div className="col-md-3">
-                            <Label>Unit</Label>
-                            <span className="fw-semibold">{caseItem.unit_name}</span>
+                            <Label>Branch</Label>
+                            <span className="fw-semibold">{caseItem.branch_name}</span>
                         </div>
                         <div className="col-md-3">
                             <Label>Assigned Investigator(s)</Label>
