@@ -12,11 +12,11 @@ async function generateObNumber() {
     const today = new Date();
     const datePart = today.toISOString().slice(0, 10).replace(/-/g, '');
 
-    const [[{ todayCount }]] = await db.execute(
-        `SELECT COUNT(*) AS todayCount FROM cases WHERE DATE(created_at) = CURRENT_DATE`
+    const [[{ today_count }]] = await db.execute(
+        `SELECT COUNT(*) AS today_count FROM cases WHERE DATE(created_at) = CURRENT_DATE`
     );
 
-    const sequence = String(todayCount + 1).padStart(4, '0');
+    const sequence = String(today_count + 1).padStart(4, '0');
     return `OB-${datePart}-${sequence}`;
 }
 
@@ -469,11 +469,11 @@ async function getPersonalDashboard(user) {
     if (user.role === 'Investigating Officer') {
         const [[kpi]] = await db.execute(`
             SELECT 
-                COUNT(DISTINCT c.id) AS totalAssigned,
-                SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS activeCount,
-                SUM(CASE WHEN c.status = 'Under Investigation' AND CURRENT_DATE - c.created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END) AS overdueCount,
-                SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END) AS closedCount,
-                SUM(CASE WHEN c.requested_status IS NOT NULL THEN 1 ELSE 0 END) AS pendingRequestCount
+                COUNT(DISTINCT c.id) AS total_assigned,
+                SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS active_count,
+                SUM(CASE WHEN c.status = 'Under Investigation' AND CURRENT_DATE - c.created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END) AS overdue_count,
+                SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END) AS closed_count,
+                SUM(CASE WHEN c.requested_status IS NOT NULL THEN 1 ELSE 0 END) AS pending_request_count
             FROM cases c
             JOIN case_investigators ci ON c.id = ci.case_id
             WHERE ci.investigator_id = ?
@@ -497,18 +497,18 @@ async function getPersonalDashboard(user) {
             role: user.role,
             overdueDaysThreshold: OVERDUE_DAYS_THRESHOLD,
             kpi: {
-                totalAssigned: kpi.totalAssigned || 0,
-                active: kpi.activeCount || 0,
-                overdue: kpi.overdueCount || 0,
-                closed: kpi.closedCount || 0,
-                pendingRequest: kpi.pendingRequestCount || 0
+                totalAssigned: kpi.total_assigned || 0,
+                active: kpi.active_count || 0,
+                overdue: kpi.overdue_count || 0,
+                closed: kpi.closed_count || 0,
+                pendingRequest: kpi.pending_request_count || 0
             },
             assignedCases
         });
     }
 
     const [[intakeStats]] = await db.execute(`
-        SELECT COUNT(*) AS totalIntake
+        SELECT COUNT(*) AS total_intake
         FROM cases
         WHERE intake_officer_id = ? AND DATE(created_at) = CURRENT_DATE
     `, [user.id]);
@@ -524,7 +524,7 @@ async function getPersonalDashboard(user) {
     return ok({
         variant: 'intake',
         role: user.role,
-        todayIntakeCount: intakeStats.totalIntake || 0,
+        todayIntakeCount: intakeStats.total_intake || 0,
         recentIntakes
     });
 }

@@ -54,13 +54,13 @@ async function getLedger(user, query) {
 
     const [[kpi]] = await db.execute(`
         SELECT 
-            COUNT(*) AS totalItems,
-            SUM(CASE WHEN e.status = 'In Locker' THEN 1 ELSE 0 END) AS inLocker,
+            COUNT(*) AS total_items,
+            SUM(CASE WHEN e.status = 'In Locker' THEN 1 ELSE 0 END) AS in_locker,
             SUM(CASE WHEN e.status = 'Transferred to Lab' THEN 1 ELSE 0 END) AS transferred,
-            SUM(CASE WHEN e.status = 'Presented in Court' THEN 1 ELSE 0 END) AS inCourt,
+            SUM(CASE WHEN e.status = 'Presented in Court' THEN 1 ELSE 0 END) AS in_court,
             SUM(CASE WHEN e.status = 'Returned' THEN 1 ELSE 0 END) AS returned,
             SUM(CASE WHEN e.status = 'Disposed' THEN 1 ELSE 0 END) AS disposed,
-            COUNT(DISTINCT e.case_id) AS trackedCases
+            COUNT(DISTINCT e.case_id) AS tracked_cases
         FROM evidence e
         JOIN cases c ON e.case_id = c.id
         WHERE ${scopeWhere}
@@ -110,13 +110,13 @@ async function getLedger(user, query) {
     return ok({
         role: user.role,
         kpi: {
-            totalItems: kpi.totalItems || 0,
-            inLocker: kpi.inLocker || 0,
+            totalItems: kpi.total_items || 0,
+            inLocker: kpi.in_locker || 0,
             transferred: kpi.transferred || 0,
-            inCourt: kpi.inCourt || 0,
+            inCourt: kpi.in_court || 0,
             returned: kpi.returned || 0,
             disposed: kpi.disposed || 0,
-            trackedCases: kpi.trackedCases || 0
+            trackedCases: kpi.tracked_cases || 0
         },
         evidenceItems,
         filters,

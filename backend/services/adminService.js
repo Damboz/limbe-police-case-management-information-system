@@ -26,25 +26,25 @@ function getRoleMapping(roleInput) {
 
 
 async function getAdminDashboard() {
-    const [[{ totalUsers }]] = await db.execute('SELECT COUNT(*) AS totalUsers FROM users');
-    const [[{ activeUsers }]] = await db.execute('SELECT COUNT(*) AS activeUsers FROM users WHERE is_active = 1');
-    const [[{ totalLogins }]] = await db.execute("SELECT COUNT(*) AS totalLogins FROM audit_logs WHERE action = 'USER_LOGIN'");
+    const [[{ total_users }]] = await db.execute('SELECT COUNT(*) AS total_users FROM users');
+    const [[{ active_users }]] = await db.execute('SELECT COUNT(*) AS active_users FROM users WHERE is_active = 1');
+    const [[{ total_logins }]] = await db.execute("SELECT COUNT(*) AS total_logins FROM audit_logs WHERE action = 'USER_LOGIN'");
 
     const [[caseStats]] = await db.execute(`
         SELECT 
-            COUNT(*) AS totalCases,
-            SUM(CASE WHEN status = 'Reported' THEN 1 ELSE 0 END) AS reportedCount,
-            SUM(CASE WHEN status = 'Under Investigation' THEN 1 ELSE 0 END) AS underInvestigation,
-            SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS closedCount,
-            SUM(CASE WHEN status = 'Court Pending' THEN 1 ELSE 0 END) AS courtPending,
-            SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM case_investigators ci WHERE ci.case_id = cases.id) THEN 1 ELSE 0 END) AS unassignedCount
+            COUNT(*) AS total_cases,
+            SUM(CASE WHEN status = 'Reported' THEN 1 ELSE 0 END) AS reported_count,
+            SUM(CASE WHEN status = 'Under Investigation' THEN 1 ELSE 0 END) AS under_investigation,
+            SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS closed_count,
+            SUM(CASE WHEN status = 'Court Pending' THEN 1 ELSE 0 END) AS court_pending,
+            SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM case_investigators ci WHERE ci.case_id = cases.id) THEN 1 ELSE 0 END) AS unassigned_count
         FROM cases
     `);
 
     const [[evidenceStats]] = await db.execute(`
         SELECT 
-            COUNT(*) AS totalEvidence,
-            SUM(CASE WHEN status = 'In Locker' THEN 1 ELSE 0 END) AS inLocker,
+            COUNT(*) AS total_evidence,
+            SUM(CASE WHEN status = 'In Locker' THEN 1 ELSE 0 END) AS in_locker,
             SUM(CASE WHEN status = 'Disposed' THEN 1 ELSE 0 END) AS disposed
         FROM evidence
     `);
@@ -65,18 +65,18 @@ async function getAdminDashboard() {
     `);
 
     return ok({
-        stats: { totalUsers, activeUsers, totalLogins },
+        stats: { totalUsers: total_users, activeUsers: active_users, totalLogins: total_logins },
         caseStats: {
-            totalCases: caseStats.totalCases || 0,
-            reported: caseStats.reportedCount || 0,
-            underInvestigation: caseStats.underInvestigation || 0,
-            closed: caseStats.closedCount || 0,
-            courtPending: caseStats.courtPending || 0,
-            unassigned: caseStats.unassignedCount || 0
+            totalCases: caseStats.total_cases || 0,
+            reported: caseStats.reported_count || 0,
+            underInvestigation: caseStats.under_investigation || 0,
+            closed: caseStats.closed_count || 0,
+            courtPending: caseStats.court_pending || 0,
+            unassigned: caseStats.unassigned_count || 0
         },
         evidenceStats: {
-            totalEvidence: evidenceStats.totalEvidence || 0,
-            inLocker: evidenceStats.inLocker || 0,
+            totalEvidence: evidenceStats.total_evidence || 0,
+            inLocker: evidenceStats.in_locker || 0,
             disposed: evidenceStats.disposed || 0
         },
         users,

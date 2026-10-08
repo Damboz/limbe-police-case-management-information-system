@@ -104,10 +104,10 @@ exports.exportStationPerformancePDF = async (req, res, next) => {
 
         const [[totals]] = await db.execute(`
             SELECT
-                COUNT(*) AS totalCases,
-                COALESCE(SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END), 0) AS closedCases,
-                COALESCE(SUM(CASE WHEN status NOT IN ('Closed', 'Archived') THEN 1 ELSE 0 END), 0) AS activeCases,
-                COALESCE(SUM(CASE WHEN status = 'Under Investigation' AND CURRENT_DATE - created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END), 0) AS overdueCases
+                COUNT(*) AS total_cases,
+                COALESCE(SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END), 0) AS closed_cases,
+                COALESCE(SUM(CASE WHEN status NOT IN ('Closed', 'Archived') THEN 1 ELSE 0 END), 0) AS active_cases,
+                COALESCE(SUM(CASE WHEN status = 'Under Investigation' AND CURRENT_DATE - created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END), 0) AS overdue_cases
             FROM cases
             ${inWindow.sql}
         `, inWindow.params);
@@ -132,8 +132,8 @@ exports.exportStationPerformancePDF = async (req, res, next) => {
             ORDER BY active_cases DESC
         `, inWindowAnd.params);
 
-        const resolutionRate = totals.totalCases > 0
-            ? ((totals.closedCases / totals.totalCases) * 100).toFixed(1)
+        const resolutionRate = totals.total_cases > 0
+            ? ((totals.closed_cases / totals.total_cases) * 100).toFixed(1)
             : '0.0';
 
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -144,10 +144,10 @@ exports.exportStationPerformancePDF = async (req, res, next) => {
         drawReportHeader(doc, 'Station Performance Report', period);
 
         drawSectionTitle(doc, 'Overview');
-        doc.text(`Total Cases Recorded: ${totals.totalCases}`);
-        doc.text(`Closed Cases: ${totals.closedCases}`);
-        doc.text(`Active Cases: ${totals.activeCases}`);
-        doc.text(`Overdue Cases (${OVERDUE_DAYS_THRESHOLD}+ days under investigation): ${totals.overdueCases}`);
+        doc.text(`Total Cases Recorded: ${totals.total_cases}`);
+        doc.text(`Closed Cases: ${totals.closed_cases}`);
+        doc.text(`Active Cases: ${totals.active_cases}`);
+        doc.text(`Overdue Cases (${OVERDUE_DAYS_THRESHOLD}+ days under investigation): ${totals.overdue_cases}`);
         doc.text(`Overall Resolution Rate: ${resolutionRate}%`);
 
         drawSectionTitle(doc, 'Crime Category Breakdown');

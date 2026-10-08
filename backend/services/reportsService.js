@@ -57,7 +57,7 @@ async function getMyAnalytics(user) {
     `, params);
 
     const [pendingRequests] = await db.execute(`
-        SELECT COUNT(*) AS pendingCount
+        SELECT COUNT(*) AS pending_count
         FROM cases c
         ${whereClause}
         ${whereClause ? 'AND' : 'WHERE'} requested_status IS NOT NULL
@@ -73,7 +73,7 @@ async function getMyAnalytics(user) {
             totalCases,
             closedCases,
             resolutionRate,
-            pendingRequests: pendingRequests[0]?.pendingCount || 0
+            pendingRequests: pendingRequests[0]?.pending_count || 0
         },
         statusDistribution,
         monthlyTrends,

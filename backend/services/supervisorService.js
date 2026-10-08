@@ -9,10 +9,10 @@ const COMMANDER_ROLES = ['Station Commander', 'supervisor'];
 async function getDashboard() {
     const [[kpiCounts]] = await db.execute(`
         SELECT 
-            SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM case_investigators ci WHERE ci.case_id = c.id) AND c.status != 'Closed' THEN 1 ELSE 0 END) AS unassignedCount,
-            SUM(CASE WHEN c.requested_status IS NOT NULL THEN 1 ELSE 0 END) AS pendingApprovalsCount,
-            SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS activeCasesCount,
-            SUM(CASE WHEN c.status = 'Under Investigation' AND CURRENT_DATE - c.created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END) AS overdueCount
+            SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM case_investigators ci WHERE ci.case_id = c.id) AND c.status != 'Closed' THEN 1 ELSE 0 END) AS unassigned_count,
+            SUM(CASE WHEN c.requested_status IS NOT NULL THEN 1 ELSE 0 END) AS pending_approvals_count,
+            SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS active_cases_count,
+            SUM(CASE WHEN c.status = 'Under Investigation' AND CURRENT_DATE - c.created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END) AS overdue_count
         FROM cases c
     `);
 
@@ -91,10 +91,10 @@ async function getDashboard() {
 
     return ok({
         kpi: {
-            unassigned: kpiCounts.unassignedCount || 0,
-            pendingApprovals: kpiCounts.pendingApprovalsCount || 0,
-            activeCases: kpiCounts.activeCasesCount || 0,
-            overdue: kpiCounts.overdueCount || 0
+            unassigned: kpiCounts.unassigned_count || 0,
+            pendingApprovals: kpiCounts.pending_approvals_count || 0,
+            activeCases: kpiCounts.active_cases_count || 0,
+            overdue: kpiCounts.overdue_count || 0
         },
         overdueDaysThreshold: OVERDUE_DAYS_THRESHOLD,
         unassignedCases,
