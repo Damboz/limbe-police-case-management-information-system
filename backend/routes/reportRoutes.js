@@ -9,28 +9,28 @@ const { isAuthenticated, authorizeRoles } = require('../middleware/authMiddlewar
 router.get(
     '/reports/my-cases',
     isAuthenticated,
-    authorizeRoles('Investigating Officer', 'Station Commander', 'Admin'),
+    authorizeRoles('Investigating Officer', 'Station Commander'),
     pdfController.exportMyCasesPDF
 );
 
 router.get(
     '/supervisor/reports/station-performance',
     isAuthenticated,
-    authorizeRoles('Station Commander', 'Admin'),
+    authorizeRoles('Station Commander'),
     pdfController.exportStationPerformancePDF
 );
 
 router.get(
     '/supervisor/reports/crime-statistics',
     isAuthenticated,
-    authorizeRoles('Station Commander', 'Admin'),
+    authorizeRoles('Station Commander'),
     pdfController.exportCrimeStatsPDF
 );
 
 router.get(
     '/supervisor/reports/officer-productivity',
     isAuthenticated,
-    authorizeRoles('Station Commander', 'Admin'),
+    authorizeRoles('Station Commander'),
     pdfController.exportOfficerProductivityPDF
 );
 

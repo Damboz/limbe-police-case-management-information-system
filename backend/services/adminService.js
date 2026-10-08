@@ -38,25 +38,6 @@ async function getAdminDashboard() {
     const [[{ active_users }]] = await db.execute('SELECT COUNT(*) AS active_users FROM users WHERE is_active = 1');
     const [[{ total_logins }]] = await db.execute("SELECT COUNT(*) AS total_logins FROM audit_logs WHERE action = 'USER_LOGIN'");
 
-    const [[caseStats]] = await db.execute(`
-        SELECT 
-            COUNT(*) AS total_cases,
-            SUM(CASE WHEN status = 'Reported' THEN 1 ELSE 0 END) AS reported_count,
-            SUM(CASE WHEN status = 'Under Investigation' THEN 1 ELSE 0 END) AS under_investigation,
-            SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS closed_count,
-            SUM(CASE WHEN status = 'Court Pending' THEN 1 ELSE 0 END) AS court_pending,
-            SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM case_investigators ci WHERE ci.case_id = cases.id) THEN 1 ELSE 0 END) AS unassigned_count
-        FROM cases
-    `);
-
-    const [[evidenceStats]] = await db.execute(`
-        SELECT 
-            COUNT(*) AS total_evidence,
-            SUM(CASE WHEN status = 'In Locker' THEN 1 ELSE 0 END) AS in_locker,
-            SUM(CASE WHEN status = 'Disposed' THEN 1 ELSE 0 END) AS disposed
-        FROM evidence
-    `);
-
     const [users] = await db.execute(`
         SELECT id, badge_number, rank_title, first_name, last_name, email, role, role_id, is_active 
         FROM users 
@@ -74,19 +55,6 @@ async function getAdminDashboard() {
 
     return ok({
         stats: { totalUsers: total_users, activeUsers: active_users, totalLogins: total_logins },
-        caseStats: {
-            totalCases: caseStats.total_cases || 0,
-            reported: caseStats.reported_count || 0,
-            underInvestigation: caseStats.under_investigation || 0,
-            closed: caseStats.closed_count || 0,
-            courtPending: caseStats.court_pending || 0,
-            unassigned: caseStats.unassigned_count || 0
-        },
-        evidenceStats: {
-            totalEvidence: evidenceStats.total_evidence || 0,
-            inLocker: evidenceStats.in_locker || 0,
-            disposed: evidenceStats.disposed || 0
-        },
         users,
         recentLogs
     });

@@ -60,9 +60,10 @@ function LoginRoute() {
 }
 
 
-const CMD = ['Station Commander', 'Admin'];
+const CMD = ['Station Commander'];
 const CFI = ['Investigating Officer', 'Counter/Intake Officer'];
-const OPS = ['Investigating Officer', 'Station Commander', 'Admin'];
+const OPS = ['Investigating Officer', 'Station Commander'];
+const CASE_ACCESS = ['Investigating Officer', 'Station Commander', 'Counter/Intake Officer', 'Branch In-charge', 'Prosecutor'];
 const BRN = ['Branch In-charge'];
 const PRS = ['Prosecutor'];
 
@@ -74,14 +75,14 @@ export default function App() {
             <Route path="/login" element={<LoginRoute />} />
 
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/dashboard" element={<ProtectedRoute roles={CASE_ACCESS}><Dashboard /></ProtectedRoute>} />
                 <Route path="/change-password" element={<ChangePassword />} />
                 <Route path="/my-analytics" element={<ProtectedRoute roles={CFI}><MyAnalytics /></ProtectedRoute>} />
 
-                <Route path="/cases" element={<CaseList />} />
-                <Route path="/cases/new" element={<CaseRegister />} />
-                <Route path="/cases/search" element={<CaseSearch />} />
-                <Route path="/cases/:id" element={<CaseDetail />} />
+                <Route path="/cases" element={<ProtectedRoute roles={CASE_ACCESS}><CaseList /></ProtectedRoute>} />
+                <Route path="/cases/new" element={<ProtectedRoute roles={CASE_ACCESS}><CaseRegister /></ProtectedRoute>} />
+                <Route path="/cases/search" element={<ProtectedRoute roles={CASE_ACCESS}><CaseSearch /></ProtectedRoute>} />
+                <Route path="/cases/:id" element={<ProtectedRoute roles={CASE_ACCESS}><CaseDetail /></ProtectedRoute>} />
 
                 <Route path="/evidence" element={<ProtectedRoute roles={OPS}><EvidenceLedger /></ProtectedRoute>} />
 

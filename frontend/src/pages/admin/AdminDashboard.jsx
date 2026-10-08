@@ -25,19 +25,6 @@ function IconStat({ label, value, icon, tone }) {
 }
 
 
-function CaseTile({ label, value, hint, color, background, border }) {
-    return (
-        <div className="col-12 col-sm-6 col-xl-3">
-            <div className="p-3 rounded" style={{ background, border }}>
-                <span className="text-muted small fw-semibold text-uppercase d-block mb-1">{label}</span>
-                <h4 className="fw-bold mb-1" style={{ color }}>{value}</h4>
-                {hint && <small className="text-muted">{hint}</small>}
-            </div>
-        </div>
-    );
-}
-
-
 export default function AdminDashboard() {
     const { data, error, loading } = useApiData(api.adminDashboard);
     usePageTitle('System Administration');
@@ -45,7 +32,7 @@ export default function AdminDashboard() {
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
 
-    const { stats, caseStats, evidenceStats, users, recentLogs } = data;
+    const { stats, users, recentLogs } = data;
 
     return (
         <>
@@ -68,46 +55,6 @@ export default function AdminDashboard() {
                 <IconStat label="Total System Users" value={stats.totalUsers} icon="bi-people-fill" tone="primary" />
                 <IconStat label="Active Accounts" value={stats.activeUsers} icon="bi-person-check-fill" tone="success" />
                 <IconStat label="Total Logins Tracked" value={stats.totalLogins} icon="bi-shield-check" tone="dark" />
-            </div>
-
-            <div className="card border-0 shadow-sm mb-4">
-                <div className="card-header bg-navy text-white py-3">
-                    <h6 className="mb-0 fw-bold"><i className="bi bi-clipboard-data me-2 text-warning" />Case &amp; Evidence Overview</h6>
-                </div>
-                <div className="card-body">
-                    <div className="row g-3">
-                        <CaseTile
-                            label="Total Cases"
-                            value={caseStats.totalCases}
-                            hint={`${caseStats.reported} reported · ${caseStats.unassigned} unassigned`}
-                            color="var(--mps-navy)"
-                            background="rgba(2, 116, 176, 0.06)"
-                            border="1px solid rgba(2, 116, 176, 0.15)"
-                        />
-                        <CaseTile
-                            label="Under Investigation"
-                            value={caseStats.underInvestigation}
-                            color="var(--mps-info)"
-                            background="rgba(13, 202, 240, 0.06)"
-                            border="1px solid rgba(13, 202, 240, 0.15)"
-                        />
-                        <CaseTile
-                            label="Court Pending"
-                            value={caseStats.courtPending}
-                            color="var(--mps-blue)"
-                            background="rgba(111, 168, 220, 0.06)"
-                            border="1px solid rgba(111, 168, 220, 0.15)"
-                        />
-                        <CaseTile
-                            label="Closed Cases"
-                            value={caseStats.closed}
-                            hint={`${evidenceStats.totalEvidence} evidence items · ${evidenceStats.inLocker} in locker`}
-                            color="var(--mps-success)"
-                            background="rgba(22, 163, 74, 0.06)"
-                            border="1px solid rgba(22, 163, 74, 0.15)"
-                        />
-                    </div>
-                </div>
             </div>
 
             <div className="card border-0 shadow-sm mb-4">

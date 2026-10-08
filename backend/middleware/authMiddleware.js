@@ -35,6 +35,18 @@ exports.isAdmin = (req, res, next) => {
 };
 
 
+exports.denyAdmin = (req, res, next) => {
+    if (req.session && req.session.user) {
+        const role = String(req.session.user.role || '').toLowerCase();
+        const roleId = req.session.user.role_id;
+        if (role !== 'admin' && roleId !== 1) {
+            return next();
+        }
+    }
+    return denyForbidden(req, res, 'Access Denied. System administrators only manage user accounts.');
+};
+
+
 exports.authorizeRoles = (...allowedRoles) => {
     return (req, res, next) => {
         if (!req.session || !req.session.user) {

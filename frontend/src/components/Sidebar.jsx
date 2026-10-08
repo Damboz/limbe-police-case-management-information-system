@@ -46,7 +46,7 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
     const { isInvestigator, isCommander, isAdmin, isIntake } = roleFlags(user);
 
     const sections = useMemo(() => {
-        const commanderReports = isCommander || isAdmin;
+        const commanderReports = isCommander && !isAdmin;
 
         return [
             {
@@ -54,8 +54,8 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                 title: 'Core Operations',
                 links: [
                     { to: homePath, icon: 'bi-speedometer2', label: 'Dashboard', end: true },
-                    { to: '/cases', icon: 'bi-folder2-open', label: 'Case Register' },
-                    isIntake && { to: '/cases/search', icon: 'bi-search', label: 'Smart Search' },
+                    !isAdmin && { to: '/cases', icon: 'bi-folder2-open', label: 'Case Register' },
+                    isIntake && !isAdmin && { to: '/cases/search', icon: 'bi-search', label: 'Smart Search' },
                     (isInvestigator || commanderReports) && { to: '/evidence', icon: 'bi-box-seam', label: 'Evidence Ledger' }
                 ].filter(Boolean)
             },

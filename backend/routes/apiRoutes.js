@@ -11,7 +11,7 @@ const prosecutorApi = require('../controllers/api/prosecutorApiController');
 const reportsApi = require('../controllers/api/reportsApiController');
 const generalApi = require('../controllers/api/generalApiController');
 
-const { isAuthenticated, isAdmin, authorizeRoles } = require('../middleware/authMiddleware');
+const { isAuthenticated, isAdmin, denyAdmin, authorizeRoles } = require('../middleware/authMiddleware');
 
 
 router.post('/auth/login', authApi.login);
@@ -20,24 +20,25 @@ router.get('/auth/me', isAuthenticated, authApi.me);
 router.post('/auth/change-password', isAuthenticated, authApi.changePassword);
 
 
-router.get('/dashboard', isAuthenticated, generalApi.dashboard);
+router.get('/dashboard', isAuthenticated, denyAdmin, generalApi.dashboard);
 router.get('/my-analytics', isAuthenticated, authorizeRoles('Investigating Officer', 'Counter/Intake Officer'), reportsApi.myAnalytics);
 
 
-router.get('/cases', isAuthenticated, caseApi.list);
-router.get('/cases/new', isAuthenticated, caseApi.formOptions);
-router.post('/cases', isAuthenticated, caseApi.create);
-router.get('/cases/search', isAuthenticated, caseApi.search);
-router.get('/cases/:id', isAuthenticated, caseApi.detail);
-router.post('/cases/:id/notes', isAuthenticated, caseApi.addNote);
-router.post('/cases/:id/request-status', isAuthenticated, caseApi.requestStatus);
+router.get('/cases', isAuthenticated, denyAdmin, caseApi.list);
+router.get('/cases/new', isAuthenticated, denyAdmin, caseApi.formOptions);
+router.post('/cases', isAuthenticated, denyAdmin, caseApi.create);
+router.get('/cases/search', isAuthenticated, denyAdmin, caseApi.search);
+router.get('/cases/:id', isAuthenticated, denyAdmin, caseApi.detail);
+router.post('/cases/:id/notes', isAuthenticated, denyAdmin, caseApi.addNote);
+router.post('/cases/:id/request-status', isAuthenticated, denyAdmin, caseApi.requestStatus);
 router.post('/cases/:id/external-reports', isAuthenticated, authorizeRoles('Investigating Officer'), caseApi.requestExternalReport);
-router.post('/cases/:id/evidence', isAuthenticated, caseApi.addEvidence);
-router.post('/cases/:id/suspects', isAuthenticated, caseApi.linkSuspect);
-router.post('/cases/:id/victims', isAuthenticated, caseApi.linkVictim);
+router.post('/cases/:id/evidence', isAuthenticated, denyAdmin, caseApi.addEvidence);
+router.post('/cases/:id/suspects', isAuthenticated, denyAdmin, caseApi.linkSuspect);
+router.post('/cases/:id/victims', isAuthenticated, denyAdmin, caseApi.linkVictim);
 router.post(
     '/cases/:id/suspects/:suspectId/letter',
     isAuthenticated,
+    denyAdmin,
     reportsApi.suspectInvitation
 );
 
@@ -45,25 +46,25 @@ router.post(
 router.get(
     '/evidence',
     isAuthenticated,
-    authorizeRoles('Investigating Officer', 'Station Commander', 'Admin'),
+    authorizeRoles('Investigating Officer', 'Station Commander'),
     evidenceApi.ledger
 );
 router.post(
     '/evidence/:id/status',
     isAuthenticated,
-    authorizeRoles('Investigating Officer', 'Station Commander', 'Admin'),
+    authorizeRoles('Investigating Officer', 'Station Commander'),
     evidenceApi.updateStatus
 );
 router.post(
     '/evidence/:id/transfer',
     isAuthenticated,
-    authorizeRoles('Investigating Officer', 'Station Commander', 'Admin'),
+    authorizeRoles('Investigating Officer', 'Station Commander'),
     evidenceApi.transfer
 );
 router.post(
     '/evidence/:id/dispose',
     isAuthenticated,
-    authorizeRoles('Investigating Officer', 'Station Commander', 'Admin'),
+    authorizeRoles('Investigating Officer', 'Station Commander'),
     evidenceApi.dispose
 );
 
@@ -81,14 +82,14 @@ router.get('/admin/audit-logs', isAuthenticated, isAdmin, adminApi.auditLogs);
 router.delete('/admin/audit-logs', isAuthenticated, isAdmin, adminApi.clearAuditLogs);
 
 
-router.get('/supervisor/dashboard', isAuthenticated, authorizeRoles('Station Commander', 'Admin'), supervisorApi.dashboard);
-router.post('/supervisor/cases/assign', isAuthenticated, authorizeRoles('Station Commander', 'Admin'), supervisorApi.assignCase);
-router.post('/supervisor/cases/approve-status', isAuthenticated, authorizeRoles('Station Commander', 'Admin'), supervisorApi.approveStatus);
-router.post('/supervisor/cases/:id/resolve-query', isAuthenticated, authorizeRoles('Station Commander', 'Admin'), supervisorApi.resolveQuery);
-router.post('/supervisor/reassign-proposals/:id/decide', isAuthenticated, authorizeRoles('Station Commander', 'Admin'), supervisorApi.decideReassignment);
-router.get('/supervisor/analytics', isAuthenticated, authorizeRoles('Station Commander', 'Admin'), supervisorApi.analytics);
-router.get('/supervisor/analytics/hotspots', isAuthenticated, authorizeRoles('Station Commander', 'Admin'), supervisorApi.hotspots);
-router.get('/supervisor/analytics/categories', isAuthenticated, authorizeRoles('Station Commander', 'Admin'), supervisorApi.categories);
+router.get('/supervisor/dashboard', isAuthenticated, authorizeRoles('Station Commander'), supervisorApi.dashboard);
+router.post('/supervisor/cases/assign', isAuthenticated, authorizeRoles('Station Commander'), supervisorApi.assignCase);
+router.post('/supervisor/cases/approve-status', isAuthenticated, authorizeRoles('Station Commander'), supervisorApi.approveStatus);
+router.post('/supervisor/cases/:id/resolve-query', isAuthenticated, authorizeRoles('Station Commander'), supervisorApi.resolveQuery);
+router.post('/supervisor/reassign-proposals/:id/decide', isAuthenticated, authorizeRoles('Station Commander'), supervisorApi.decideReassignment);
+router.get('/supervisor/analytics', isAuthenticated, authorizeRoles('Station Commander'), supervisorApi.analytics);
+router.get('/supervisor/analytics/hotspots', isAuthenticated, authorizeRoles('Station Commander'), supervisorApi.hotspots);
+router.get('/supervisor/analytics/categories', isAuthenticated, authorizeRoles('Station Commander'), supervisorApi.categories);
 
 
 router.get('/branch/dashboard', isAuthenticated, authorizeRoles('Branch In-charge'), branchApi.dashboard);
