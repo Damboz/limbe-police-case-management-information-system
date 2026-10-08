@@ -33,7 +33,7 @@ async function listCasesForUser(user) {
                 COUNT(DISTINCT ci.investigator_id) AS investigator_count
             FROM cases c
             LEFT JOIN crime_categories cc ON c.category_id = cc.id
-            LEFT JOIN station_branch su ON c.unit_id = su.id
+            LEFT JOIN station_units su ON c.unit_id = su.id
             LEFT JOIN users intake ON c.intake_officer_id = intake.id
             LEFT JOIN case_investigators ci ON c.id = ci.case_id
             LEFT JOIN users assigned ON ci.investigator_id = assigned.id
@@ -65,7 +65,7 @@ async function listCasesForUser(user) {
 
 async function getCaseFormOptions() {
     const [categories] = await db.execute('SELECT id, name, severity_level FROM crime_categories ORDER BY name ASC');
-    const [units] = await db.execute('SELECT id, code, name FROM station_branch ORDER BY name ASC');
+    const [units] = await db.execute('SELECT id, code, name FROM station_units ORDER BY name ASC');
     return { categories, units };
 }
 
@@ -255,7 +255,7 @@ async function getCaseDetail(caseId, user) {
             CONCAT(req_user.rank_title, ' ', req_user.first_name, ' ', req_user.last_name) AS status_requested_by_name
         FROM cases c
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
-        LEFT JOIN station_branch su ON c.unit_id = su.id
+        LEFT JOIN station_units su ON c.unit_id = su.id
         LEFT JOIN users intake ON c.intake_officer_id = intake.id
         LEFT JOIN users req_user ON c.status_requested_by = req_user.id
         WHERE c.id = ?

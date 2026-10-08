@@ -94,7 +94,7 @@ async function getUsers(query) {
                u.role, u.role_id, u.phone_number, u.is_active, u.created_at,
                su.name AS unit_name
         FROM users u
-        LEFT JOIN station_branch su ON u.unit_id = su.id
+        LEFT JOIN station_units su ON u.unit_id = su.id
         WHERE (u.badge_number LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)
     `;
     const params = [search, search, search, search];
@@ -118,7 +118,7 @@ async function getUsers(query) {
 
 async function getPersonnelFormOptions() {
     const [roles] = await db.execute('SELECT * FROM roles ORDER BY id ASC');
-    const [units] = await db.execute('SELECT * FROM station_branch ORDER BY name ASC');
+    const [units] = await db.execute('SELECT * FROM station_units ORDER BY name ASC');
     return { roles, units };
 }
 

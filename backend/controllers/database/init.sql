@@ -43,9 +43,9 @@ INSERT INTO roles (id, name, description) VALUES
 
 SELECT setval(pg_get_serial_sequence('roles', 'id'), (SELECT MAX(id) FROM roles));
 
--- Station Branch
-DROP TABLE IF EXISTS station_branch CASCADE;
-CREATE TABLE station_branch (
+-- Station Units
+DROP TABLE IF EXISTS station_units CASCADE;
+CREATE TABLE station_units (
   id           SERIAL PRIMARY KEY,
   code         varchar(20)  NOT NULL,
   name         varchar(100) NOT NULL,
@@ -54,13 +54,13 @@ CREATE TABLE station_branch (
   UNIQUE (code)
 );
 
-INSERT INTO station_branch (id, code, name, description) VALUES
+INSERT INTO station_units (id, code, name, description) VALUES
 (1, 'CID',     'Criminal Investigation Department',         'Handles serious crimes, homicide, armed robbery, and complex inquiries'),
 (2, 'GPD',     'General Duty & Counter Operations',         'Front-desk OB logging, routine patrols, and public assistance'),
 (3, 'TRAFFIC', 'Traffic Management Unit',                   'Highway enforcement, road safety, and accident investigations'),
 (4, 'CPU',     'Community Policing Unit',                   'Crime prevention, neighborhood watchdog programs, and public relations');
 
-SELECT setval(pg_get_serial_sequence('station_branch', 'id'), (SELECT MAX(id) FROM station_branch));
+SELECT setval(pg_get_serial_sequence('station_units', 'id'), (SELECT MAX(id) FROM station_units));
 
 -- Crime Categories
 DROP TABLE IF EXISTS crime_categories CASCADE;
@@ -109,7 +109,7 @@ CREATE TABLE users (
   UNIQUE (badge_number),
   UNIQUE (email),
   CONSTRAINT users_ibfk_1 FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE SET NULL,
-  CONSTRAINT users_ibfk_2 FOREIGN KEY (unit_id) REFERENCES station_branch (id) ON DELETE SET NULL,
+  CONSTRAINT users_ibfk_2 FOREIGN KEY (unit_id) REFERENCES station_units (id) ON DELETE SET NULL,
   CONSTRAINT chk_users_role CHECK (role IN (
       'Admin', 'admin', 'Station Commander', 'supervisor',
       'Investigating Officer', 'investigator',
@@ -164,7 +164,7 @@ CREATE TABLE cases (
   updated_at             timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (ob_number),
   CONSTRAINT cases_ibfk_1 FOREIGN KEY (category_id) REFERENCES crime_categories (id),
-  CONSTRAINT cases_ibfk_2 FOREIGN KEY (unit_id) REFERENCES station_branch (id),
+  CONSTRAINT cases_ibfk_2 FOREIGN KEY (unit_id) REFERENCES station_units (id),
   CONSTRAINT cases_ibfk_3 FOREIGN KEY (intake_officer_id) REFERENCES users (id),
   CONSTRAINT fk_case_status_requested_by FOREIGN KEY (status_requested_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_cases_gender CHECK (complainant_gender IN ('Male', 'Female', 'Other')),
