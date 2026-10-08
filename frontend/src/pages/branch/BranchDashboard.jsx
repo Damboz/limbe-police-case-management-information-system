@@ -25,6 +25,21 @@ function Metric({ label, value, icon, tone, color }) {
 }
 
 
+function BranchStat({ label, value, icon, colorClass }) {
+    return (
+        <div className="col-6 col-md-4 col-xl-2">
+            <div className="card border-0 shadow-sm p-3 h-100">
+                <div className="d-flex flex-column align-items-center text-center">
+                    <i className={`bi ${icon} fs-4 mb-1 text-${colorClass}`} />
+                    <h5 className="fw-bold mb-0">{value}</h5>
+                    <span className="text-muted small fw-semibold text-uppercase d-block mt-1">{label}</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
 function Modal({ title, onClose, children, footer }) {
     return (
         <div className="modal fade show d-block" tabIndex="-1" role="dialog" aria-modal="true" style={{ background: 'rgba(15,23,42,0.5)' }}>
@@ -71,7 +86,10 @@ export default function BranchDashboard() {
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
 
-    const { kpi, pendingReviews, returnedCases, branchActiveCases, delayedExternalReports } = data;
+    const { kpi, branch, branchCaseStats, branchCases, pendingReviews, returnedCases, branchActiveCases, delayedExternalReports } = data;
+
+    const branchName = branch && branch.name ? branch.name : 'My Branch';
+    const branchCode = branch && branch.code ? branch.code : '';
 
     const openReassign = (item) => {
         setReassignTarget(item);
@@ -156,7 +174,7 @@ export default function BranchDashboard() {
         <>
             <PageHeader
                 title="Branch In-charge Dashboard"
-                subtitle="Review completion requests, monitor your branch, and follow up on external reports."
+                subtitle={`Review completion requests, monitor your branch, and follow up on external reports.`}
                 actions={
                     <>
                         <Link to="/cases" className="btn btn-outline-navy btn-sm">
@@ -166,13 +184,51 @@ export default function BranchDashboard() {
                 }
             />
 
+            <div className="card border-0 shadow-sm mb-4 overflow-hidden text-white" style={{ background: 'linear-gradient(120deg, var(--mps-navy), #0b3b66)' }}>
+                <div className="p-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div className="d-flex align-items-center">
+                        <div className="p-3 bg-white bg-opacity-10 rounded me-3 d-flex align-items-center justify-content-center" style={{ width: 56, height: 56 }}>
+                            <i className="bi bi-diagram-3 fs-3" />
+                        </div>
+                        <div>
+                            <span className="text-uppercase small fw-bold text-warning d-block mb-1">
+                                {branchCode ? `${branchCode} Branch` : 'Branch'}
+                            </span>
+                            <h4 className="mb-0 fw-bold">{branchName}</h4>
+                        </div>
+                    </div>
+                    <div className="text-md-end">
+                        <div className="small text-white-50 text-uppercase fw-semibold">Branch Focus</div>
+                        <div className="fw-semibold">Only cases assigned to this branch are shown below.</div>
+                    </div>
+                </div>
+            </div>
+
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
 
-            <div className="row g-3 mb-4">
+            <div className="row g-3 mb-1">
                 <Metric label="Awaiting Your Review" value={kpi.pendingReviews} icon="bi-clipboard-check-fill" tone="navy" color="var(--mps-info)" />
-                <Metric label="Returned to Investigators" value={kpi.returned} icon="bi-arrow-counterclockwise" tone="warning" color="var(--mps-warning)" />
                 <Metric label="Branch Active Investigations" value={kpi.activeCases} icon="bi-search" tone="success" color="var(--mps-success)" />
+                <Metric label="Returned to Investigators" value={kpi.returned} icon="bi-arrow-counterclockwise" tone="warning" color="var(--mps-warning)" />
                 <Metric label="Outstanding External Reports" value={kpi.delayedExternal} icon="bi-clock-history" tone="danger" color="var(--mps-danger)" />
+            </div>
+
+            <div className="card border-0 shadow-sm mb-4">
+                <div className="card-header bg-navy text-white py-3">
+                    <h6 className="mb-0 fw-bold">
+                        <i className="bi bi-bar-chart-line-fill me-2 text-warning" />This Branch's Cases
+                    </h6>
+                </div>
+                <div className="card-body py-3">
+                    <div className="row g-3">
+                        <BranchStat label="Total Cases" value={branchCaseStats.total} icon="bi-folder2-open" colorClass="primary" />
+                        <BranchStat label="Reported" value={branchCaseStats.reported} icon="bi-clipboard-data" colorClass="secondary" />
+                        <BranchStat label="Under Investigation" value={branchCaseStats.underInvestigation} icon="bi-search" colorClass="info" />
+                        <BranchStat label="Court Pending" value={branchCaseStats.courtPending} icon="bi-bank2" colorClass="warning" />
+                        <BranchStat label="Forwarded to Prosecution" value={branchCaseStats.forwarded} icon="bi-briefcase-fill" colorClass="danger" />
+                        <BranchStat label="Closed" value={branchCaseStats.closed} icon="bi-check-circle-fill" colorClass="success" />
+                    </div>
+                </div>
             </div>
 
             <div className="row g-4 mb-4">
@@ -318,6 +374,58 @@ export default function BranchDashboard() {
                                                     <button type="button" className="btn btn-sm btn-outline-navy" onClick={() => openReassign(item)}>
                                                         <i className="bi bi-arrow-repeat me-1" />Reassign
                                                     </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="row g-4 mb-4">
+                <div className="col-12">
+                    <div className="card border-0 shadow-sm">
+                        <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
+                            <h6 className="mb-0 fw-bold">
+                                <i className="bi bi-journal-bookmark-fill me-2 text-warning" />Full {branchName} Case Register
+                            </h6>
+                            <span className="badge bg-gold text-dark">{branchCases.length} Records</span>
+                        </div>
+                        <div className="table-responsive">
+                            <table className="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Case Ref</th>
+                                        <th>Title &amp; Category</th>
+                                        <th>Priority</th>
+                                        <th>Status</th>
+                                        <th>Investigators</th>
+                                        <th>Registered</th>
+                                        <th className="text-end">View</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {branchCases.length === 0 ? (
+                                        <tr><td colSpan="7"><EmptyState message="No cases have been registered to this branch yet." /></td></tr>
+                                    ) : (
+                                        branchCases.map(item => (
+                                            <tr key={item.id}>
+                                                <td className="fw-bold font-monospace" style={{ color: 'var(--mps-navy)' }}>#{item.case_number}</td>
+                                                <td>
+                                                    <div className="fw-semibold text-dark text-truncate" style={{ maxWidth: 240 }}>{item.title}</div>
+                                                    <small className="text-muted">{item.crime_category}</small>
+                                                </td>
+                                                <td><PriorityBadge priority={item.priority} /></td>
+                                                <td><StatusBadge status={item.status} /></td>
+                                                <td><small className="fw-semibold">{item.investigator_names || 'Unassigned'}</small></td>
+                                                <td className="small text-muted">{formatDate(item.created_at)}</td>
+                                                <td className="text-end">
+                                                    <Link to={`/cases/${item.id}`} className="btn btn-sm btn-outline-navy">
+                                                        <i className="bi bi-folder2-open me-1" />Open
+                                                    </Link>
                                                 </td>
                                             </tr>
                                         ))

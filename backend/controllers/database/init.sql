@@ -57,10 +57,9 @@ CREATE TABLE station_branch (
 );
 
 INSERT INTO station_branch (id, code, name, description) VALUES
-(1, 'CPB', 'Community Policing Branch',            'Crime prevention, neighborhood watch, and community outreach strategies'),
-(2, 'TMU', 'Traffic Management Unit',              'Road safety enforcement, traffic offenses, and accident investigations'),
-(3, 'CPU', 'Community Policing Unit',              'Community engagement patrols, public relations, and grassroots policing'),
-(4, 'GPD', 'General Duty & Counter Operations',    'Front-desk OB logging, routine patrols, and station counter operations');
+(1, 'CID',  'Criminal Investigation Department',            'Handles serious crimes, homicide, armed robbery, and complex inquiries'),
+(2, 'CPU',  'Community Policing Unit',                      'Crime prevention, community engagement patrols, and public relations'),
+(3, 'RSTD', 'Road Safety and Traffic Services Department',  'Road safety enforcement, traffic offenses, and accident investigations');
 
 SELECT setval(pg_get_serial_sequence('station_branch', 'id'), (SELECT MAX(id) FROM station_branch));
 

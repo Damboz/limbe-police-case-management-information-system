@@ -98,6 +98,47 @@ async function getDashboard(user) {
         ORDER BY er.requested_at ASC
     `, [unitId]);
 
+    const [branchRow] = await db.execute(
+        'SELECT id, code, name FROM station_branch WHERE id = ?',
+        [unitId]
+    );
+
+    const [[branchCaseStats]] = await db.execute(`
+        SELECT
+            COUNT(*) AS total_count,
+            COALESCE(SUM(CASE WHEN c.status = 'Reported' THEN 1 ELSE 0 END), 0) AS reported_count,
+            COALESCE(SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END), 0) AS under_investigation_count,
+            COALESCE(SUM(CASE WHEN c.status = 'Court Pending' THEN 1 ELSE 0 END), 0) AS court_pending_count,
+            COALESCE(SUM(CASE WHEN c.status = 'Forwarded to Prosecution' THEN 1 ELSE 0 END), 0) AS forwarded_count,
+            COALESCE(SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END), 0) AS closed_count,
+            COALESCE(SUM(CASE WHEN c.branch_review_status = 'Returned' THEN 1 ELSE 0 END), 0) AS returned_count
+        FROM cases c
+        WHERE c.unit_id = ?
+    `, [unitId]);
+
+    const [branchCases] = await db.execute(`
+        SELECT 
+            c.id,
+            c.ob_number AS case_number,
+            c.incident_details AS title,
+            cc.name AS crime_category,
+            c.priority,
+            c.status,
+            c.branch_review_status,
+            c.created_at,
+            CURRENT_DATE - c.created_at::date AS days_open,
+            STRING_AGG(CONCAT(inv.rank_title, ' ', inv.first_name, ' ', inv.last_name)
+                , ', ' ORDER BY ci.is_lead DESC, inv.last_name) AS investigator_names
+        FROM cases c
+        LEFT JOIN crime_categories cc ON c.category_id = cc.id
+        LEFT JOIN case_investigators ci ON c.id = ci.case_id
+        LEFT JOIN users inv ON ci.investigator_id = inv.id
+        WHERE c.unit_id = ?
+        GROUP BY c.id, cc.name
+        ORDER BY c.created_at DESC
+        LIMIT 100
+    `, [unitId]);
+
     const [investigators] = await db.execute(`
         SELECT u.id, u.badge_number, u.rank_title, u.first_name, u.last_name, u.unit_id,
                su.name AS unit_name,
@@ -113,12 +154,25 @@ async function getDashboard(user) {
     return ok({
         role: user.role,
         branchUnitId: unitId,
+        branch: branchRow.length > 0
+            ? { id: branchRow[0].id, code: branchRow[0].code, name: branchRow[0].name }
+            : { id: unitId, code: '', name: 'My Branch' },
         kpi: {
             pendingReviews: kpi.pending_review_count || 0,
             returned: kpi.returned_count || 0,
             activeCases: kpi.active_count || 0,
             delayedExternal: kpi.delayed_external_count || 0
         },
+        branchCaseStats: {
+            total: branchCaseStats.total_count || 0,
+            reported: branchCaseStats.reported_count || 0,
+            underInvestigation: branchCaseStats.under_investigation_count || 0,
+            courtPending: branchCaseStats.court_pending_count || 0,
+            forwarded: branchCaseStats.forwarded_count || 0,
+            closed: branchCaseStats.closed_count || 0,
+            returned: branchCaseStats.returned_count || 0
+        },
+        branchCases,
         pendingReviews,
         returnedCases,
         branchActiveCases,
