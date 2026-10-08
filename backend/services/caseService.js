@@ -284,6 +284,10 @@ async function getCaseDetail(caseId, user) {
     }
     const caseItem = rows[0];
 
+    if (BRANCH_ROLES.includes(user.role) && (!user.unit_id || caseItem.unit_id !== user.unit_id)) {
+        return fail(403, 'You can only access cases from your own branch.');
+    }
+
     const investigators = await getAssignedInvestigators(caseId);
     const assignedInvestigatorIds = investigators.map(inv => inv.id);
     const assignedInvestigatorNames = investigators.map(inv => `${inv.rank_title} ${inv.first_name} ${inv.last_name}`);

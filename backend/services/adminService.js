@@ -160,8 +160,13 @@ async function createUser(body) {
     }
 
     const roleMap = getRoleMapping(role);
-    const hashedPassword = await bcrypt.hash(password, 10);
     const parsedUnitId = unit_id ? parseInt(unit_id, 10) : null;
+
+    if (roleMap.role_id === 5 && !parsedUnitId) {
+        return fail(400, 'Please select the branch that this Branch In-charge heads.');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result] = await db.execute(`
         INSERT INTO users (
@@ -210,6 +215,10 @@ async function updateUser(userId, body) {
 
     const roleMap = getRoleMapping(role);
     const parsedUnitId = unit_id ? parseInt(unit_id, 10) : null;
+
+    if (roleMap.role_id === 5 && !parsedUnitId) {
+        return fail(400, 'Please select the branch that this Branch In-charge heads.');
+    }
 
     await db.execute(`
         UPDATE users 

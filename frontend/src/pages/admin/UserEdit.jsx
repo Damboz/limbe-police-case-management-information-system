@@ -40,6 +40,7 @@ export default function UserEdit() {
     usePageTitle('Edit Officer Profile');
 
     const { data, error, loading, reload } = useApiData((signal) => api.getUser(id, signal));
+    const { data: options } = useApiData(api.personnelFormOptions);
 
     const [form, setForm] = useState(null);
     const [passwords, setPasswords] = useState({ new_password: '', confirm_password: '' });
@@ -207,11 +208,22 @@ export default function UserEdit() {
                                         </select>
                                     </div>
                                     <div className="col-md-6">
-                                        <label htmlFor="unit_id" className="form-label small fw-semibold text-muted">Assigned Unit</label>
-                                        <select className="form-select" id="unit_id" value={form.unit_id} onChange={set('unit_id')}>
-                                            <option value="">No unit assigned</option>
-                                            {(data.units || []).map(u => <option key={u.id} value={u.id}>{u.code} — {u.name}</option>)}
+                                        <label htmlFor="unit_id" className="form-label small fw-semibold text-muted">
+                                            {form.role === 'Branch In-charge' ? 'Headed Branch *' : 'Assigned Unit'}
+                                        </label>
+                                        <select
+                                            className="form-select"
+                                            id="unit_id"
+                                            value={form.unit_id}
+                                            onChange={set('unit_id')}
+                                            required={form.role === 'Branch In-charge'}
+                                        >
+                                            <option value="">{form.role === 'Branch In-charge' ? 'Select the branch this officer heads...' : 'No unit assigned'}</option>
+                                            {(options?.units || []).map(u => <option key={u.id} value={u.id}>{u.code} — {u.name}</option>)}
                                         </select>
+                                        {form.role === 'Branch In-charge' && (
+                                            <div className="form-text">This Branch In-charge will only see cases from this branch.</div>
+                                        )}
                                     </div>
                                 </div>
 

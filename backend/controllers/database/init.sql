@@ -57,10 +57,10 @@ CREATE TABLE station_branch (
 );
 
 INSERT INTO station_branch (id, code, name, description) VALUES
-(1, 'CID',     'Criminal Investigation Department',         'Handles serious crimes, homicide, armed robbery, and complex inquiries'),
-(2, 'GPD',     'General Duty & Counter Operations',         'Front-desk OB logging, routine patrols, and public assistance'),
-(3, 'TRAFFIC', 'Traffic Management Unit',                   'Highway enforcement, road safety, and accident investigations'),
-(4, 'CPU',     'Community Policing Unit',                   'Crime prevention, neighborhood watchdog programs, and public relations');
+(1, 'CPB', 'Community Policing Branch',            'Crime prevention, neighborhood watch, and community outreach strategies'),
+(2, 'TMU', 'Traffic Management Unit',              'Road safety enforcement, traffic offenses, and accident investigations'),
+(3, 'CPU', 'Community Policing Unit',              'Community engagement patrols, public relations, and grassroots policing'),
+(4, 'GPD', 'General Duty & Counter Operations',    'Front-desk OB logging, routine patrols, and station counter operations');
 
 SELECT setval(pg_get_serial_sequence('station_branch', 'id'), (SELECT MAX(id) FROM station_branch));
 
@@ -137,7 +137,7 @@ INSERT INTO users (id, badge_number, rank_title, first_name, last_name, email, p
 (10, 'Surgent',   'Superintendent',    'Surgent',    'Ngwira',        'surgentngwira@gmail.com',      '0887728238',    '$2b$10$lXgH84EC/Khyz6L7Kahm3e84dBCwJIL59mOWUrMUhCM8iNhA6E2z6', 'Counter/Intake Officer', 4, NULL, 1),
 (11, 'Mirrium',   'Station Commander', 'Mirrium',    'Kathabwa',      'mirrium@police.gov.mw',        '0997884578',    '$2b$10$gx8O2Mp51lqixUuROTmN8eM57adjWAcsIBgcOgFyYc2lMEKb4qWmq', 'Station Commander',      2, NULL, 1),
 (12, 'Gloria',    'Constable',         'Gloria',     'Kachapira',     'kachapira@police.gov',         NULL,            '$2b$10$Qmk2160.0GF/CpnxkPTVnuXFcD7bNm4yInW5Mg9u3cTEfVIOuiaRm', 'Station Commander',      2, NULL, 1),
-(13, 'LIM-003',   'Sergeant',          'Kumbukani',  'Mbewe',         'branch@limbe.police.mw',       '+265888001003', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch In-charge',       5, 1, 1),
+(13, 'LIM-003',   'Sergeant',          'Kumbukani',  'Mbewe',         'branch@limbe.police.mw',       '+265888001003', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch In-charge',       5, 3, 1),
 (14, 'LIM-004',   'Inspector',         'Chikondi',   'Nyirenda',      'prosecutor@limbe.police.mw',   '+265888001004', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Prosecutor',             6, NULL, 1),
 (26, 'Alex',      'Sergeant',          'Alex',       'Kathabwa',      'alexkathawa@police.gov',       '09987878979',   '$2b$10$SEKStVJ7wtJMZSpp0SXz8.YBzYgGP5Wc5H3uMDq8hqpGU7eELC45S', 'Investigating Officer',  3, NULL, 1);
 

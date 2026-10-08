@@ -143,11 +143,22 @@ export default function UserCreate() {
                                 </div>
 
                                 <div className="col-md-6">
-                                    <label htmlFor="unit_id" className="form-label">Assigned Unit</label>
-                                    <select className="form-select" id="unit_id" value={form.unit_id} onChange={set('unit_id')}>
-                                        <option value="">No unit assigned</option>
+                                    <label htmlFor="unit_id" className="form-label">
+                                        {form.role === 'Branch In-charge' ? 'Headed Branch *' : 'Assigned Unit'}
+                                    </label>
+                                    <select
+                                        className="form-select"
+                                        id="unit_id"
+                                        value={form.unit_id}
+                                        onChange={set('unit_id')}
+                                        required={form.role === 'Branch In-charge'}
+                                    >
+                                        <option value="">{form.role === 'Branch In-charge' ? 'Select the branch this officer heads...' : 'No unit assigned'}</option>
                                         {(options?.units || []).map(u => <option key={u.id} value={u.id}>{u.code} — {u.name}</option>)}
                                     </select>
+                                    {form.role === 'Branch In-charge' && (
+                                        <div className="form-text">This Branch In-charge will only see cases from this branch.</div>
+                                    )}
                                 </div>
 
                                 <div className="col-md-6">
