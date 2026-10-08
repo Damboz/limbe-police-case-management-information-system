@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useApiData } from '../hooks/useApiData';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../components/ui';
@@ -182,6 +182,10 @@ export default function Dashboard() {
 
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
+
+    if (data.variant === 'redirect') {
+        return <Navigate to={data.target} replace />;
+    }
 
     return data.variant === 'investigator'
         ? <InvestigatorDashboard data={data} />

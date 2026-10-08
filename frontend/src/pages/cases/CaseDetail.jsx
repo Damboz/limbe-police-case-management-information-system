@@ -58,6 +58,9 @@ export default function CaseDetail() {
     const suspect = useSubmitter();
     const victim = useSubmitter();
     const letter = useSubmitter();
+    const minute = useSubmitter();
+    const report = useSubmitter();
+    const tracking = useSubmitter();
 
     const [noteText, setNoteText] = useState('');
     const [requestedStatus, setRequestedStatus] = useState('');
@@ -67,6 +70,12 @@ export default function CaseDetail() {
     const [victimForm, setVictimForm] = useState({ full_name: '', phone_number: '', email: '', national_id: '', statement: '' });
     const [inviteTarget, setInviteTarget] = useState(null);
     const [inviteForm, setInviteForm] = useState({ appearance_date: '', appearance_time: '09:00', officer_notes: '' });
+    const [minuteForm, setMinuteForm] = useState({ decision: 'Recommend', comment: '' });
+    const [reportForm, setReportForm] = useState({ report_type: 'Social Welfare Report', notes: '' });
+    const [ackForm, setAckForm] = useState({ file_location: '', notes: '' });
+    const [fileLocValue, setFileLocValue] = useState('');
+    const [courtForm, setCourtForm] = useState({ court_date: '', court_outcome: '' });
+    const [queryText, setQueryText] = useState('');
 
     if (loading) return <Spinner />;
 
@@ -87,7 +96,7 @@ export default function CaseDetail() {
         );
     }
 
-    const { caseItem, assignedInvestigatorNames, notes, evidenceItems, suspects, victims, permissions } = data;
+    const { caseItem, assignedInvestigatorNames, notes, evidenceItems, suspects, victims, minutes, custodyLog, externalReports, permissions } = data;
 
     const setEvidence = (key) => (e) => setEvidenceForm(prev => ({ ...prev, [key]: e.target.value }));
     const setSuspect = (key) => (e) => setSuspectForm(prev => ({ ...prev, [key]: e.target.value }));
@@ -160,6 +169,73 @@ export default function CaseDetail() {
             toast.success(res.fileName ? `Invitation letter downloaded (${res.fileName}).` : 'Invitation letter downloaded.');
             setInviteTarget(null);
         });
+    };
+
+    const submitMinute = async (e) => {
+        e.preventDefault();
+        await minute.run(async () => {
+            const res = await api.reviewCase(id, minuteForm);
+            toast.success(res.message);
+            setMinuteForm({ decision: 'Recommend', comment: '' });
+            reload();
+        });
+    };
+
+    const submitReport = async (e) => {
+        e.preventDefault();
+        await report.run(async () => {
+            const res = await api.requestCaseExternalReport(id, reportForm);
+            toast.success(res.message);
+            setReportForm({ report_type: 'Social Welfare Report', notes: '' });
+            reload();
+        });
+    };
+
+    const submitAcknowledge = async (e) => {
+        e.preventDefault();
+        await tracking.run(async () => {
+            const res = await api.acknowledgeReceipt(id, ackForm);
+            toast.success(res.message);
+            setAckForm({ file_location: '', notes: '' });
+            reload();
+        });
+    };
+
+    const submitFileLocation = async (e) => {
+        e.preventDefault();
+        await tracking.run(async () => {
+            const res = await api.updateFileLocation(id, { file_location: fileLocValue });
+            toast.success(res.message);
+            setFileLocValue('');
+            reload();
+        });
+    };
+
+    const submitCourt = async (e) => {
+        e.preventDefault();
+        await tracking.run(async () => {
+            const res = await api.recordCourtDetails(id, courtForm);
+            toast.success(res.message);
+            setCourtForm({ court_date: '', court_outcome: '' });
+            reload();
+        });
+    };
+
+    const submitQuery = async (e) => {
+        e.preventDefault();
+        await tracking.run(async () => {
+            const res = await api.sendQuery(id, { query: queryText });
+            toast.success(res.message);
+            setQueryText('');
+            reload();
+        });
+    };
+
+    const minuteBadge = (type) => {
+        if (type === 'BRANCH_REVIEW') return <span className="badge badge-case-open">Branch In-charge</span>;
+        if (type === 'COMMANDER_APPROVAL') return <span className="badge badge-case-investigation">Station Officer</span>;
+        if (type === 'PROSECUTOR_QUERY') return <span className="badge badge-case-forwarded">Prosecution</span>;
+        return <span className="badge bg-light text-dark border">Internal</span>;
     };
 
     const overlay = (submitter) => submitter.error && (
@@ -243,8 +319,16 @@ export default function CaseDetail() {
                         <div className="alert alert-warning small mb-0">
                             <i className="bi bi-clock-history me-2" />
                             A request to change status to <strong>{caseItem.requested_status}</strong> was submitted by{' '}
-                            <strong>{caseItem.status_requested_by_name}</strong> on {formatDateTime(caseItem.status_requested_at)}, and is
-                            awaiting Supervisor review.
+                            <strong>{caseItem.status_requested_by_name}</strong> on {formatDateTime(caseItem.status_requested_at)}.
+                            {caseItem.branch_review_status === 'Pending Review' && (
+                                <> It is awaiting <strong>Branch In-charge</strong> review.</>
+                            )}
+                            {caseItem.branch_review_status === 'Recommended' && (
+                                <> It has been <strong>recommended</strong> by the Branch In-charge and is awaiting final approval.</>
+                            )}
+                            {caseItem.branch_review_status === 'Returned' && (
+                                <> The Branch In-charge has <strong>returned</strong> this request for further investigation.</>
+                            )}
                             {caseItem.status_request_notes && (
                                 <><br /><span className="text-muted">Notes: {caseItem.status_request_notes}</span></>
                             )}
@@ -255,8 +339,9 @@ export default function CaseDetail() {
                                 <label htmlFor="requested_status" className="form-label">Request Status Change <span className="text-danger">*</span></label>
                                 <select id="requested_status" className="form-select" value={requestedStatus} onChange={e => setRequestedStatus(e.target.value)} required>
                                     <option value="">-- Select --</option>
-                                    <option value="Closed">Close Case</option>
+                                    <option value="Forwarded to Prosecution">Forward to Prosecution Branch</option>
                                     <option value="Court Pending">Transfer to Court</option>
+                                    <option value="Closed">Close Case</option>
                                 </select>
                             </div>
                             <div className="col-md-6">
@@ -279,6 +364,222 @@ export default function CaseDetail() {
                     ) : (
                         <p className="text-muted small mb-0">No status change request is currently pending for this case.</p>
                     )}
+                </div>
+            </div>
+
+            {permissions.canReview && caseItem.branch_review_status === 'Pending Review' && (
+                <div className="card border-0 shadow-sm mb-4">
+                    <div className="card-header bg-gold text-dark py-3">
+                        <h6 className="mb-0 fw-bold">
+                            <i className="bi bi-clipboard-check me-2" />Branch In-charge Review Required
+                        </h6>
+                    </div>
+                    <div className="card-body">
+                        {overlay(minute)}
+                        <p className="text-muted small mb-3">
+                            Review this completion request before it is forwarded to the Station Officer. Your minute is
+                            recorded permanently.
+                        </p>
+                        <form onSubmit={submitMinute} className="row g-3 align-items-end">
+                            <div className="col-md-3">
+                                <label htmlFor="minute_decision" className="form-label">Decision <span className="text-danger">*</span></label>
+                                <select id="minute_decision" className="form-select" value={minuteForm.decision} onChange={e => setMinuteForm(prev => ({ ...prev, decision: e.target.value }))} required>
+                                    <option value="Recommend">Recommend to Station Officer</option>
+                                    <option value="Return">Return for Further Investigation</option>
+                                </select>
+                            </div>
+                            <div className="col-md-7">
+                                <label htmlFor="minute_comment" className="form-label">Branch Minute / Comment <span className="text-danger">*</span></label>
+                                <input
+                                    type="text"
+                                    id="minute_comment"
+                                    className="form-control"
+                                    placeholder="Record your substantive recommendation as the Branch In-charge..."
+                                    value={minuteForm.comment}
+                                    onChange={e => setMinuteForm(prev => ({ ...prev, comment: e.target.value }))}
+                                    required
+                                />
+                            </div>
+                            <div className="col-md-2">
+                                <button type="submit" className="btn btn-navy w-100" disabled={minute.busy}>
+                                    {minute.busy ? 'Submitting…' : <><i className="bi bi-check-lg me-1" />Submit Minute</>}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            <div className="row g-4 mb-4">
+                <div className="col-lg-6">
+                    <div className="card border-0 shadow-sm h-100">
+                        <div className="card-header bg-navy text-white py-3">
+                            <h6 className="mb-0 fw-bold"><i className="bi bi-signpost-split me-2 text-warning" />Sign-off Chain &amp; Minutes</h6>
+                        </div>
+                        <div className="card-body">
+                            {(minutes || []).length === 0 ? (
+                                <p className="text-muted small mb-0">No managerial minutes recorded yet.</p>
+                            ) : (
+                                <div className="timeline">
+                                    {minutes.map(m => (
+                                        <div className="timeline-item" key={m.id}>
+                                            <div className="d-flex flex-wrap align-items-center gap-2">
+                                                <span className="small fw-semibold text-muted">{formatDateTime(m.created_at)}</span>
+                                                {minuteBadge(m.minute_type)}
+                                                <span className={`badge ${m.decision === 'Returned' || m.decision === 'Rejected' ? 'badge-priority-critical' : 'badge-case-closed'}`}>{m.decision}</span>
+                                            </div>
+                                            <div className="small text-muted mt-1">{m.author_name}</div>
+                                            <div className="small mt-1 mb-0">{m.comment}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-lg-6">
+                    <div className="card border-0 shadow-sm h-100">
+                        <div className="card-header bg-navy text-white py-3">
+                            <h6 className="mb-0 fw-bold"><i className="bi bi-archive me-2 text-warning" />File Tracking &amp; External Reports</h6>
+                        </div>
+                        <div className="card-body">
+                            {overlay(tracking)}
+                            {overlay(report)}
+
+                            {(custodyLog || []).length > 0 && (
+                                <div className="mb-3">
+                                    <Label>Custody Handover Trail</Label>
+                                    {custodyLog.map(item => (
+                                        <div className="small text-muted d-block" key={item.id}>
+                                            <i className="bi bi-arrow-left-right me-1" />
+                                            {item.handed_over_by_name} → {item.received_by_name || 'Prosecution desk'} · {formatDate(item.handed_over_at)}
+                                            {item.status === 'Acknowledged' && item.received_at && <> · received {formatDate(item.received_at)}</>}
+                                            {item.status === 'Acknowledged' && item.file_location && <div className="ps-4">File: {item.file_location}</div>}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {permissions.canAcknowledgeReceipt && (
+                                <form onSubmit={submitAcknowledge} className="border rounded p-3 bg-light mb-3">
+                                    <Label>Acknowledge File Receipt</Label>
+                                    <div className="row g-2 mt-1">
+                                        <div className="col-7">
+                                            <input type="text" className="form-control form-control-sm" placeholder="Physical location (e.g. shelf B3)" value={ackForm.file_location} onChange={e => setAckForm(prev => ({ ...prev, file_location: e.target.value }))} />
+                                        </div>
+                                        <div className="col-5">
+                                            <button type="submit" className="btn btn-navy btn-sm w-100" disabled={tracking.busy}>
+                                                <i className="bi bi-box-arrow-in-down me-1" />Confirm Receipt
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            )}
+
+                            {permissions.canUpdateFileLocation && (
+                                <form onSubmit={submitFileLocation} className="border rounded p-3 bg-light mb-3">
+                                    <Label>Update Physical File Location</Label>
+                                    <div className="row g-2 mt-1">
+                                        <div className="col-7">
+                                            <input type="text" className="form-control form-control-sm" placeholder="e.g. Archives cabinet 2, shelf C" value={fileLocValue} onChange={e => setFileLocValue(e.target.value)} required />
+                                        </div>
+                                        <div className="col-5">
+                                            <button type="submit" className="btn btn-navy btn-sm w-100" disabled={tracking.busy}>
+                                                <i className="bi bi-archive me-1" />Save Location
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            )}
+
+                            {permissions.canRecordCourt && (
+                                <form onSubmit={submitCourt} className="border rounded p-3 bg-light mb-3">
+                                    <Label>Record Court Details</Label>
+                                    <div className="row g-2 mt-1">
+                                        <div className="col-6">
+                                            <input type="date" className="form-control form-control-sm" value={courtForm.court_date} onChange={e => setCourtForm(prev => ({ ...prev, court_date: e.target.value }))} />
+                                        </div>
+                                        <div className="col-6">
+                                            <select className="form-select form-select-sm" value={courtForm.court_outcome} onChange={e => setCourtForm(prev => ({ ...prev, court_outcome: e.target.value }))}>
+                                                <option value="">Outcome</option>
+                                                <option value="Convicted">Convicted</option>
+                                                <option value="Acquitted">Acquitted</option>
+                                                <option value="Withdrawn">Withdrawn</option>
+                                                <option value="Adjourned">Adjourned</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-12">
+                                            <button type="submit" className="btn btn-navy btn-sm w-100" disabled={tracking.busy}>
+                                                <i className="bi bi-bank2 me-1" />Save Court Details
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            )}
+
+                            {permissions.canSendQuery && (
+                                <form onSubmit={submitQuery} className="border rounded p-3 bg-light mb-3">
+                                    <Label>Query the Station Officer</Label>
+                                    <textarea rows="2" className="form-control form-control-sm mt-1" placeholder="What does the Prosecution Branch need answered?" value={queryText} onChange={e => setQueryText(e.target.value)} required />
+                                    <button type="submit" className="btn btn-navy btn-sm w-100 mt-2" disabled={tracking.busy || !!caseItem.prosecution_query}>
+                                        <i className="bi bi-chat-square-text me-1" />Send Query
+                                    </button>
+                                </form>
+                            )}
+
+                            {(externalReports || []).length > 0 && (
+                                <div className="mb-3">
+                                    <Label>External Report Requests</Label>
+                                    {externalReports.map(item => (
+                                        <div className="small d-block" key={item.id}>
+                                            <span className="fw-semibold">{item.report_type}</span>{' '}
+                                            <span className={`badge ${item.status === 'Received' ? 'badge-case-closed' : 'badge-priority-critical'}`}>{item.status}</span>
+                                            <span className="text-muted"> · requested {formatDate(item.requested_at)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {permissions.canRequestExternalReport && (
+                                <form onSubmit={submitReport} className="border rounded p-3 bg-light mb-3">
+                                    <Label>Request External Report</Label>
+                                    <div className="row g-2 mt-1">
+                                        <div className="col-6">
+                                            <select className="form-select form-select-sm" value={reportForm.report_type} onChange={e => setReportForm(prev => ({ ...prev, report_type: e.target.value }))}>
+                                                <option value="Social Welfare Report">Social Welfare Report</option>
+                                                <option value="Medical Report">Medical Report</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-6">
+                                            <button type="submit" className="btn btn-navy btn-sm w-100" disabled={report.busy}>
+                                                <i className="bi bi-send-fill me-1" />Request Report
+                                            </button>
+                                        </div>
+                                        <div className="col-12">
+                                            <input type="text" className="form-control form-control-sm" placeholder="Notes to the requesting office (optional)" value={reportForm.notes} onChange={e => setReportForm(prev => ({ ...prev, notes: e.target.value }))} />
+                                        </div>
+                                    </div>
+                                </form>
+                            )}
+
+                            <div className="small text-muted">
+                                {caseItem.file_location && <><i className="bi bi-geo-alt me-1" />File: {caseItem.file_location}<br /></>}
+                                {caseItem.court_date && <><i className="bi bi-calendar-event me-1" />Court: {formatDate(caseItem.court_date)}</>}
+                                {caseItem.court_outcome && <><span className="ms-2 badge badge-case-closed">{caseItem.court_outcome}</span></>}
+                                {caseItem.prosecution_query && !caseItem.prosecution_query_resolved_at && (
+                                    <div className="mt-2 alert alert-info small py-2 mb-0">
+                                        <i className="bi bi-chat-square-text me-1" />Open query to Station Officer: &ldquo;{caseItem.prosecution_query}&rdquo;
+                                    </div>
+                                )}
+                                {caseItem.prosecution_query && caseItem.prosecution_query_resolved_at && (
+                                    <div className="mt-2 text-success small">
+                                        <i className="bi bi-check-circle me-1" />Query resolved by the Station Officer; file remains with the Prosecution Branch.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

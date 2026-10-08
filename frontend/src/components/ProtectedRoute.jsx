@@ -37,7 +37,9 @@ export default function ProtectedRoute({ children, roles, adminOnly = false }) {
             1: ['ADMIN'],
             2: ['STATION COMMANDER'],
             3: ['INVESTIGATING OFFICER'],
-            4: ['COUNTER/INTAKE OFFICER']
+            4: ['COUNTER/INTAKE OFFICER'],
+            5: ['BRANCH IN-CHARGE'],
+            6: ['PROSECUTOR']
         };
         const allowed = roles.map(r => String(r).toUpperCase());
         const matches = allowed.includes(role)

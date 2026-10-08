@@ -14,6 +14,8 @@ const ROLE_OPTIONS = [
     { value: 'Officer', label: 'Officer' },
     { value: 'Investigator', label: 'Investigator' },
     { value: 'Supervisor', label: 'Supervisor' },
+    { value: 'Branch In-charge', label: 'Branch In-charge' },
+    { value: 'Prosecutor', label: 'Prosecutor' },
     { value: 'Admin', label: 'System Administrator' }
 ];
 
@@ -23,6 +25,8 @@ function toRoleValue(role) {
         case 'Investigating Officer': return 'Investigator';
         case 'Station Commander': return 'Supervisor';
         case 'Counter/Intake Officer': return 'Officer';
+        case 'Branch In-charge': return 'Branch In-charge';
+        case 'Prosecutor': return 'Prosecutor';
         case 'Admin': return 'Admin';
         default: return role || 'Officer';
     }

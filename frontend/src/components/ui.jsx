@@ -78,6 +78,7 @@ const STATUS_CLASSES = {
     'Closed': 'badge-case-closed',
     'Under Investigation': 'badge-case-investigation',
     'Court Pending': 'badge-case-open',
+    'Forwarded to Prosecution': 'badge-case-forwarded',
     'Archived': 'badge-case-archived',
     'Reported': NEUTRAL_BADGE
 };

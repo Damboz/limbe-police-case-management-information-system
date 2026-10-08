@@ -52,7 +52,9 @@ exports.authorizeRoles = (...allowedRoles) => {
             1: ['ADMIN'],
             2: ['STATION COMMANDER'],
             3: ['INVESTIGATING OFFICER'],
-            4: ['COUNTER/INTAKE OFFICER']
+            4: ['COUNTER/INTAKE OFFICER'],
+            5: ['BRANCH IN-CHARGE'],
+            6: ['PROSECUTOR']
         };
 
         const roleId = Number(req.session.user.role_id);

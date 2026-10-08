@@ -19,6 +19,14 @@ function getRoleMapping(roleInput) {
             return { role: 'Investigating Officer', role_id: 3 };
         case 'counter/intake officer':
         case 'officer':
+            return { role: 'Counter/Intake Officer', role_id: 4 };
+        case 'branch in-charge':
+        case 'branch officer':
+        case 'branch':
+        case 'branchincharge':
+            return { role: 'Branch In-charge', role_id: 5 };
+        case 'prosecutor':
+            return { role: 'Prosecutor', role_id: 6 };
         default:
             return { role: 'Counter/Intake Officer', role_id: 4 };
     }
@@ -287,17 +295,31 @@ async function deleteUser(actingUser, userId) {
 
     const [refs] = await db.execute(`
         SELECT
-            (SELECT COUNT(*) FROM cases  WHERE intake_officer_id = ?)          AS intake_cases,
-            (SELECT COUNT(*) FROM evidence WHERE collected_by_officer_id = ?)   AS evidence_records,
-            (SELECT COUNT(*) FROM case_notes WHERE officer_id = ?)              AS case_notes
-    `, [userId, userId, userId]);
+            (SELECT COUNT(*) FROM cases                  WHERE intake_officer_id = ?)          AS intake_cases,
+            (SELECT COUNT(*) FROM evidence               WHERE collected_by_officer_id = ?)     AS evidence_records,
+            (SELECT COUNT(*) FROM case_notes             WHERE officer_id = ?)                  AS case_notes,
+            (SELECT COUNT(*) FROM case_minutes           WHERE author_id = ?)                   AS case_minutes,
+            (SELECT COUNT(*) FROM external_reports       WHERE requested_by = ?)                AS external_reports,
+            (SELECT COUNT(*) FROM case_custody_log       WHERE handed_over_by = ?)              AS custody_handovers,
+            (SELECT COUNT(*) FROM case_custody_log       WHERE received_by = ?)                 AS custody_receipts,
+            (SELECT COUNT(*) FROM reassignment_proposals WHERE proposed_by = ?)                 AS proposed_reassignments,
+            (SELECT COUNT(*) FROM reassignment_proposals WHERE proposed_investigator_id = ?)    AS reassignment_targets
+    `, [userId, userId, userId, userId, userId, userId, userId, userId, userId]);
 
     const intakeCases = refs[0]?.intake_cases || 0;
     const evidenceRecords = refs[0]?.evidence_records || 0;
     const notesCount = refs[0]?.case_notes || 0;
+    const minutesCount = refs[0]?.case_minutes || 0;
+    const externalReports = refs[0]?.external_reports || 0;
+    const custodyHandovers = refs[0]?.custody_handovers || 0;
+    const custodyReceipts = refs[0]?.custody_receipts || 0;
+    const proposedReassignments = refs[0]?.proposed_reassignments || 0;
+    const reassignmentTargets = refs[0]?.reassignment_targets || 0;
 
-    if (intakeCases > 0 || evidenceRecords > 0 || notesCount > 0) {
-        return fail(400, `Cannot delete ${target.badge_number} — the account has historical records (${intakeCases} case(s) as intake officer, ${evidenceRecords} evidence record(s), ${notesCount} case note(s)). Deactivate instead.`);
+    if (intakeCases > 0 || evidenceRecords > 0 || notesCount > 0 || minutesCount > 0
+        || externalReports > 0 || custodyHandovers > 0 || custodyReceipts > 0
+        || proposedReassignments > 0 || reassignmentTargets > 0) {
+        return fail(400, `Cannot delete ${target.badge_number} — the account has historical records (${intakeCases} case(s) as intake officer, ${evidenceRecords} evidence record(s), ${notesCount} case note(s), ${minutesCount} minute(s), ${externalReports} external report request(s), ${custodyHandovers} custody handover(s), ${custodyReceipts} custody receipt(s), ${proposedReassignments} reassignment proposal(s), ${reassignmentTargets} reassignment target(s)). Deactivate instead.`);
     }
 
     await db.execute('DELETE FROM users WHERE id = ?', [userId]);

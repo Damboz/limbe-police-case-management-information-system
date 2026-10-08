@@ -16,6 +16,8 @@ const ROLE_OPTIONS = [
     { value: 'Police Officer', label: 'Police Officer / Desk Officer' },
     { value: 'Investigator', label: 'Investigator / Detective' },
     { value: 'Supervisor', label: 'Supervisor / Station Commander' },
+    { value: 'Branch In-charge', label: 'Branch In-charge' },
+    { value: 'Prosecutor', label: 'Prosecutor' },
     { value: 'Admin', label: 'System Administrator' }
 ];
 

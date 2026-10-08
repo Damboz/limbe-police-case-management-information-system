@@ -29,7 +29,9 @@ INSERT INTO roles (id, name, description) VALUES
 (1, 'Admin',                  'System Administration & User Access Management'),
 (2, 'Station Commander',      'Full Station Oversight, Analytics, and Final Case Approvals'),
 (3, 'Investigating Officer',  'Assigned Case Investigation, Suspect Linking, and Evidence Logging'),
-(4, 'Counter/Intake Officer', 'First Contact Complaint Intake and Occurrence Book (OB) Registration');
+(4, 'Counter/Intake Officer', 'First Contact Complaint Intake and Occurrence Book (OB) Registration'),
+(5, 'Branch In-charge',       'Branch Quality Control, Review Minutes, and Completion Sign-off'),
+(6, 'Prosecutor',             'Receives Forwarded Files, Court Preparation, and Physical File Custody');
 
 SELECT setval(pg_get_serial_sequence('roles', 'id'), (SELECT MAX(id) FROM roles));
 
@@ -103,7 +105,8 @@ CREATE TABLE users (
   CONSTRAINT chk_users_role CHECK (role IN (
       'Admin', 'admin', 'Station Commander', 'supervisor',
       'Investigating Officer', 'investigator',
-      'Counter/Intake Officer', 'officer'
+      'Counter/Intake Officer', 'officer',
+      'Branch In-charge', 'Prosecutor'
   ))
 );
 
@@ -124,6 +127,8 @@ INSERT INTO users (id, badge_number, rank_title, first_name, last_name, email, p
 (10, 'Surgent',   'Superintendent',    'Surgent',    'Ngwira',        'surgentngwira@gmail.com',      '0887728238',    '$2b$10$lXgH84EC/Khyz6L7Kahm3e84dBCwJIL59mOWUrMUhCM8iNhA6E2z6', 'Counter/Intake Officer', 4, NULL, 1),
 (11, 'Mirrium',   'Station Commander', 'Mirrium',    'Kathabwa',      'mirrium@police.gov.mw',        '0997884578',    '$2b$10$gx8O2Mp51lqixUuROTmN8eM57adjWAcsIBgcOgFyYc2lMEKb4qWmq', 'Station Commander',      2, NULL, 1),
 (12, 'Gloria',    'Constable',         'Gloria',     'Kachapira',     'kachapira@police.gov',         NULL,            '$2b$10$Qmk2160.0GF/CpnxkPTVnuXFcD7bNm4yInW5Mg9u3cTEfVIOuiaRm', 'Station Commander',      2, NULL, 1),
+(13, 'LIM-003',   'Sergeant',          'Kumbukani',  'Mbewe',         'branch@limbe.police.mw',       '+265888001003', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch In-charge',       5, 1, 1),
+(14, 'LIM-004',   'Inspector',         'Chikondi',   'Nyirenda',      'prosecutor@limbe.police.mw',   '+265888001004', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Prosecutor',             6, NULL, 1),
 (26, 'Alex',      'Sergeant',          'Alex',       'Kathabwa',      'alexkathawa@police.gov',       '09987878979',   '$2b$10$SEKStVJ7wtJMZSpp0SXz8.YBzYgGP5Wc5H3uMDq8hqpGU7eELC45S', 'Investigating Officer',  3, NULL, 1);
 
 SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
@@ -150,6 +155,16 @@ CREATE TABLE cases (
   status_request_notes   text,
   status_requested_by    int DEFAULT NULL,
   status_requested_at    timestamp NULL DEFAULT NULL,
+  branch_review_status   varchar(20) DEFAULT NULL,
+  branch_reviewed_by     int DEFAULT NULL,
+  branch_reviewed_at     timestamp NULL DEFAULT NULL,
+  forwarded_at           timestamp NULL DEFAULT NULL,
+  file_location          varchar(120) DEFAULT NULL,
+  court_date             date DEFAULT NULL,
+  court_outcome          varchar(30) DEFAULT NULL,
+  prosecution_query      text,
+  prosecution_query_at   timestamp NULL DEFAULT NULL,
+  prosecution_query_resolved_at timestamp NULL DEFAULT NULL,
   created_at             timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at             timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (ob_number),
@@ -157,10 +172,13 @@ CREATE TABLE cases (
   CONSTRAINT cases_ibfk_2 FOREIGN KEY (unit_id) REFERENCES station_branch (id),
   CONSTRAINT cases_ibfk_3 FOREIGN KEY (intake_officer_id) REFERENCES users (id),
   CONSTRAINT fk_case_status_requested_by FOREIGN KEY (status_requested_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_case_branch_reviewed_by FOREIGN KEY (branch_reviewed_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_cases_gender CHECK (complainant_gender IN ('Male', 'Female', 'Other')),
   CONSTRAINT chk_cases_priority CHECK (priority IN ('Low', 'Medium', 'High', 'Critical')),
-  CONSTRAINT chk_cases_status CHECK (status IN ('Reported', 'Under Investigation', 'Court Pending', 'Closed', 'Archived')),
-  CONSTRAINT chk_cases_requested_status CHECK (requested_status IN ('Closed', 'Court Pending'))
+  CONSTRAINT chk_cases_status CHECK (status IN ('Reported', 'Under Investigation', 'Court Pending', 'Forwarded to Prosecution', 'Closed', 'Archived')),
+  CONSTRAINT chk_cases_requested_status CHECK (requested_status IN ('Closed', 'Court Pending', 'Forwarded to Prosecution')),
+  CONSTRAINT chk_cases_branch_review CHECK (branch_review_status IN ('Pending Review', 'Recommended', 'Returned')),
+  CONSTRAINT chk_cases_court_outcome CHECK (court_outcome IN ('Convicted', 'Acquitted', 'Withdrawn', 'Adjourned'))
 );
 
 CREATE INDEX idx_cases_ob_number ON cases (ob_number);
@@ -168,10 +186,10 @@ CREATE INDEX idx_cases_status ON cases (status);
 CREATE INDEX idx_cases_requested_status ON cases (requested_status);
 CREATE INDEX idx_cases_status_requested_by ON cases (status_requested_by);
 
-INSERT INTO cases (id, ob_number, complainant_name, complainant_id_number, complainant_phone, complainant_address, complainant_gender, category_id, unit_id, priority, incident_datetime, incident_location, incident_details, intake_officer_id, status, requested_status, status_request_notes, status_requested_by, status_requested_at, created_at, updated_at) VALUES
-(1, 'OB-20260816-0001', 'George Dambo',    NULL,       '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 5, 3, 'Medium', '2025-03-21 12:00:00', 'Chichiri',            'mdjmsmskakamd',                          6,  'Under Investigation', NULL, NULL, NULL, NULL, '2026-08-16 14:30:27', '2026-08-19 09:33:04'),
-(2, 'OB-20260905-0001', 'Patrick Magule',  '004939939', '08840399483', 'Lumbadzi, Lilongwe Malawi', 'Male', 6, 2, 'High',   '2026-09-05 11:45:00', 'Zingwangwa Market',   'fjjkfkdjsKLKAJGJDKSKFHSJKSKKKSHFHFH',   9,  'Reported',           NULL, NULL, NULL, NULL, '2026-09-05 09:45:58', '2026-09-16 16:02:53'),
-(3, 'OB-20260905-0002', 'George Dambo',    'pfoodld',  '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 7, 3, 'Medium', '2026-09-03 12:42:00', 'oflsllsld',           'kqalL;;dlszmmdk',                        2,  'Under Investigation', 'Closed', 'gdjjs', 26, '2026-09-16 16:40:50', '2026-09-05 10:43:05', '2026-09-16 16:40:50');
+INSERT INTO cases (id, ob_number, complainant_name, complainant_id_number, complainant_phone, complainant_address, complainant_gender, category_id, unit_id, priority, incident_datetime, incident_location, incident_details, intake_officer_id, status, requested_status, status_request_notes, status_requested_by, status_requested_at, branch_review_status, branch_reviewed_by, branch_reviewed_at, forwarded_at, file_location, court_date, court_outcome, prosecution_query, prosecution_query_at, prosecution_query_resolved_at, created_at, updated_at) VALUES
+(1, 'OB-20260816-0001', 'George Dambo',    NULL,       '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 5, 3, 'Medium', '2025-03-21 12:00:00', 'Chichiri',            'mdjmsmskakamd',                          6,  'Under Investigation', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-08-16 14:30:27', '2026-08-19 09:33:04'),
+(2, 'OB-20260905-0001', 'Patrick Magule',  '004939939', '08840399483', 'Lumbadzi, Lilongwe Malawi', 'Male', 6, 2, 'High',   '2026-09-05 11:45:00', 'Zingwangwa Market',   'fjjkfkdjsKLKAJGJDKSKFHSJKSKKKSHFHFH',   9,  'Reported',           NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-09-05 09:45:58', '2026-09-16 16:02:53'),
+(3, 'OB-20260905-0002', 'George Dambo',    'pfoodld',  '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 7, 3, 'Medium', '2026-09-03 12:42:00', 'oflsllsld',           'kqalL;;dlszmmdk',                        2,  'Under Investigation', 'Closed', 'gdjjs', 26, '2026-09-16 16:40:50', 'Pending Review', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-09-05 10:43:05', '2026-09-16 16:40:50');
 
 SELECT setval(pg_get_serial_sequence('cases', 'id'), (SELECT MAX(id) FROM cases));
 -- Case <> Investigators (many-to-many)
@@ -287,6 +305,89 @@ INSERT INTO case_notes (id, case_id, officer_id, note, created_at) VALUES
 (1, 1, 8, 'we have now find the evidence', '2026-08-21 17:43:07');
 
 SELECT setval(pg_get_serial_sequence('case_notes', 'id'), (SELECT MAX(id) FROM case_notes));
+
+-- Case Minutes (Sign-off Chain: Branch Review + Commander Approval + Prosecutor Query)
+DROP TABLE IF EXISTS case_minutes CASCADE;
+CREATE TABLE case_minutes (
+  id          SERIAL PRIMARY KEY,
+  case_id     int NOT NULL,
+  minute_type varchar(30) NOT NULL DEFAULT 'BRANCH_REVIEW',
+  author_id   int NOT NULL,
+  decision    varchar(20) NOT NULL,
+  comment     text,
+  created_at  timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_minutes_case   FOREIGN KEY (case_id)   REFERENCES cases (id) ON DELETE CASCADE,
+  CONSTRAINT fk_minutes_author FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE RESTRICT,
+  CONSTRAINT chk_minutes_type CHECK (minute_type IN ('BRANCH_REVIEW', 'COMMANDER_APPROVAL', 'PROSECUTOR_QUERY')),
+  CONSTRAINT chk_minutes_decision CHECK (decision IN ('Recommended', 'Returned', 'Approved', 'Rejected', 'Query'))
+);
+
+CREATE INDEX idx_minutes_case_id ON case_minutes (case_id);
+
+-- External Reports (Social Welfare / Medical follow-ups)
+DROP TABLE IF EXISTS external_reports CASCADE;
+CREATE TABLE external_reports (
+  id           SERIAL PRIMARY KEY,
+  case_id      int NOT NULL,
+  report_type  varchar(40) NOT NULL,
+  requested_by int NOT NULL,
+  requested_at timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
+  status       varchar(20) NOT NULL DEFAULT 'Requested',
+  received_at  timestamp NULL DEFAULT NULL,
+  notes        text,
+  created_at   timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_external_case           FOREIGN KEY (case_id)       REFERENCES cases (id) ON DELETE CASCADE,
+  CONSTRAINT fk_external_requested_by   FOREIGN KEY (requested_by)  REFERENCES users (id) ON DELETE RESTRICT,
+  CONSTRAINT chk_external_type CHECK (report_type IN ('Social Welfare Report', 'Medical Report')),
+  CONSTRAINT chk_external_status CHECK (status IN ('Requested', 'Received'))
+);
+
+CREATE INDEX idx_external_case_id ON external_reports (case_id);
+
+-- Case Custody / Handover Log (Submission to the Prosecution Branch)
+DROP TABLE IF EXISTS case_custody_log CASCADE;
+CREATE TABLE case_custody_log (
+  id              SERIAL PRIMARY KEY,
+  case_id         int NOT NULL,
+  handed_over_by  int NOT NULL,
+  handed_over_at  timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
+  received_by     int DEFAULT NULL,
+  received_at     timestamp NULL DEFAULT NULL,
+  status          varchar(20) NOT NULL DEFAULT 'Pending',
+  file_location   varchar(120) DEFAULT NULL,
+  notes           text,
+  created_at      timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_custody_case        FOREIGN KEY (case_id)          REFERENCES cases (id) ON DELETE CASCADE,
+  CONSTRAINT fk_custody_handover_by FOREIGN KEY (handed_over_by)   REFERENCES users (id) ON DELETE RESTRICT,
+  CONSTRAINT fk_custody_received_by FOREIGN KEY (received_by)      REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_custody_status CHECK (status IN ('Pending', 'Acknowledged'))
+);
+
+CREATE INDEX idx_custody_case_id ON case_custody_log (case_id);
+
+-- Reassignment Proposals (raised by Branch In-charge, decided by Station Commander)
+DROP TABLE IF EXISTS reassignment_proposals CASCADE;
+CREATE TABLE reassignment_proposals (
+  id                     SERIAL PRIMARY KEY,
+  case_id                int NOT NULL,
+  current_investigator_id int DEFAULT NULL,
+  proposed_investigator_id int NOT NULL,
+  proposed_by            int NOT NULL,
+  reason                 text,
+  status                 varchar(20) NOT NULL DEFAULT 'Pending',
+  decided_by             int DEFAULT NULL,
+  decision_note          text,
+  decided_at             timestamp NULL DEFAULT NULL,
+  created_at             timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_proposal_case       FOREIGN KEY (case_id)                 REFERENCES cases (id)  ON DELETE CASCADE,
+  CONSTRAINT fk_proposal_current    FOREIGN KEY (current_investigator_id) REFERENCES users (id)  ON DELETE SET NULL,
+  CONSTRAINT fk_proposal_proposed   FOREIGN KEY (proposed_investigator_id) REFERENCES users (id)  ON DELETE RESTRICT,
+  CONSTRAINT fk_proposal_by         FOREIGN KEY (proposed_by)             REFERENCES users (id)  ON DELETE RESTRICT,
+  CONSTRAINT fk_proposal_decided_by FOREIGN KEY (decided_by)              REFERENCES users (id)  ON DELETE SET NULL,
+  CONSTRAINT chk_proposal_status CHECK (status IN ('Pending', 'Approved', 'Rejected'))
+);
+
+CREATE INDEX idx_proposal_case_id ON reassignment_proposals (case_id);
 
 -- Audit Logs
 DROP TABLE IF EXISTS audit_logs CASCADE;

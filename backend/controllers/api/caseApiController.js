@@ -112,7 +112,25 @@ exports.requestStatus = async (req, res, next) => {
 
         await logAudit(req, user.id, 'STATUS_CHANGE_REQUESTED', `Requested status change to "${result.requestedStatus}" for Case ID ${req.params.id}.`);
 
-        res.json({ success: true, message: 'Status change request submitted for supervisor review.' });
+        res.json({ success: true, message: 'Status change request submitted for branch review and final approval.' });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+exports.requestExternalReport = async (req, res, next) => {
+    try {
+        const user = req.session.user;
+        const result = await caseService.requestExternalReport(req.params.id, user, req.body);
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        await logAudit(req, user.id, 'EXTERNAL_REPORT_REQUESTED', `Requested ${result.reportType} for Case ID ${req.params.id}.`);
+
+        res.status(201).json({ success: true, message: `${result.reportType} request recorded.` });
     } catch (err) {
         next(err);
     }

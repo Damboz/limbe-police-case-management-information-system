@@ -159,6 +159,7 @@ export const api = {
     addCaseNote: (id, note) => request(`/cases/${id}/notes`, { method: 'POST', body: { note } }),
     requestCaseStatus: (id, body) => request(`/cases/${id}/request-status`, { method: 'POST', body }),
     addCaseEvidence: (id, body) => request(`/cases/${id}/evidence`, { method: 'POST', body }),
+    requestCaseExternalReport: (id, body) => request(`/cases/${id}/external-reports`, { method: 'POST', body }),
     linkSuspect: (id, body) => request(`/cases/${id}/suspects`, { method: 'POST', body }),
     linkVictim: (id, body) => request(`/cases/${id}/victims`, { method: 'POST', body }),
     suspectInvitation: (id, suspectId, body) => requestBlob(
@@ -190,9 +191,23 @@ export const api = {
     supervisorDashboard: (signal) => request('/supervisor/dashboard', { signal }),
     assignCase: (body) => request('/supervisor/cases/assign', { method: 'POST', body }),
     approveStatus: (body) => request('/supervisor/cases/approve-status', { method: 'POST', body }),
+    resolveQuery: (id, resolution) => request(`/supervisor/cases/${id}/resolve-query`, { method: 'POST', body: { resolution } }),
+    decideReassignment: (id, body) => request(`/supervisor/reassign-proposals/${id}/decide`, { method: 'POST', body }),
     supervisorAnalytics: (signal) => request('/supervisor/analytics', { signal }),
     supervisorHotspots: (signal) => request('/supervisor/analytics/hotspots', { signal }),
-    supervisorCategories: (signal) => request('/supervisor/analytics/categories', { signal })
+    supervisorCategories: (signal) => request('/supervisor/analytics/categories', { signal }),
+
+    branchDashboard: (signal) => request('/branch/dashboard', { signal }),
+    reviewCase: (id, body) => request(`/branch/cases/${id}/review`, { method: 'POST', body }),
+    proposeReassignment: (id, body) => request(`/branch/cases/${id}/reassign-proposal`, { method: 'POST', body }),
+    requestExternalReport: (id, body) => request(`/branch/cases/${id}/external-reports`, { method: 'POST', body }),
+    markReportReceived: (reportId, body) => request(`/branch/external-reports/${reportId}/received`, { method: 'POST', body }),
+
+    prosecutionDashboard: (signal) => request('/prosecution/dashboard', { signal }),
+    acknowledgeReceipt: (id, body) => request(`/prosecution/cases/${id}/acknowledge`, { method: 'POST', body }),
+    updateFileLocation: (id, body) => request(`/prosecution/cases/${id}/file-location`, { method: 'POST', body }),
+    recordCourtDetails: (id, body) => request(`/prosecution/cases/${id}/court`, { method: 'POST', body }),
+    sendQuery: (id, body) => request(`/prosecution/cases/${id}/query`, { method: 'POST', body })
 };
 
 export { ApiError };

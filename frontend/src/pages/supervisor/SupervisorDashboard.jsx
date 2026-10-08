@@ -113,6 +113,13 @@ export default function SupervisorDashboard() {
     const [decision, setDecision] = useState('APPROVE');
     const [supervisorNotes, setSupervisorNotes] = useState('');
 
+    const [reassignTarget, setReassignTarget] = useState(null);
+    const [reassignDecision, setReassignDecision] = useState('APPROVE');
+    const [reassignNote, setReassignNote] = useState('');
+
+    const [queryTarget, setQueryTarget] = useState(null);
+    const [queryResolution, setQueryResolution] = useState('');
+
     const [actionError, setActionError] = useState(null);
     const [busy, setBusy] = useState(false);
 
@@ -121,7 +128,23 @@ export default function SupervisorDashboard() {
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
 
-    const { kpi, overdueDaysThreshold, unassignedCases, pendingApprovals, investigatorWorkload, assignedActiveCases } = data;
+    const targetBadge = (requestedStatus) => {
+        if (requestedStatus === 'Closed') {
+            return <span className="badge badge-case-closed"><i className="bi bi-lock-fill me-1" />Closure</span>;
+        }
+        if (requestedStatus === 'Forwarded to Prosecution') {
+            return <span className="badge badge-case-forwarded"><i className="bi bi-briefcase-fill me-1" />Prosecution</span>;
+        }
+        return <span className="badge badge-case-investigation"><i className="bi bi-bank2 me-1" />Court</span>;
+    };
+
+    const requestedTransitionLabel = (requestedStatus) => {
+        if (requestedStatus === 'Closed') return 'Close Case (CLOSED)';
+        if (requestedStatus === 'Forwarded to Prosecution') return 'Forward to Prosecution (PROSECUTION BRANCH)';
+        return 'Transfer to Court (COURT PENDING)';
+    };
+
+    const { kpi, overdueDaysThreshold, unassignedCases, pendingApprovals, pendingReassignments, prosecutionQueries, investigatorWorkload, assignedActiveCases } = data;
 
     const openAssign = (item, mode) => {
         setAssignTarget(item);
@@ -176,6 +199,43 @@ export default function SupervisorDashboard() {
         }
     };
 
+    const submitReassignment = async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setActionError(null);
+        try {
+            const res = await api.decideReassignment(reassignTarget.proposal_id, {
+                decision: reassignDecision,
+                decision_note: reassignNote
+            });
+            toast.success(res.message || 'Reassignment decision recorded.');
+            setReassignTarget(null);
+            setReassignNote('');
+            reload();
+        } catch (err) {
+            setActionError(err.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const submitQueryResolution = async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setActionError(null);
+        try {
+            const res = await api.resolveQuery(queryTarget.id, queryResolution);
+            toast.success(res.message || 'Query marked as resolved.');
+            setQueryTarget(null);
+            setQueryResolution('');
+            reload();
+        } catch (err) {
+            setActionError(err.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
     return (
         <>
             <PageHeader
@@ -207,6 +267,8 @@ export default function SupervisorDashboard() {
                 <Metric label="Pending Approvals" value={kpi.pendingApprovals} icon="bi-clipboard-check-fill" tone="navy" color="var(--mps-info)" />
                 <Metric label="Active Investigations" value={kpi.activeCases} icon="bi-search" tone="success" color="var(--mps-success)" />
                 <Metric label={`Overdue (${overdueDaysThreshold}+ days)`} value={kpi.overdue} icon="bi-alarm-fill" tone="danger" color="var(--mps-danger)" />
+                <Metric label="Reassignment Proposals" value={kpi.pendingReassignments} icon="bi-arrow-repeat" tone="warning" color="var(--mps-warning)" />
+                <Metric label="Open Prosecution Queries" value={kpi.openQueries} icon="bi-chat-square-text" tone="navy" color="var(--mps-info)" />
             </div>
 
             <div className="row g-4 mb-4">
@@ -296,11 +358,7 @@ export default function SupervisorDashboard() {
                                                     <small className="text-muted d-block text-truncate">{item.title}</small>
                                                 </td>
                                                 <td>
-                                                    {item.requested_status === 'Closed' ? (
-                                                        <span className="badge badge-case-closed"><i className="bi bi-lock-fill me-1" />Closure</span>
-                                                    ) : (
-                                                        <span className="badge badge-case-investigation"><i className="bi bi-bank2 me-1" />Court</span>
-                                                    )}
+                                                    {targetBadge(item.requested_status)}
                                                 </td>
                                                 <td><small className="fw-semibold">{item.investigator_name}</small></td>
                                                 <td className="text-end">
@@ -310,6 +368,104 @@ export default function SupervisorDashboard() {
                                                         onClick={() => { setApprovalTarget(item); setDecision('APPROVE'); setSupervisorNotes(''); setActionError(null); }}
                                                     >
                                                         Review
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="row g-4 mb-4">
+                <div className="col-lg-6">
+                    <div className="card border-0 shadow-sm h-100">
+                        <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
+                            <h6 className="mb-0 fw-bold">
+                                <i className="bi bi-arrow-repeat me-2 text-warning" />Reassignment Proposals
+                            </h6>
+                            <span className="badge bg-gold text-dark">{pendingReassignments.length} Pending</span>
+                        </div>
+                        <div className="table-responsive">
+                            <table className="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Case</th>
+                                        <th>Current Investigator</th>
+                                        <th>Proposed Investigator</th>
+                                        <th className="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pendingReassignments.length === 0 ? (
+                                        <tr><td colSpan="4"><EmptyState icon="bi-arrow-repeat" message="No reassignment proposals awaiting decision." /></td></tr>
+                                    ) : (
+                                        pendingReassignments.map(item => (
+                                            <tr key={item.proposal_id}>
+                                                <td>
+                                                    <div className="fw-bold" style={{ color: 'var(--mps-navy)' }}>#{item.case_number}</div>
+                                                    <small className="text-muted d-block text-truncate">{item.title}</small>
+                                                    <small className="text-muted d-block">By: {item.proposed_by_name}</small>
+                                                </td>
+                                                <td className="small">{item.current_investigator_name || '—'}</td>
+                                                <td className="small fw-semibold">{item.proposed_investigator_name}</td>
+                                                <td className="text-end">
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-outline-navy"
+                                                        onClick={() => { setReassignTarget(item); setReassignDecision('APPROVE'); setReassignNote(''); setActionError(null); }}
+                                                    >
+                                                        Decide
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-lg-6">
+                    <div className="card border-0 shadow-sm h-100">
+                        <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
+                            <h6 className="mb-0 fw-bold">
+                                <i className="bi bi-chat-square-text me-2 text-warning" />Prosecution Queries
+                            </h6>
+                            <span className="badge bg-gold text-dark">{prosecutionQueries.length} Open</span>
+                        </div>
+                        <div className="table-responsive">
+                            <table className="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Case</th>
+                                        <th>Query</th>
+                                        <th className="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {prosecutionQueries.length === 0 ? (
+                                        <tr><td colSpan="3"><EmptyState icon="bi-chat-square-text" message="No open queries from the Prosecution Branch." /></td></tr>
+                                    ) : (
+                                        prosecutionQueries.map(item => (
+                                            <tr key={item.id}>
+                                                <td>
+                                                    <div className="fw-bold" style={{ color: 'var(--mps-navy)' }}>#{item.case_number}</div>
+                                                    <small className="text-muted d-block text-truncate">{item.title}</small>
+                                                    <small className="text-muted d-block">{formatDate(item.prosecution_query_at)}</small>
+                                                </td>
+                                                <td><small className="d-block text-truncate" style={{ maxWidth: 320 }} title={item.prosecution_query}>{item.prosecution_query}</small></td>
+                                                <td className="text-end">
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-navy"
+                                                        onClick={() => { setQueryTarget(item); setQueryResolution(''); setActionError(null); }}
+                                                    >
+                                                        Resolve
                                                     </button>
                                                 </td>
                                             </tr>
@@ -515,7 +671,7 @@ export default function SupervisorDashboard() {
                             <div className="mb-3">
                                 <label className="form-label">REQUESTED TRANSITION</label>
                                 <div className="form-control-plaintext fw-bold text-dark">
-                                    {approvalTarget.requested_status === 'Closed' ? 'Close Case (CLOSED)' : 'Transfer to Court (COURT PENDING)'}
+                                    {requestedTransitionLabel(approvalTarget.requested_status)}
                                 </div>
                             </div>
                             {approvalTarget.status_request_notes && (
@@ -540,6 +696,102 @@ export default function SupervisorDashboard() {
                                     placeholder="Provide reasons or directives regarding this decision..."
                                     value={supervisorNotes}
                                     onChange={e => setSupervisorNotes(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+
+            {reassignTarget && (
+                <Modal
+                    title="Decide Reassignment Proposal"
+                    onClose={() => setReassignTarget(null)}
+                    footer={
+                        <>
+                            <button type="button" className="btn btn-outline-navy" onClick={() => setReassignTarget(null)}>Cancel</button>
+                            <button type="submit" form="reassign-form" className="btn btn-navy" disabled={busy}>
+                                <i className="bi bi-check-lg me-1" />Submit Decision
+                            </button>
+                        </>
+                    }
+                >
+                    <form id="reassign-form" onSubmit={submitReassignment}>
+                        <div className="modal-body">
+                            <div className="mb-3">
+                                <label className="form-label">CASE REFERENCE</label>
+                                <div className="form-control-plaintext fw-bold">#{reassignTarget.case_number}</div>
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">CURRENT INVESTIGATOR</label>
+                                <div className="form-control-plaintext text-dark">{reassignTarget.current_investigator_name || 'No active investigator'}</div>
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">PROPOSED INVESTIGATOR</label>
+                                <div className="form-control-plaintext text-dark">{reassignTarget.proposed_investigator_name}</div>
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">BRANCH IN-CHARGE REASON</label>
+                                <div className="form-control-plaintext small text-dark">{reassignTarget.reason || '—'}</div>
+                            </div>
+                            <div className="mb-3">
+                                <label htmlFor="reassign_decision" className="form-label">Decision <span className="text-danger">*</span></label>
+                                <select id="reassign_decision" className="form-select" value={reassignDecision} onChange={e => setReassignDecision(e.target.value)} required>
+                                    <option value="APPROVE">Approve Reassignment</option>
+                                    <option value="REJECT">Reject Proposal</option>
+                                </select>
+                            </div>
+                            <div className="mb-3">
+                                <label htmlFor="reassign_note" className="form-label">Decision Note</label>
+                                <textarea
+                                    id="reassign_note"
+                                    rows="3"
+                                    className="form-control"
+                                    placeholder="Optional note to the branch in-charge and investigators..."
+                                    value={reassignNote}
+                                    onChange={e => setReassignNote(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+
+            {queryTarget && (
+                <Modal
+                    title="Resolve Prosecution Query"
+                    onClose={() => setQueryTarget(null)}
+                    footer={
+                        <>
+                            <button type="button" className="btn btn-outline-navy" onClick={() => setQueryTarget(null)}>Cancel</button>
+                            <button type="submit" form="query-form" className="btn btn-navy" disabled={busy}>
+                                <i className="bi bi-send-fill me-1" />Resolve Query
+                            </button>
+                        </>
+                    }
+                >
+                    <form id="query-form" onSubmit={submitQueryResolution}>
+                        <div className="modal-body">
+                            <div className="mb-3">
+                                <label className="form-label">CASE REFERENCE</label>
+                                <div className="form-control-plaintext fw-bold">#{queryTarget.case_number}</div>
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">PROSECUTION QUERY</label>
+                                <div className="form-control-plaintext small text-dark">
+                                    "{queryTarget.prosecution_query}"
+                                </div>
+                            </div>
+                            <div className="mb-3">
+                                <label htmlFor="query_resolution" className="form-label">Resolution <span className="text-danger">*</span></label>
+                                <textarea
+                                    id="query_resolution"
+                                    rows="3"
+                                    className="form-control"
+                                    placeholder="Directives or answers to provide to the Prosecution Branch..."
+                                    value={queryResolution}
+                                    onChange={e => setQueryResolution(e.target.value)}
+                                    required
                                 />
                             </div>
                         </div>

@@ -86,3 +86,48 @@ exports.categories = async (req, res, next) => {
         next(err);
     }
 };
+
+
+exports.decideReassignment = async (req, res, next) => {
+    try {
+        const user = req.session.user;
+        const result = await supervisorService.decideReassignment(
+            user,
+            req.params.id,
+            req.body.decision,
+            req.body.decision_note
+        );
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        await logAudit(req, user.id, `REASSIGNMENT_${result.decision}`, result.auditDetails);
+
+        res.json({ success: true, message: result.message });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+exports.resolveQuery = async (req, res, next) => {
+    try {
+        const user = req.session.user;
+        const result = await supervisorService.resolveProsecutionQuery(
+            user,
+            req.params.id,
+            req.body.resolution
+        );
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        await logAudit(req, user.id, 'PROSECUTION_QUERY_RESOLVED', result.auditDetails);
+
+        res.json({ success: true, message: result.message });
+    } catch (err) {
+        next(err);
+    }
+};

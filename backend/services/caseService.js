@@ -5,7 +5,10 @@ const { ok, fail } = require('../utils/result');
 const OVERDUE_DAYS_THRESHOLD = 14;
 
 const SUPERVISOR_ROLES = ['Station Commander', 'Admin'];
+const BRANCH_ROLES = ['Branch In-charge'];
+const PROSECUTOR_ROLES = ['Prosecutor'];
 const LINK_ROLES = ['Counter/Intake Officer', 'Station Commander', 'Admin'];
+const COMPLETION_STATUSES = ['Closed', 'Court Pending', 'Forwarded to Prosecution'];
 
 
 async function generateObNumber() {
@@ -50,6 +53,21 @@ async function listCasesForUser(user) {
             ORDER BY c.created_at DESC
         `;
         params = [user.id];
+    } else if (BRANCH_ROLES.includes(user.role)) {
+        query = `
+            ${baseSelect}
+            WHERE c.unit_id = ?
+            GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
+            ORDER BY c.created_at DESC
+        `;
+        params = [user.unit_id];
+    } else if (PROSECUTOR_ROLES.includes(user.role)) {
+        query = `
+            ${baseSelect}
+            WHERE c.status IN ('Forwarded to Prosecution', 'Court Pending', 'Closed')
+            GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
+            ORDER BY c.created_at DESC
+        `;
     } else {
         query = `
             ${baseSelect}
@@ -300,22 +318,63 @@ async function getCaseDetail(caseId, user) {
         WHERE case_id = ?
     `, [caseId]);
 
+    const [minutes] = await db.execute(`
+        SELECT m.id, m.minute_type, m.decision, m.comment, m.created_at,
+               CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS author_name
+        FROM case_minutes m
+        LEFT JOIN users u ON m.author_id = u.id
+        WHERE m.case_id = ?
+        ORDER BY m.created_at ASC
+    `, [caseId]);
+
+    const [custodyLog] = await db.execute(`
+        SELECT cl.*,
+               CONCAT(ho.rank_title, ' ', ho.first_name, ' ', ho.last_name) AS handed_over_by_name,
+               CONCAT(rb.rank_title, ' ', rb.first_name, ' ', rb.last_name) AS received_by_name
+        FROM case_custody_log cl
+        LEFT JOIN users ho ON cl.handed_over_by = ho.id
+        LEFT JOIN users rb ON cl.received_by = rb.id
+        WHERE cl.case_id = ?
+        ORDER BY cl.handed_over_at ASC
+    `, [caseId]);
+
+    const [externalReports] = await db.execute(`
+        SELECT er.*, CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS requested_by_name
+        FROM external_reports er
+        LEFT JOIN users u ON er.requested_by = u.id
+        WHERE er.case_id = ?
+        ORDER BY er.requested_at DESC
+    `, [caseId]);
+
     const isAssignedInvestigator = user.role === 'Investigating Officer' && assignedInvestigatorIds.includes(user.id);
     const isIntakeOfficer = user.role === 'Counter/Intake Officer';
     const isSupervisor = SUPERVISOR_ROLES.includes(user.role);
+    const isBranchOfficer = BRANCH_ROLES.includes(user.role);
+    const isProsecutor = PROSECUTOR_ROLES.includes(user.role);
+
+    const hasPendingCustody = custodyLog.some(entry => entry.status === 'Pending');
 
     const permissions = {
         canAddNote: isAssignedInvestigator,
         canRequestStatus: isAssignedInvestigator && !caseItem.requested_status && caseItem.status === 'Under Investigation',
         canAddEvidence: isAssignedInvestigator,
-        canLinkSuspectVictim: isAssignedInvestigator || isIntakeOfficer || isSupervisor
+        canLinkSuspectVictim: isAssignedInvestigator || isIntakeOfficer || isSupervisor,
+        canRequestExternalReport: isAssignedInvestigator && caseItem.status === 'Under Investigation' && !caseItem.requested_status,
+        canReview: isBranchOfficer && caseItem.branch_review_status === 'Pending Review',
+        canAcknowledgeReceipt: isProsecutor && caseItem.status === 'Forwarded to Prosecution' && hasPendingCustody,
+        canUpdateFileLocation: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
+        canRecordCourt: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
+        canSendQuery: isProsecutor && !caseItem.prosecution_query
     };
 
     return ok({
         caseItem,
-        investigators,
         assignedInvestigatorNames,
+        investigators,
         notes,
+        minutes,
+        custodyLog,
+        externalReports,
         evidenceItems,
         suspects,
         victims,
@@ -348,7 +407,7 @@ async function addCaseNote(caseId, user, note) {
 
 
 async function requestStatusChange(caseId, user, requestedStatus, statusRequestNotes) {
-    if (!['Closed', 'Court Pending'].includes(requestedStatus)) {
+    if (!COMPLETION_STATUSES.includes(requestedStatus)) {
         return fail(400, 'Invalid status request.');
     }
 
@@ -366,12 +425,13 @@ async function requestStatusChange(caseId, user, requestedStatus, statusRequestN
         return fail(403, 'Only investigators assigned to this case can request a status change.');
     }
     if (current.requested_status) {
-        return fail(400, 'A status change request is already pending supervisor review.');
+        return fail(400, 'A status change request is already pending branch review.');
     }
 
     await db.execute(
         `UPDATE cases 
-         SET requested_status = ?, status_request_notes = ?, status_requested_by = ?, status_requested_at = NOW() 
+         SET requested_status = ?, status_request_notes = ?, status_requested_by = ?, status_requested_at = NOW(),
+             branch_review_status = 'Pending Review', branch_reviewed_by = NULL, branch_reviewed_at = NULL
          WHERE id = ?`,
         [requestedStatus, statusRequestNotes || null, user.id, caseId]
     );
@@ -465,7 +525,41 @@ async function linkVictim(caseId, user, data) {
 }
 
 
+async function requestExternalReport(caseId, user, data) {
+    const { report_type, notes } = data;
+
+    if (!report_type || !['Social Welfare Report', 'Medical Report'].includes(report_type)) {
+        return fail(400, 'Invalid external report type.');
+    }
+
+    if (!await caseExists(caseId)) {
+        return fail(404, 'Case not found.');
+    }
+
+    const isAssigned = await isAssignedInvestigator(caseId, user.id);
+    if (user.role !== 'Investigating Officer' || !isAssigned) {
+        return fail(403, 'Only investigators assigned to this case can request external reports.');
+    }
+
+    await db.execute(
+        `INSERT INTO external_reports (case_id, report_type, requested_by, status, notes)
+         VALUES (?, ?, ?, 'Requested', ?)`,
+        [caseId, report_type, user.id, notes || null]
+    );
+
+    return ok({ caseId, reportType: report_type });
+}
+
+
 async function getPersonalDashboard(user) {
+    if (BRANCH_ROLES.includes(user.role)) {
+        return ok({ variant: 'redirect', role: user.role, target: '/branch/dashboard' });
+    }
+
+    if (PROSECUTOR_ROLES.includes(user.role)) {
+        return ok({ variant: 'redirect', role: user.role, target: '/prosecution/dashboard' });
+    }
+
     if (user.role === 'Investigating Officer') {
         const [[kpi]] = await db.execute(`
             SELECT 
@@ -544,5 +638,6 @@ module.exports = {
     logEvidence,
     linkSuspect,
     linkVictim,
+    requestExternalReport,
     getPersonalDashboard
 };

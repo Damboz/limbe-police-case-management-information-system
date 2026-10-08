@@ -22,6 +22,8 @@ import SupervisorDashboard from './pages/supervisor/SupervisorDashboard';
 import SupervisorAnalytics from './pages/supervisor/Analytics';
 import HotspotsDetail from './pages/supervisor/HotspotsDetail';
 import CategoriesDetail from './pages/supervisor/CategoriesDetail';
+import BranchDashboard from './pages/branch/BranchDashboard';
+import ProsecutionDashboard from './pages/prosecution/ProsecutionDashboard';
 import Forbidden from './pages/Forbidden';
 import NotFound from './pages/NotFound';
 
@@ -61,6 +63,8 @@ function LoginRoute() {
 const CMD = ['Station Commander', 'Admin'];
 const CFI = ['Investigating Officer', 'Counter/Intake Officer'];
 const OPS = ['Investigating Officer', 'Station Commander', 'Admin'];
+const BRN = ['Branch In-charge'];
+const PRS = ['Prosecutor'];
 
 
 export default function App() {
@@ -91,6 +95,9 @@ export default function App() {
                 <Route path="/supervisor/analytics" element={<ProtectedRoute roles={CMD}><SupervisorAnalytics /></ProtectedRoute>} />
                 <Route path="/supervisor/analytics/hotspots" element={<ProtectedRoute roles={CMD}><HotspotsDetail /></ProtectedRoute>} />
                 <Route path="/supervisor/analytics/categories" element={<ProtectedRoute roles={CMD}><CategoriesDetail /></ProtectedRoute>} />
+
+                <Route path="/branch/dashboard" element={<ProtectedRoute roles={BRN}><BranchDashboard /></ProtectedRoute>} />
+                <Route path="/prosecution/dashboard" element={<ProtectedRoute roles={PRS}><ProsecutionDashboard /></ProtectedRoute>} />
 
                 <Route path="/403" element={<Forbidden />} />
                 <Route path="*" element={<NotFound />} />
