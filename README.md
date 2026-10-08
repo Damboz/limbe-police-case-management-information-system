@@ -1173,7 +1173,7 @@ Both create 15 tables in three groups:
 
 | Group | Tables |
 |---|---|
-| Lookup | `roles`, `station_units`, `crime_categories` |
+| Lookup | `roles`, `station_branch`, `crime_categories` |
 | People | `users` |
 | Cases | `cases`, `case_investigators`, `case_suspects`, `suspects`, `victims`, `evidence`, `case_notes` |
 | System | `audit_logs`, `sessions` |
