@@ -66,7 +66,9 @@ async function getDashboard(user) {
             CURRENT_DATE - c.created_at::date AS days_open,
             STRING_AGG(CONCAT(inv.rank_title, ' ', inv.first_name, ' ', inv.last_name)
                 , ', ' ORDER BY ci.is_lead DESC, inv.last_name) AS investigator_names,
-            COUNT(DISTINCT c.id) OVER () AS total_branch_active
+            (SELECT COUNT(*) FROM cases c2
+                WHERE c2.unit_id = c.unit_id
+                  AND c2.status IN ('Reported', 'Under Investigation')) AS total_branch_active
         FROM cases c
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
         LEFT JOIN case_investigators ci ON c.id = ci.case_id
