@@ -45,15 +45,7 @@ async function listCasesForUser(user) {
     let query;
     let params = [];
 
-    if (user.role === 'Investigating Officer') {
-        query = `
-            ${baseSelect}
-            WHERE c.id IN (SELECT DISTINCT case_id FROM case_investigators WHERE investigator_id = ?)
-            GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
-            ORDER BY c.created_at DESC
-        `;
-        params = [user.id];
-    } else if (BRANCH_ROLES.includes(user.role)) {
+    if (BRANCH_ROLES.includes(user.role)) {
         query = `
             ${baseSelect}
             WHERE c.branch_id = ?
@@ -68,12 +60,23 @@ async function listCasesForUser(user) {
             GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
             ORDER BY c.created_at DESC
         `;
-    } else {
+    } else if (SUPERVISOR_ROLES.includes(user.role)) {
         query = `
             ${baseSelect}
             GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
             ORDER BY c.created_at DESC
         `;
+    } else {
+        // Any other officer sees the cases assigned to them plus the cases they
+        // registered. Investigator status comes from assignment, not the role.
+        query = `
+            ${baseSelect}
+            WHERE c.id IN (SELECT DISTINCT case_id FROM case_investigators WHERE investigator_id = ?)
+               OR c.intake_officer_id = ?
+            GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
+            ORDER BY c.created_at DESC
+        `;
+        params = [user.id, user.id];
     }
 
     const [cases] = await db.execute(query, params);
@@ -350,7 +353,7 @@ async function getCaseDetail(caseId, user) {
         ORDER BY er.requested_at DESC
     `, [caseId]);
 
-    const isAssignedInvestigator = user.role === 'Investigating Officer' && assignedInvestigatorIds.includes(user.id);
+    const isAssignedInvestigator = assignedInvestigatorIds.includes(user.id);
     const isIntakeOfficer = user.role === 'Counter/Intake Officer';
     const isSupervisor = SUPERVISOR_ROLES.includes(user.role);
     const isBranchOfficer = BRANCH_ROLES.includes(user.role);
@@ -397,7 +400,7 @@ async function addCaseNote(caseId, user, note) {
     }
 
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    if (user.role !== 'Investigating Officer' || !isAssigned) {
+    if (!isAssigned) {
         return fail(403, 'Only investigators assigned to this case can add notes.');
     }
 
@@ -425,7 +428,7 @@ async function requestStatusChange(caseId, user, requestedStatus, statusRequestN
     const current = caseRows[0];
 
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    if (user.role !== 'Investigating Officer' || !isAssigned) {
+    if (!isAssigned) {
         return fail(403, 'Only investigators assigned to this case can request a status change.');
     }
     if (current.requested_status) {
@@ -452,7 +455,7 @@ async function logEvidence(caseId, user, data) {
     }
 
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    if (user.role !== 'Investigating Officer' || !isAssigned) {
+    if (!isAssigned) {
         return fail(403, 'Only investigators assigned to this case can log evidence.');
     }
 
@@ -482,7 +485,7 @@ async function linkSuspect(caseId, user, data) {
     }
 
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    const allowed = (user.role === 'Investigating Officer' && isAssigned) || LINK_ROLES.includes(user.role);
+    const allowed = isAssigned || LINK_ROLES.includes(user.role);
     if (!allowed) {
         return fail(403, 'You do not have permission to link suspects to this case.');
     }
@@ -514,7 +517,7 @@ async function linkVictim(caseId, user, data) {
     }
 
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    const allowed = (user.role === 'Investigating Officer' && isAssigned) || LINK_ROLES.includes(user.role);
+    const allowed = isAssigned || LINK_ROLES.includes(user.role);
     if (!allowed) {
         return fail(403, 'You do not have permission to link victims to this case.');
     }
@@ -541,7 +544,7 @@ async function requestExternalReport(caseId, user, data) {
     }
 
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    if (user.role !== 'Investigating Officer' || !isAssigned) {
+    if (!isAssigned) {
         return fail(403, 'Only investigators assigned to this case can request external reports.');
     }
 

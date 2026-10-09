@@ -147,7 +147,7 @@ async function getDashboard(user) {
                  WHERE ci.investigator_id = u.id AND ca.status = 'Under Investigation') AS active_case_count
         FROM users u
         LEFT JOIN station_branch su ON u.branch_id = su.id
-        WHERE u.role IN ('Investigating Officer', 'investigator') AND u.is_active = 1
+        WHERE u.is_active = 1 AND u.role NOT IN ('Admin', 'admin')
         ORDER BY active_case_count ASC
     `);
 
@@ -275,11 +275,11 @@ async function proposeReassignment(user, caseId, currentInvestigatorId, proposed
     const targetId = String(proposedInvestigatorId);
     const [inv] = await db.execute(
         `SELECT badge_number, rank_title, first_name, last_name
-         FROM users WHERE id = ? AND role IN ('Investigating Officer', 'investigator') AND is_active = 1`,
+         FROM users WHERE id = ? AND is_active = 1 AND role NOT IN ('Admin', 'admin')`,
         [targetId]
     );
     if (inv.length === 0) {
-        return fail(400, 'The proposed officer is not an active investigator.');
+        return fail(400, 'The proposed officer is not an active member of staff.');
     }
 
     const currentId = currentInvestigatorId ? String(currentInvestigatorId) : null;

@@ -127,7 +127,7 @@ exports.exportStationPerformancePDF = async (req, res, next) => {
             FROM users u
             LEFT JOIN case_investigators ci ON u.id = ci.investigator_id
             LEFT JOIN cases c ON ci.case_id = c.id AND c.status = 'Under Investigation' ${inWindowAnd.sql}
-            WHERE u.role IN ('Investigating Officer', 'investigator') AND u.is_active = 1
+            WHERE u.is_active = 1 AND u.role NOT IN ('Admin', 'admin')
             GROUP BY u.id
             ORDER BY active_cases DESC
         `, inWindowAnd.params);
@@ -267,7 +267,7 @@ exports.exportOfficerProductivityPDF = async (req, res, next) => {
             FROM users u
             LEFT JOIN case_investigators ci ON u.id = ci.investigator_id
             LEFT JOIN cases c ON ci.case_id = c.id ${inWindowAnd.sql}
-            WHERE u.role IN ('Investigating Officer', 'investigator') AND u.is_active = 1
+            WHERE u.is_active = 1 AND u.role NOT IN ('Admin', 'admin')
             GROUP BY u.id
             ORDER BY total_assigned DESC
         `, inWindowAnd.params);

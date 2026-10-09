@@ -110,7 +110,7 @@ async function getDashboard() {
         FROM users u
         LEFT JOIN case_investigators ci ON u.id = ci.investigator_id
         LEFT JOIN cases c ON ci.case_id = c.id AND c.status = 'Under Investigation'
-        WHERE u.role IN ('Investigating Officer', 'investigator') AND u.is_active = 1
+        WHERE u.is_active = 1 AND u.role NOT IN ('Admin', 'admin')
         GROUP BY u.id
         ORDER BY active_case_count ASC
     `);
@@ -174,12 +174,12 @@ async function assignCase(user, caseId, investigatorIds, notes) {
     const [inv] = await db.execute(
         `SELECT id, badge_number, rank_title, first_name, last_name 
          FROM users 
-         WHERE id IN (${placeholders}) AND role IN ('Investigating Officer', 'investigator') AND is_active = 1`,
+         WHERE id IN (${placeholders}) AND is_active = 1 AND role NOT IN ('Admin', 'admin')`,
         ids
     );
 
     if (inv.length === 0) {
-        return fail(400, 'Selected officers are not active investigators.');
+        return fail(400, 'Please select active officers (administrators cannot be assigned as investigators).');
     }
 
     const [caseRows] = await db.execute('SELECT id FROM cases WHERE id = ?', [caseId]);

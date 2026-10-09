@@ -6,10 +6,10 @@ const { isAssignedInvestigator } = require('./assignmentService');
 
 function buildScope(user) {
     const isInvestigator = user.role === 'Investigating Officer';
-    const whereClause = isInvestigator
-        ? 'WHERE c.id IN (SELECT ci.case_id FROM case_investigators ci WHERE ci.investigator_id = ?)'
-        : 'WHERE c.intake_officer_id = ?';
-    return { isInvestigator, whereClause, params: [user.id] };
+    // An officer's scope is the cases assigned to them plus the cases they
+    // registered, matching the case list. Investigator status is per-case.
+    const whereClause = 'WHERE (c.id IN (SELECT ci.case_id FROM case_investigators ci WHERE ci.investigator_id = ?) OR c.intake_officer_id = ?)';
+    return { isInvestigator, whereClause, params: [user.id, user.id] };
 }
 
 
@@ -85,19 +85,17 @@ async function getMyAnalytics(user) {
 
 
 async function getCasesForReport(user, period) {
-    const { isInvestigator } = buildScope(user);
+    const { whereClause, params } = buildScope(user);
     const window = periodAnd(period, 'c.created_at');
 
     const [cases] = await db.execute(`
         SELECT c.*, cc.name AS crime_category
         FROM cases c
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
-        ${isInvestigator
-            ? 'WHERE c.id IN (SELECT ci.case_id FROM case_investigators ci WHERE ci.investigator_id = ?)'
-            : 'WHERE c.intake_officer_id = ?'}
+        ${whereClause}
         ${window.sql}
         ORDER BY c.created_at DESC
-    `, [user.id, ...window.params]);
+    `, [...params, ...window.params]);
 
     return cases;
 }
@@ -129,7 +127,7 @@ async function prepareSuspectInvitation(caseId, suspectId, user, appearanceDate)
     }
 
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    const allowed = (user.role === 'Investigating Officer' && isAssigned)
+    const allowed = isAssigned
         || ['Counter/Intake Officer', 'Station Commander', 'Admin'].includes(user.role);
     if (!allowed) {
         return fail(403, 'You do not have permission to generate a letter for this case.');
