@@ -93,7 +93,8 @@ a:hover {
 .app-wrapper {
   display: flex;
   min-height: 100vh;
-  width: 100vw;
+  width: 100%;
+  max-width: 100%;
   overflow-x: hidden;
 }
 
@@ -156,7 +157,7 @@ a:hover {
 }
 
 .table-responsive table {
-  min-width: 880px;
+  min-width: 720px;
 }
 
 
@@ -164,6 +165,8 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
@@ -427,6 +430,8 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 
@@ -467,6 +472,7 @@ a:hover {
 
 .table-responsive {
   border-radius: var(--mps-radius-md);
+  -webkit-overflow-scrolling: touch;
 }
 
 .table {
@@ -742,12 +748,13 @@ a:hover {
     flex-direction: column;
   }
 
+  /* Sidebar stays fixed and becomes an off-canvas drawer instead of a
+     static full-width block that the overlay would cover. */
   .sidebar {
-    position: static;
-    width: 100%;
-    height: auto;
-    min-height: auto;
-    overflow-y: visible;
+    width: 280px;
+    max-width: 85vw;
+    height: 100vh;
+    box-shadow: var(--mps-shadow-lg);
   }
 
   .topbar {
@@ -758,14 +765,75 @@ a:hover {
   .main-content {
     margin-left: 0;
     padding-top: var(--mps-topbar-height);
+    padding-bottom: 0;
   }
 
+  /* The footer wraps to multiple lines on narrow screens, so let it flow
+     with the content rather than overlapping it as a fixed bar. */
   .system-footer,
   .main-content .system-footer {
+    position: static;
     left: 0;
   }
 
   .content-body {
     padding: 1rem;
+  }
+
+  .filter-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .content-body {
+    padding: 0.75rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-header > div:last-child {
+    width: 100%;
+  }
+
+  .page-title {
+    font-size: 1.25rem;
+  }
+
+  .card-body {
+    padding: 1rem;
+  }
+
+  .card-header {
+    padding: 0.875rem 1rem;
+  }
+
+  .table-responsive table {
+    min-width: 560px;
+  }
+
+  .table thead th {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .table tbody td {
+    padding: 0.7rem 0.75rem;
+  }
+
+  .auth-header {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .auth-header .auth-badge-icon {
+    width: 76px;
+    height: 76px;
+    font-size: 1.5rem;
+  }
+
+  .auth-body {
+    padding: 1.5rem 1.25rem;
   }
 }
