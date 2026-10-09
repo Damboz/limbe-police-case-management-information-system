@@ -65,6 +65,7 @@ export default function UserEdit() {
     }, [data]);
 
     const set = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value }));
+    const setRole = (e) => setForm(prev => ({ ...prev, role: e.target.value, branch_id: '' }));
     const setDigits = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value.replace(/[^0-9]/g, '') }));
 
     const saveProfile = async (e) => {
@@ -203,28 +204,26 @@ export default function UserEdit() {
                                 <div className="row g-3 mb-4">
                                     <div className="col-md-6">
                                         <label htmlFor="role" className="form-label small fw-semibold text-muted">System Assignment / Role *</label>
-                                        <select className="form-select" id="role" value={form.role} onChange={set('role')} required>
+                                        <select className="form-select" id="role" value={form.role} onChange={setRole} required>
                                             {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                                         </select>
                                     </div>
-                                    <div className="col-md-6">
-                                        <label htmlFor="branch_id" className="form-label small fw-semibold text-muted">
-                                            {form.role === 'Branch In-charge' ? 'Headed Branch *' : 'Assigned Branch'}
-                                        </label>
-                                        <select
-                                            className="form-select"
-                                            id="branch_id"
-                                            value={form.branch_id}
-                                            onChange={set('branch_id')}
-                                            required={form.role === 'Branch In-charge'}
-                                        >
-                                            <option value="">{form.role === 'Branch In-charge' ? 'Select the branch this officer heads...' : 'No branch assigned'}</option>
-                                            {(options?.branches || []).map(b => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
-                                        </select>
-                                        {form.role === 'Branch In-charge' && (
+                                    {form.role === 'Branch In-charge' && (
+                                        <div className="col-md-6">
+                                            <label htmlFor="branch_id" className="form-label small fw-semibold text-muted">Headed Branch *</label>
+                                            <select
+                                                className="form-select"
+                                                id="branch_id"
+                                                value={form.branch_id}
+                                                onChange={set('branch_id')}
+                                                required
+                                            >
+                                                <option value="">Select the branch this officer heads...</option>
+                                                {(options?.branches || []).map(b => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
+                                            </select>
                                             <div className="form-text">This Branch In-charge will only see cases from this branch.</div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="d-flex justify-content-end gap-2">

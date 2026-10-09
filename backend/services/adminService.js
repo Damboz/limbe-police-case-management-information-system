@@ -128,7 +128,7 @@ async function createUser(body) {
     }
 
     const roleMap = getRoleMapping(role);
-    const parsedBranchId = branch_id ? parseInt(branch_id, 10) : null;
+    const parsedBranchId = roleMap.role_id === 5 && branch_id ? parseInt(branch_id, 10) : null;
 
     if (roleMap.role_id === 5 && !parsedBranchId) {
         return fail(400, 'Please select the branch that this Branch In-charge heads.');
@@ -182,7 +182,7 @@ async function updateUser(userId, body) {
     }
 
     const roleMap = getRoleMapping(role);
-    const parsedBranchId = branch_id ? parseInt(branch_id, 10) : null;
+    const parsedBranchId = roleMap.role_id === 5 && branch_id ? parseInt(branch_id, 10) : null;
 
     if (roleMap.role_id === 5 && !parsedBranchId) {
         return fail(400, 'Please select the branch that this Branch In-charge heads.');
