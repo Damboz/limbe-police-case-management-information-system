@@ -43,7 +43,7 @@ export default function CaseList() {
                                 <th>Priority</th>
                                 <th>Status</th>
                                 <th>Branch</th>
-                                <th>Intake Officer</th>
+                                <th>Recorded By</th>
                                 <th>Assigned To</th>
                                 <th>Date Registered</th>
                                 <th className="text-end">Action</th>
@@ -68,7 +68,7 @@ export default function CaseList() {
                                         <td><PriorityBadge priority={item.priority} /></td>
                                         <td><StatusBadge status={item.status} /></td>
                                         <td className="small text-muted">{item.branch_name || '—'}</td>
-                                        <td className="small">{item.intake_officer_name || '—'}</td>
+                                        <td className="small">{item.recorded_by_name || '—'}</td>
                                         <td className="small">
                                             {item.assigned_officer_name
                                                 ? item.assigned_officer_name

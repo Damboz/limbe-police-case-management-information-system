@@ -1,13 +1,18 @@
 const db = require('../config/db');
 const { isAssignedInvestigator, getAssignedInvestigators } = require('./assignmentService');
 const { ok, fail } = require('../utils/result');
+const {
+    ROLES,
+    CASE_STATUSES,
+    roleIn
+} = require('../roles');
 
 const OVERDUE_DAYS_THRESHOLD = 14;
 
-const SUPERVISOR_ROLES = ['Station Commander', 'Admin'];
-const BRANCH_ROLES = ['Branch In-charge'];
-const PROSECUTOR_ROLES = ['Prosecutor'];
-const LINK_ROLES = ['Counter/Intake Officer', 'Station Commander', 'Admin'];
+const SUPERVISOR_ROLES = [ROLES.STATION_OFFICER, ROLES.ADMIN];
+const BRANCH_ROLES = [ROLES.BRANCH_OFFICER];
+const PROSECUTOR_ROLES = [ROLES.PROSECUTOR];
+const LINK_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN];
 const COMPLETION_STATUSES = ['Closed', 'Court Pending', 'Forwarded to Prosecution'];
 
 
@@ -26,18 +31,18 @@ async function generateObNumber() {
 
 async function listCasesForUser(user) {
     const baseSelect = `
-            SELECT 
+            SELECT
                 c.id, c.ob_number, c.complainant_name, c.priority, c.status, c.created_at,
                 cc.name AS crime_category,
                 su.name AS branch_name,
-                CONCAT(intake.rank_title, ' ', intake.first_name, ' ', intake.last_name) AS intake_officer_name,
+                CONCAT(recorder.rank_title, ' ', recorder.first_name, ' ', recorder.last_name) AS recorded_by_name,
                 STRING_AGG(CONCAT(assigned.rank_title, ' ', assigned.first_name, ' ', assigned.last_name),
                     ', ' ORDER BY ci.is_lead DESC, assigned.last_name) AS assigned_officer_name,
                 COUNT(DISTINCT ci.investigator_id) AS investigator_count
             FROM cases c
             LEFT JOIN crime_categories cc ON c.category_id = cc.id
             LEFT JOIN station_branch su ON c.branch_id = su.id
-            LEFT JOIN users intake ON c.intake_officer_id = intake.id
+            LEFT JOIN users recorder ON c.recorded_by = recorder.id
             LEFT JOIN case_investigators ci ON c.id = ci.case_id
             LEFT JOIN users assigned ON ci.investigator_id = assigned.id
     `;
@@ -45,35 +50,36 @@ async function listCasesForUser(user) {
     let query;
     let params = [];
 
-    if (BRANCH_ROLES.includes(user.role)) {
+    if (roleIn(user, BRANCH_ROLES)) {
         query = `
             ${baseSelect}
             WHERE c.branch_id = ?
-            GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
+            GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
         params = [user.branch_id];
-    } else if (PROSECUTOR_ROLES.includes(user.role)) {
+    } else if (roleIn(user, PROSECUTOR_ROLES)) {
         query = `
             ${baseSelect}
             WHERE c.status IN ('Forwarded to Prosecution', 'Court Pending', 'Closed')
-            GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
+            GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
-    } else if (SUPERVISOR_ROLES.includes(user.role)) {
+    } else if (roleIn(user, SUPERVISOR_ROLES)) {
         query = `
             ${baseSelect}
-            GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
+            GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
     } else {
-        // Any other officer sees the cases assigned to them plus the cases they
-        // registered. Investigator status comes from assignment, not the role.
+        // Any other officer (Police Officer) sees the cases assigned
+        // to them plus the cases they recorded. Investigator status
+        // comes from assignment, not the role.
         query = `
             ${baseSelect}
             WHERE c.id IN (SELECT DISTINCT case_id FROM case_investigators WHERE investigator_id = ?)
-               OR c.intake_officer_id = ?
-            GROUP BY c.id, cc.name, su.name, intake.rank_title, intake.first_name, intake.last_name
+               OR c.recorded_by = ?
+            GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
         params = [user.id, user.id];
@@ -97,7 +103,7 @@ async function caseExists(caseId) {
 }
 
 
-async function createCase(intakeOfficerId, body) {
+async function createCase(recordingOfficerId, body) {
     const {
         complainant_name,
         complainant_id_number,
@@ -138,8 +144,8 @@ async function createCase(intakeOfficerId, body) {
         `INSERT INTO cases (
             ob_number, complainant_name, complainant_id_number, complainant_phone,
             complainant_address, complainant_gender, category_id, branch_id, priority,
-            incident_datetime, incident_location, incident_details, intake_officer_id, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Reported')`,
+            incident_datetime, incident_location, incident_details, recorded_by, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             obNumber,
             complainant_name,
@@ -153,7 +159,8 @@ async function createCase(intakeOfficerId, body) {
             incident_datetime || null,
             incident_location,
             incident_details,
-            intakeOfficerId
+            recordingOfficerId,
+            CASE_STATUSES.REGISTERED
         ]
     );
 
@@ -268,16 +275,16 @@ async function searchCases(query, searchType) {
 
 async function getCaseDetail(caseId, user) {
     const [rows] = await db.execute(`
-        SELECT 
+        SELECT
             c.*,
             cc.name AS crime_category,
             su.name AS branch_name,
-            CONCAT(intake.rank_title, ' ', intake.first_name, ' ', intake.last_name) AS intake_officer_name,
+            CONCAT(recorder.rank_title, ' ', recorder.first_name, ' ', recorder.last_name) AS recorded_by_name,
             CONCAT(req_user.rank_title, ' ', req_user.first_name, ' ', req_user.last_name) AS status_requested_by_name
         FROM cases c
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
         LEFT JOIN station_branch su ON c.branch_id = su.id
-        LEFT JOIN users intake ON c.intake_officer_id = intake.id
+        LEFT JOIN users recorder ON c.recorded_by = recorder.id
         LEFT JOIN users req_user ON c.status_requested_by = req_user.id
         WHERE c.id = ?
     `, [caseId]);
@@ -287,7 +294,7 @@ async function getCaseDetail(caseId, user) {
     }
     const caseItem = rows[0];
 
-    if (BRANCH_ROLES.includes(user.role) && (!user.branch_id || caseItem.branch_id !== user.branch_id)) {
+    if (roleIn(user, BRANCH_ROLES) && (!user.branch_id || caseItem.branch_id !== user.branch_id)) {
         return fail(403, 'You can only access cases from your own branch.');
     }
 
@@ -354,10 +361,9 @@ async function getCaseDetail(caseId, user) {
     `, [caseId]);
 
     const isAssignedInvestigator = assignedInvestigatorIds.includes(user.id);
-    const isIntakeOfficer = user.role === 'Counter/Intake Officer';
-    const isSupervisor = SUPERVISOR_ROLES.includes(user.role);
-    const isBranchOfficer = BRANCH_ROLES.includes(user.role);
-    const isProsecutor = PROSECUTOR_ROLES.includes(user.role);
+    const isSupervisor = roleIn(user, SUPERVISOR_ROLES);
+    const isBranchOfficer = roleIn(user, BRANCH_ROLES);
+    const isProsecutor = roleIn(user, PROSECUTOR_ROLES);
 
     const hasPendingCustody = custodyLog.some(entry => entry.status === 'Pending');
 
@@ -365,7 +371,7 @@ async function getCaseDetail(caseId, user) {
         canAddNote: isAssignedInvestigator,
         canRequestStatus: isAssignedInvestigator && !caseItem.requested_status && caseItem.status === 'Under Investigation',
         canAddEvidence: isAssignedInvestigator,
-        canLinkSuspectVictim: isAssignedInvestigator || isIntakeOfficer || isSupervisor,
+        canLinkSuspectVictim: isAssignedInvestigator || roleIn(user, LINK_ROLES),
         canRequestExternalReport: isAssignedInvestigator && caseItem.status === 'Under Investigation' && !caseItem.requested_status,
         canReview: isBranchOfficer && caseItem.branch_review_status === 'Pending Review',
         canAcknowledgeReceipt: isProsecutor && caseItem.status === 'Forwarded to Prosecution' && hasPendingCustody,
@@ -436,7 +442,7 @@ async function requestStatusChange(caseId, user, requestedStatus, statusRequestN
     }
 
     await db.execute(
-        `UPDATE cases 
+        `UPDATE cases
          SET requested_status = ?, status_request_notes = ?, status_requested_by = ?, status_requested_at = NOW(),
              branch_review_status = 'Pending Review', branch_reviewed_by = NULL, branch_reviewed_at = NULL
          WHERE id = ?`,
@@ -485,7 +491,7 @@ async function linkSuspect(caseId, user, data) {
     }
 
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    const allowed = isAssigned || LINK_ROLES.includes(user.role);
+    const allowed = isAssigned || roleIn(user, LINK_ROLES);
     if (!allowed) {
         return fail(403, 'You do not have permission to link suspects to this case.');
     }
@@ -517,7 +523,7 @@ async function linkVictim(caseId, user, data) {
     }
 
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    const allowed = isAssigned || LINK_ROLES.includes(user.role);
+    const allowed = isAssigned || roleIn(user, LINK_ROLES);
     if (!allowed) {
         return fail(403, 'You do not have permission to link victims to this case.');
     }
@@ -559,74 +565,62 @@ async function requestExternalReport(caseId, user, data) {
 
 
 async function getPersonalDashboard(user) {
-    if (BRANCH_ROLES.includes(user.role)) {
+    if (roleIn(user, BRANCH_ROLES)) {
         return ok({ variant: 'redirect', role: user.role, target: '/branch/dashboard' });
     }
 
-    if (PROSECUTOR_ROLES.includes(user.role)) {
+    if (roleIn(user, PROSECUTOR_ROLES)) {
         return ok({ variant: 'redirect', role: user.role, target: '/prosecution/dashboard' });
     }
 
-    if (user.role === 'Investigating Officer') {
-        const [[kpi]] = await db.execute(`
-            SELECT 
-                COUNT(DISTINCT c.id) AS total_assigned,
-                SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS active_count,
-                SUM(CASE WHEN c.status = 'Under Investigation' AND CURRENT_DATE - c.created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END) AS overdue_count,
-                SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END) AS closed_count,
-                SUM(CASE WHEN c.requested_status IS NOT NULL THEN 1 ELSE 0 END) AS pending_request_count
-            FROM cases c
-            JOIN case_investigators ci ON c.id = ci.case_id
-            WHERE ci.investigator_id = ?
-        `, [user.id]);
-
-        const [assignedCases] = await db.execute(`
-            SELECT 
-                c.id, c.ob_number, c.incident_details AS title, cc.name AS crime_category,
-                c.priority, c.status, c.requested_status, c.created_at,
-                CURRENT_DATE - c.created_at::date AS days_open
-            FROM cases c
-            JOIN case_investigators ci ON c.id = ci.case_id
-            LEFT JOIN crime_categories cc ON c.category_id = cc.id
-            WHERE ci.investigator_id = ?
-            GROUP BY c.id, cc.name
-            ORDER BY CASE c.priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, c.created_at ASC
-        `, [user.id]);
-
-        return ok({
-            variant: 'investigator',
-            role: user.role,
-            overdueDaysThreshold: OVERDUE_DAYS_THRESHOLD,
-            kpi: {
-                totalAssigned: kpi.total_assigned || 0,
-                active: kpi.active_count || 0,
-                overdue: kpi.overdue_count || 0,
-                closed: kpi.closed_count || 0,
-                pendingRequest: kpi.pending_request_count || 0
-            },
-            assignedCases
-        });
+    if (roleIn(user, [ROLES.STATION_OFFICER])) {
+        return ok({ variant: 'redirect', role: user.role, target: '/supervisor/dashboard' });
     }
 
-    const [[intakeStats]] = await db.execute(`
-        SELECT COUNT(*) AS total_intake
-        FROM cases
-        WHERE intake_officer_id = ? AND DATE(created_at) = CURRENT_DATE
+    // The Records Officer dashboard arrives with the numbering
+    // workflow; until then the endpoint reports an empty desk.
+    if (roleIn(user, [ROLES.RECORDS_OFFICER])) {
+        return ok({ variant: 'records', role: user.role });
+    }
+
+    // Police Officer: the cases assigned to them.
+    const [[kpi]] = await db.execute(`
+        SELECT
+            COUNT(DISTINCT c.id) AS total_assigned,
+            SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS active_count,
+            SUM(CASE WHEN c.status = 'Under Investigation' AND CURRENT_DATE - c.created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END) AS overdue_count,
+            SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END) AS closed_count,
+            SUM(CASE WHEN c.requested_status IS NOT NULL THEN 1 ELSE 0 END) AS pending_request_count
+        FROM cases c
+        JOIN case_investigators ci ON c.id = ci.case_id
+        WHERE ci.investigator_id = ?
     `, [user.id]);
 
-    const [recentIntakes] = await db.execute(`
-        SELECT id, ob_number, complainant_name, priority, status, created_at
-        FROM cases
-        WHERE intake_officer_id = ?
-        ORDER BY created_at DESC
-        LIMIT 10
+    const [assignedCases] = await db.execute(`
+        SELECT
+            c.id, c.ob_number, c.incident_details AS title, cc.name AS crime_category,
+            c.priority, c.status, c.requested_status, c.created_at,
+            CURRENT_DATE - c.created_at::date AS days_open
+        FROM cases c
+        JOIN case_investigators ci ON c.id = ci.case_id
+        LEFT JOIN crime_categories cc ON c.category_id = cc.id
+        WHERE ci.investigator_id = ?
+        GROUP BY c.id, cc.name
+        ORDER BY CASE c.priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, c.created_at ASC
     `, [user.id]);
 
     return ok({
-        variant: 'intake',
+        variant: 'investigator',
         role: user.role,
-        todayIntakeCount: intakeStats.total_intake || 0,
-        recentIntakes
+        overdueDaysThreshold: OVERDUE_DAYS_THRESHOLD,
+        kpi: {
+            totalAssigned: kpi.total_assigned || 0,
+            active: kpi.active_count || 0,
+            overdue: kpi.overdue_count || 0,
+            closed: kpi.closed_count || 0,
+            pendingRequest: kpi.pending_request_count || 0
+        },
+        assignedCases
     });
 }
 

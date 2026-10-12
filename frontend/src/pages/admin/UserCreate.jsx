@@ -13,10 +13,10 @@ const MIN_PASSWORD_LENGTH = 6;
 const RANKS = ['Constable', 'Sergeant', 'Inspector', 'Assistant Superintendent', 'Superintendent', 'Station Commander'];
 
 const ROLE_OPTIONS = [
-    { value: 'Police Officer', label: 'Police Officer / Desk Officer' },
-    { value: 'Investigator', label: 'Investigator / Detective' },
-    { value: 'Supervisor', label: 'Supervisor / Station Commander' },
-    { value: 'Branch In-charge', label: 'Branch In-charge' },
+    { value: 'Police Officer', label: 'Police Officer' },
+    { value: 'Records Officer', label: 'Records Officer' },
+    { value: 'Station Officer', label: 'Station Officer' },
+    { value: 'Branch Officer', label: 'Branch Officer' },
     { value: 'Prosecutor', label: 'Prosecutor' },
     { value: 'Admin', label: 'System Administrator' }
 ];
@@ -36,14 +36,14 @@ export default function UserCreate() {
         email: '',
         phone_number: '',
         role: '',
-        branch_id: '',
+        branch: '',
         password: ''
     });
     const [error, setError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
     const set = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value }));
-    const setRole = (e) => setForm(prev => ({ ...prev, role: e.target.value, branch_id: '' }));
+    const setRole = (e) => setForm(prev => ({ ...prev, role: e.target.value, branch: '' }));
     const setDigits = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value.replace(/[^0-9]/g, '') }));
 
     const handleSubmit = async (e) => {
@@ -143,20 +143,20 @@ export default function UserCreate() {
                                     </select>
                                 </div>
 
-                                {form.role === 'Branch In-charge' && (
+                                {form.role === 'Branch Officer' && (
                                     <div className="col-md-6">
-                                        <label htmlFor="branch_id" className="form-label">Headed Branch *</label>
+                                        <label htmlFor="branch" className="form-label">Workflow Branch *</label>
                                         <select
                                             className="form-select"
-                                            id="branch_id"
-                                            value={form.branch_id}
-                                            onChange={set('branch_id')}
+                                            id="branch"
+                                            value={form.branch}
+                                            onChange={set('branch')}
                                             required
                                         >
-                                            <option value="">Select the branch this officer heads...</option>
-                                            {(options?.branches || []).map(b => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
+                                            <option value="">Select the workflow branch this officer heads...</option>
+                                            {(options?.workflowBranches || []).map(b => <option key={b} value={b}>{b}</option>)}
                                         </select>
-                                        <div className="form-text">This Branch In-charge will only see cases from this branch.</div>
+                                        <div className="form-text">This Branch Officer only sees cases classified into this workflow branch.</div>
                                     </div>
                                 )}
 

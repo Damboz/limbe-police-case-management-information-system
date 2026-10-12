@@ -1,3 +1,11 @@
+const {
+    ROLES,
+    ROLE_IDS,
+    ROLE_IDS_BY_NAME,
+    canonicalRole,
+    canonicalRoleId
+} = require('../roles');
+
 const ADMIN_MESSAGE = 'Access Denied. System Administrator permissions required.';
 const ROLE_MESSAGE = 'Access Denied. You do not have permission to view this resource.';
 
@@ -15,6 +23,26 @@ function denyForbidden(req, res, message) {
 }
 
 
+// Sessions created before the workflow rollout still carry the old
+// role names and role ids. Rewrite them in place so every
+// downstream role check sees the new canonical values; the
+// encrypted session cookie is then re-issued with the fix.
+function normalizeSessionRole(req, res, next) {
+    const user = req.session && req.session.user;
+    if (user) {
+        const role = canonicalRole(user.role);
+        if (role) {
+            user.role = role;
+        }
+        const roleId = canonicalRoleId(user.role_id);
+        if (roleId) {
+            user.role_id = roleId;
+        }
+    }
+    return next();
+}
+
+
 exports.isAuthenticated = (req, res, next) => {
     if (req.session && req.session.user) {
         return next();
@@ -25,9 +53,9 @@ exports.isAuthenticated = (req, res, next) => {
 
 exports.isAdmin = (req, res, next) => {
     if (req.session && req.session.user) {
-        const role = String(req.session.user.role || '').toLowerCase();
-        const roleId = req.session.user.role_id;
-        if (role === 'admin' || roleId === 1) {
+        const role = canonicalRole(req.session.user.role);
+        const roleId = canonicalRoleId(req.session.user.role_id);
+        if (role === ROLES.ADMIN || roleId === ROLE_IDS.ADMIN) {
             return next();
         }
     }
@@ -37,9 +65,9 @@ exports.isAdmin = (req, res, next) => {
 
 exports.denyAdmin = (req, res, next) => {
     if (req.session && req.session.user) {
-        const role = String(req.session.user.role || '').toLowerCase();
-        const roleId = req.session.user.role_id;
-        if (role !== 'admin' && roleId !== 1) {
+        const role = canonicalRole(req.session.user.role);
+        const roleId = canonicalRoleId(req.session.user.role_id);
+        if (role !== ROLES.ADMIN && roleId !== ROLE_IDS.ADMIN) {
             return next();
         }
     }
@@ -48,33 +76,28 @@ exports.denyAdmin = (req, res, next) => {
 
 
 exports.authorizeRoles = (...allowedRoles) => {
+    const allowedRoleIds = allowedRoles
+        .map(role => ROLE_IDS_BY_NAME[role])
+        .filter(id => id !== undefined);
+
     return (req, res, next) => {
         if (!req.session || !req.session.user) {
             return denyUnauthenticated(req, res);
         }
 
-        const userRole = req.session.user.role ? String(req.session.user.role).toUpperCase() : '';
-        const normalizedAllowedRoles = allowedRoles.map(role => String(role).toUpperCase());
+        const userRole = canonicalRole(req.session.user.role);
+        const userRoleId = canonicalRoleId(req.session.user.role_id);
 
-        if (normalizedAllowedRoles.includes(userRole)) {
+        if (userRole && allowedRoles.includes(userRole)) {
             return next();
         }
-
-        const roleIdMap = {
-            1: ['ADMIN'],
-            2: ['STATION COMMANDER'],
-            3: ['INVESTIGATING OFFICER'],
-            4: ['COUNTER/INTAKE OFFICER'],
-            5: ['BRANCH IN-CHARGE'],
-            6: ['PROSECUTOR']
-        };
-
-        const roleId = Number(req.session.user.role_id);
-        const roleIdAliases = roleIdMap[roleId] || [];
-        if (roleIdAliases.some(alias => normalizedAllowedRoles.includes(alias))) {
+        if (userRoleId && allowedRoleIds.includes(userRoleId)) {
             return next();
         }
 
         return denyForbidden(req, res, ROLE_MESSAGE);
     };
 };
+
+
+exports.normalizeSessionRole = normalizeSessionRole;

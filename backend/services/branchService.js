@@ -1,12 +1,22 @@
 const db = require('../config/db');
 const { ok, fail } = require('../utils/result');
+const { ROLES, roleIn } = require('../roles');
 
-const BRANCH_ROLES = ['Branch In-charge'];
-const INVESTIGATOR_ROLES = ['Investigating Officer', 'investigator'];
+const BRANCH_ROLES = [ROLES.BRANCH_OFFICER];
+
+// Case states that still sit in the opening pipeline, before
+// the completion request reaches review.
+const OPENING_STATUSES = [
+    'Registered',
+    'Numbered',
+    'Classified',
+    'Assigned',
+    'Under Investigation'
+];
 
 
 function isBranchOfficer(user) {
-    return BRANCH_ROLES.includes(user.role);
+    return roleIn(user, BRANCH_ROLES);
 }
 
 
@@ -25,7 +35,7 @@ async function getDashboard(user) {
     `, [branchId]);
 
     const [pendingReviews] = await db.execute(`
-        SELECT 
+        SELECT
             c.id,
             c.ob_number AS case_number,
             c.incident_details AS title,
@@ -55,7 +65,7 @@ async function getDashboard(user) {
     `, [branchId]);
 
     const [branchActiveCases] = await db.execute(`
-        SELECT 
+        SELECT
             c.id,
             c.ob_number AS case_number,
             c.incident_details AS title,
@@ -68,19 +78,19 @@ async function getDashboard(user) {
                 , ', ' ORDER BY ci.is_lead DESC, inv.last_name) AS investigator_names,
             (SELECT COUNT(*) FROM cases c2
                 WHERE c2.branch_id = c.branch_id
-                  AND c2.status IN ('Reported', 'Under Investigation')) AS total_branch_active
+                  AND c2.status IN (${OPENING_STATUSES.map(() => '?').join(', ')})) AS total_branch_active
         FROM cases c
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
         LEFT JOIN case_investigators ci ON c.id = ci.case_id
         LEFT JOIN users inv ON ci.investigator_id = inv.id
-        WHERE c.branch_id = ? AND c.status IN ('Reported', 'Under Investigation')
+        WHERE c.branch_id = ? AND c.status IN (${OPENING_STATUSES.map(() => '?').join(', ')})
         GROUP BY c.id, cc.name
         ORDER BY days_open DESC
         LIMIT 30
-    `, [branchId]);
+    `, [...OPENING_STATUSES, branchId, ...OPENING_STATUSES]);
 
     const [delayedExternalReports] = await db.execute(`
-        SELECT 
+        SELECT
             er.id,
             er.report_type,
             er.requested_at,
@@ -106,7 +116,7 @@ async function getDashboard(user) {
     const [[branchCaseStats]] = await db.execute(`
         SELECT
             COUNT(*) AS total_count,
-            COALESCE(SUM(CASE WHEN c.status = 'Reported' THEN 1 ELSE 0 END), 0) AS reported_count,
+            COALESCE(SUM(CASE WHEN c.status IN ('Registered', 'Numbered', 'Classified', 'Assigned') THEN 1 ELSE 0 END), 0) AS reported_count,
             COALESCE(SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END), 0) AS under_investigation_count,
             COALESCE(SUM(CASE WHEN c.status = 'Court Pending' THEN 1 ELSE 0 END), 0) AS court_pending_count,
             COALESCE(SUM(CASE WHEN c.status = 'Forwarded to Prosecution' THEN 1 ELSE 0 END), 0) AS forwarded_count,
@@ -117,7 +127,7 @@ async function getDashboard(user) {
     `, [branchId]);
 
     const [branchCases] = await db.execute(`
-        SELECT 
+        SELECT
             c.id,
             c.ob_number AS case_number,
             c.incident_details AS title,
@@ -147,7 +157,7 @@ async function getDashboard(user) {
                  WHERE ci.investigator_id = u.id AND ca.status = 'Under Investigation') AS active_case_count
         FROM users u
         LEFT JOIN station_branch su ON u.branch_id = su.id
-        WHERE u.is_active = 1 AND u.role NOT IN ('Admin', 'admin')
+        WHERE u.is_active = 1 AND u.role NOT IN ('${ROLES.ADMIN}', 'admin')
         ORDER BY active_case_count ASC
     `);
 
@@ -184,7 +194,7 @@ async function getDashboard(user) {
 
 async function reviewCase(user, caseId, decision, comment) {
     if (!isBranchOfficer(user)) {
-        return fail(403, 'Only Branch In-charge officers can review case files.');
+        return fail(403, 'Only Branch Officers can review case files.');
     }
 
     if (!['Recommend', 'Return'].includes(decision)) {
@@ -245,7 +255,7 @@ async function reviewCase(user, caseId, decision, comment) {
         caseId,
         obNumber: current.ob_number,
         decision: decisionValue,
-        auditDetails: `Branch In-charge ${decisionValue} completion request for Case OB ${current.ob_number}. ${comment.trim()}`,
+        auditDetails: `Branch Officer ${decisionValue} completion request for Case OB ${current.ob_number}. ${comment.trim()}`,
         message
     });
 }
@@ -253,7 +263,7 @@ async function reviewCase(user, caseId, decision, comment) {
 
 async function proposeReassignment(user, caseId, currentInvestigatorId, proposedInvestigatorId, reason) {
     if (!isBranchOfficer(user)) {
-        return fail(403, 'Only Branch In-charge officers can propose reassignments.');
+        return fail(403, 'Only Branch Officers can propose reassignments.');
     }
 
     if (!caseId || !proposedInvestigatorId) {
@@ -275,7 +285,7 @@ async function proposeReassignment(user, caseId, currentInvestigatorId, proposed
     const targetId = String(proposedInvestigatorId);
     const [inv] = await db.execute(
         `SELECT badge_number, rank_title, first_name, last_name
-         FROM users WHERE id = ? AND is_active = 1 AND role NOT IN ('Admin', 'admin')`,
+         FROM users WHERE id = ? AND is_active = 1 AND role NOT IN ('${ROLES.ADMIN}', 'admin')`,
         [targetId]
     );
     if (inv.length === 0) {
@@ -298,7 +308,7 @@ async function proposeReassignment(user, caseId, currentInvestigatorId, proposed
         caseId,
         proposalId: result.insertId,
         obNumber: caseRows[0].ob_number,
-        auditDetails: `Branch In-charge proposed reassignment of Case OB ${caseRows[0].ob_number} to ${inv.rank_title} ${inv.first_name} ${inv.last_name} (${inv.badge_number}). Reason: ${reason.trim()}`,
+        auditDetails: `Branch Officer proposed reassignment of Case OB ${caseRows[0].ob_number} to ${inv.rank_title} ${inv.first_name} ${inv.last_name} (${inv.badge_number}). Reason: ${reason.trim()}`,
         message: 'Reassignment proposal submitted to the Station Officer for final decision.'
     });
 }
@@ -306,7 +316,7 @@ async function proposeReassignment(user, caseId, currentInvestigatorId, proposed
 
 async function requestExternalReport(user, caseId, reportType, notes) {
     if (!isBranchOfficer(user)) {
-        return fail(403, 'Only Branch In-charge officers or assigned investigators can request external reports.');
+        return fail(403, 'Only Branch Officers or assigned investigators can request external reports.');
     }
 
     if (!reportType || !['Social Welfare Report', 'Medical Report'].includes(reportType)) {
@@ -327,7 +337,7 @@ async function requestExternalReport(user, caseId, reportType, notes) {
     return ok({
         reportId: result.insertId,
         caseId,
-        auditDetails: `Branch In-charge requested a ${reportType} for Case ID ${caseId}.`,
+        auditDetails: `Branch Officer requested a ${reportType} for Case ID ${caseId}.`,
         message: `${reportType} request recorded. It will be flagged until received.`
     });
 }
@@ -335,7 +345,7 @@ async function requestExternalReport(user, caseId, reportType, notes) {
 
 async function markExternalReportReceived(user, reportId, notes) {
     if (!isBranchOfficer(user)) {
-        return fail(403, 'Only Branch In-charge officers can confirm receipt of external reports.');
+        return fail(403, 'Only Branch Officers can confirm receipt of external reports.');
     }
 
     const [reportRows] = await db.execute(`
@@ -364,7 +374,7 @@ async function markExternalReportReceived(user, reportId, notes) {
 
     return ok({
         reportId,
-        auditDetails: `Branch In-charge confirmed receipt of ${report.report_type} for Case ID ${report.case_id}.`,
+        auditDetails: `Branch Officer confirmed receipt of ${report.report_type} for Case ID ${report.case_id}.`,
         message: `${report.report_type} marked as received.`
     });
 }

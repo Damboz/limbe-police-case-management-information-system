@@ -75,12 +75,16 @@ export function EmptyState({ icon = 'bi-inbox', message, action }) {
 const NEUTRAL_BADGE = 'bg-light text-dark border';
 
 const STATUS_CLASSES = {
-    'Closed': 'badge-case-closed',
+    'Registered': NEUTRAL_BADGE,
+    'Numbered': NEUTRAL_BADGE,
+    'Classified': 'badge-case-open',
+    'Assigned': 'badge-case-open',
     'Under Investigation': 'badge-case-investigation',
+    'Submitted for Review': 'badge-case-forwarded',
     'Court Pending': 'badge-case-open',
     'Forwarded to Prosecution': 'badge-case-forwarded',
-    'Archived': 'badge-case-archived',
-    'Reported': NEUTRAL_BADGE
+    'Closed': 'badge-case-closed',
+    'Archived': 'badge-case-archived'
 };
 
 const PRIORITY_BADGES = {
@@ -91,7 +95,7 @@ const PRIORITY_BADGES = {
 };
 
 
-export function StatusBadge({ status, fallback = 'Reported' }) {
+export function StatusBadge({ status, fallback = 'Registered' }) {
     const key = String(status || '').trim();
     const cls = STATUS_CLASSES[key] || STATUS_CLASSES[fallback] || NEUTRAL_BADGE;
 

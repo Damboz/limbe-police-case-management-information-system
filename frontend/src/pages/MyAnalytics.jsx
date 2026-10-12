@@ -49,7 +49,7 @@ export default function MyAnalytics() {
                 title="My Case Analytics"
                 subtitle={isInvestigator
                     ? 'Trends and metrics for the cases assigned to you.'
-                    : 'Trends and metrics for the cases you registered at the intake desk.'}
+                    : 'Trends and metrics for the cases you recorded.'}
                 actions={
                     <>
                         <button type="button" className="btn btn-navy btn-sm" onClick={() => requestReport('myCases')} disabled={downloading}>

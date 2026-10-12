@@ -24,6 +24,7 @@ app.set('trust proxy', 1);
 
 const apiRoutes = require('./routes/apiRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const { normalizeSessionRole } = require('./middleware/authMiddleware');
 
 
 app.use(morgan('dev'));
@@ -95,6 +96,11 @@ app.use(cookieSession({
     sameSite: CROSS_ORIGIN_DEPLOY ? 'none' : 'lax',
     secure: CROSS_ORIGIN_DEPLOY || IS_PRODUCTION
 }));
+
+
+// Rewrite legacy role names in existing session cookies so role
+// checks see the new canonical roles until the officer logs in again.
+app.use(normalizeSessionRole);
 
 
 app.get('/api/health', (req, res) => {

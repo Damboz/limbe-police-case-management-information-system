@@ -2,6 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Forbidden from '../pages/Forbidden';
 import { Spinner } from './ui';
+import { canonicalRole, canonicalRoleId, ROLES, ROLE_IDS, ROLE_IDS_BY_NAME } from '../lib/roles';
 
 
 const ADMIN_MESSAGE = 'Access Denied. System Administrator permissions required.';
@@ -25,27 +26,20 @@ export default function ProtectedRoute({ children, roles, adminOnly = false }) {
     }
 
     if (adminOnly) {
-        const role = String(user.role || '').toLowerCase();
-        if (role !== 'admin' && Number(user.role_id) !== 1) {
+        const role = canonicalRole(user);
+        const roleId = canonicalRoleId(user);
+        if (role !== ROLES.ADMIN && roleId !== ROLE_IDS.ADMIN) {
             return <Forbidden message={ADMIN_MESSAGE} />;
         }
     }
 
     if (roles && roles.length > 0) {
-        const role = String(user.role || '').toUpperCase();
-        const roleIdMap = {
-            1: ['ADMIN'],
-            2: ['STATION COMMANDER'],
-            3: ['INVESTIGATING OFFICER'],
-            4: ['COUNTER/INTAKE OFFICER'],
-            5: ['BRANCH IN-CHARGE'],
-            6: ['PROSECUTOR']
-        };
-        const allowed = roles.map(r => String(r).toUpperCase());
-        const matches = allowed.includes(role)
-            || (roleIdMap[Number(user.role_id)] || []).some(alias => allowed.includes(alias));
+        const role = canonicalRole(user);
+        const roleId = canonicalRoleId(user);
+        const roleMatches = Boolean(role) && roles.includes(role);
+        const idMatches = roleId !== null && roles.some(r => ROLE_IDS_BY_NAME[r] === roleId);
 
-        if (!matches) {
+        if (!roleMatches && !idMatches) {
             return <Forbidden message={ROLE_MESSAGE} />;
         }
     }

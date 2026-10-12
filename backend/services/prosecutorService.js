@@ -1,18 +1,19 @@
 const db = require('../config/db');
 const { ok, fail } = require('../utils/result');
+const { ROLES, roleIn } = require('../roles');
 
-const PROSECUTOR_ROLES = ['Prosecutor'];
+const PROSECUTOR_ROLES = [ROLES.PROSECUTOR];
 const COURT_OUTCOMES = ['Convicted', 'Acquitted', 'Withdrawn', 'Adjourned'];
 
 
 function isProsecutor(user) {
-    return PROSECUTOR_ROLES.includes(user.role);
+    return roleIn(user, PROSECUTOR_ROLES);
 }
 
 
 async function getDashboard(user) {
     const [[kpi]] = await db.execute(`
-        SELECT 
+        SELECT
             SUM(CASE WHEN c.status = 'Forwarded to Prosecution' THEN 1 ELSE 0 END) AS forwarded_count,
             SUM(CASE WHEN cl.status = 'Pending' THEN 1 ELSE 0 END) AS pending_receipt_count,
             SUM(CASE WHEN c.status = 'Forwarded to Prosecution' AND c.court_date IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_count,
@@ -23,7 +24,7 @@ async function getDashboard(user) {
     `);
 
     const [forwardedCases] = await db.execute(`
-        SELECT 
+        SELECT
             c.id,
             c.ob_number AS case_number,
             c.incident_details AS title,
@@ -50,7 +51,7 @@ async function getDashboard(user) {
     `);
 
     const [pendingReceipts] = await db.execute(`
-        SELECT 
+        SELECT
             cl.id AS custody_id,
             cl.handed_over_at,
             cl.notes AS handover_notes,

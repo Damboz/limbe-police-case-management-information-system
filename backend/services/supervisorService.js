@@ -2,8 +2,9 @@ const db = require('../config/db');
 const { syncCaseInvestigators } = require('./assignmentService');
 const { OVERDUE_DAYS_THRESHOLD } = require('./caseService');
 const { ok, fail } = require('../utils/result');
+const { ROLES, roleIn } = require('../roles');
 
-const COMMANDER_ROLES = ['Station Commander', 'supervisor'];
+const COMMANDER_ROLES = [ROLES.STATION_OFFICER];
 
 
 async function getDashboard() {
@@ -24,17 +25,17 @@ async function getDashboard() {
     `);
 
     const [unassignedCases] = await db.execute(`
-        SELECT 
-            c.id, 
-            c.ob_number AS case_number, 
-            c.incident_details AS title, 
-            cc.name AS crime_category, 
-            c.priority, 
+        SELECT
+            c.id,
+            c.ob_number AS case_number,
+            c.incident_details AS title,
+            cc.name AS crime_category,
+            c.priority,
             c.created_at,
             CONCAT(u.first_name, ' ', u.last_name) AS registered_by_officer
         FROM cases c
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
-        LEFT JOIN users u ON c.intake_officer_id = u.id
+        LEFT JOIN users u ON c.recorded_by = u.id
         WHERE NOT EXISTS (SELECT 1 FROM case_investigators ci WHERE ci.case_id = c.id)
           AND c.status != 'Closed'
         ORDER BY CASE c.priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, c.created_at ASC
@@ -42,10 +43,10 @@ async function getDashboard() {
     `);
 
     const [pendingApprovals] = await db.execute(`
-        SELECT 
-            c.id, 
-            c.ob_number AS case_number, 
-            c.incident_details AS title, 
+        SELECT
+            c.id,
+            c.ob_number AS case_number,
+            c.incident_details AS title,
             c.requested_status,
             c.requested_status AS requested_target,
             c.status_request_notes,
@@ -62,7 +63,7 @@ async function getDashboard() {
     `);
 
     const [pendingReassignments] = await db.execute(`
-        SELECT 
+        SELECT
             rp.id AS proposal_id,
             c.id AS case_id,
             c.ob_number AS case_number,
@@ -86,7 +87,7 @@ async function getDashboard() {
     `);
 
     const [prosecutionQueries] = await db.execute(`
-        SELECT 
+        SELECT
             c.id,
             c.ob_number AS case_number,
             c.incident_details AS title,
@@ -100,29 +101,29 @@ async function getDashboard() {
     `);
 
     const [investigatorWorkload] = await db.execute(`
-        SELECT 
-            u.id, 
-            u.badge_number, 
-            u.rank_title, 
-            u.first_name, 
+        SELECT
+            u.id,
+            u.badge_number,
+            u.rank_title,
+            u.first_name,
             u.last_name,
             COUNT(DISTINCT c.id) AS active_case_count
         FROM users u
         LEFT JOIN case_investigators ci ON u.id = ci.investigator_id
         LEFT JOIN cases c ON ci.case_id = c.id AND c.status = 'Under Investigation'
-        WHERE u.is_active = 1 AND u.role NOT IN ('Admin', 'admin')
+        WHERE u.is_active = 1 AND u.role NOT IN ('${ROLES.ADMIN}', 'admin')
         GROUP BY u.id
         ORDER BY active_case_count ASC
     `);
 
     const [assignedActiveCases] = await db.execute(`
-        SELECT 
-            c.id, 
-            c.ob_number AS case_number, 
-            c.incident_details AS title, 
-            cc.name AS crime_category, 
-            c.priority, 
-            c.status, 
+        SELECT
+            c.id,
+            c.ob_number AS case_number,
+            c.incident_details AS title,
+            cc.name AS crime_category,
+            c.priority,
+            c.status,
             c.created_at,
             CURRENT_DATE - c.created_at::date AS days_open,
             STRING_AGG(inv.id::text, ',' ORDER BY ci.is_lead DESC, inv.last_name) AS investigator_ids,
@@ -159,8 +160,8 @@ async function getDashboard() {
 
 
 async function assignCase(user, caseId, investigatorIds, notes) {
-    if (!COMMANDER_ROLES.includes(user.role)) {
-        return fail(403, 'Only Station Commanders can assign cases to investigators.');
+    if (!roleIn(user, COMMANDER_ROLES)) {
+        return fail(403, 'Only Station Officers can assign cases to investigators.');
     }
 
     const rawIds = Array.isArray(investigatorIds) ? investigatorIds : (investigatorIds ? [investigatorIds] : []);
@@ -172,9 +173,9 @@ async function assignCase(user, caseId, investigatorIds, notes) {
 
     const placeholders = ids.map(() => '?').join(',');
     const [inv] = await db.execute(
-        `SELECT id, badge_number, rank_title, first_name, last_name 
-         FROM users 
-         WHERE id IN (${placeholders}) AND is_active = 1 AND role NOT IN ('Admin', 'admin')`,
+        `SELECT id, badge_number, rank_title, first_name, last_name
+         FROM users
+         WHERE id IN (${placeholders}) AND is_active = 1 AND role NOT IN ('${ROLES.ADMIN}', 'admin')`,
         ids
     );
 
@@ -196,8 +197,8 @@ async function assignCase(user, caseId, investigatorIds, notes) {
     await syncCaseInvestigators(caseId, ids, user.id);
 
     await db.execute(
-        `UPDATE cases 
-         SET status = 'Under Investigation', updated_at = NOW() 
+        `UPDATE cases
+         SET status = 'Under Investigation', updated_at = NOW()
          WHERE id = ?`,
         [caseId]
     );
@@ -216,7 +217,7 @@ async function assignCase(user, caseId, investigatorIds, notes) {
 
 
 async function processStatusApproval(user, caseId, decision, supervisorNotes) {
-    if (!COMMANDER_ROLES.includes(user.role)) {
+    if (!roleIn(user, COMMANDER_ROLES)) {
         return fail(403, 'Only Station Officers can approve or reject status change requests.');
     }
 
@@ -235,19 +236,19 @@ async function processStatusApproval(user, caseId, decision, supervisorNotes) {
 
     const currentCase = caseRows[0];
     if (currentCase.branch_review_status !== 'Recommended') {
-        return fail(403, 'This request has not been reviewed and recommended by the branch in-charge yet.');
+        return fail(403, 'This request has not been reviewed and recommended by the Branch Officer yet.');
     }
 
     const isForward = currentCase.requested_status === 'Forwarded to Prosecution';
     const targetStatus = decision === 'APPROVE' ? currentCase.requested_status : 'Under Investigation';
 
     await db.execute(
-        `UPDATE cases 
-         SET status = ?, requested_status = NULL, status_request_notes = NULL, 
+        `UPDATE cases
+         SET status = ?, requested_status = NULL, status_request_notes = NULL,
              status_requested_by = NULL, status_requested_at = NULL,
              branch_review_status = NULL, branch_reviewed_by = NULL, branch_reviewed_at = NULL,
              forwarded_at = CASE WHEN ? THEN NOW() ELSE forwarded_at END,
-             updated_at = NOW() 
+             updated_at = NOW()
          WHERE id = ?`,
         [targetStatus, isForward, caseId]
     );
@@ -275,7 +276,7 @@ async function processStatusApproval(user, caseId, decision, supervisorNotes) {
         obNumber: currentCase.ob_number,
         targetStatus,
         decision,
-        auditDetails: `Supervisor ${decisionVerb} status change request for Case OB ${currentCase.ob_number}. New status: ${targetStatus}. ${supervisorNotes ? 'Notes: ' + supervisorNotes : ''}`,
+        auditDetails: `Station Officer ${decisionVerb} status change request for Case OB ${currentCase.ob_number}. New status: ${targetStatus}. ${supervisorNotes ? 'Notes: ' + supervisorNotes : ''}`,
         message: isForward && decision === 'APPROVE'
             ? `Case OB ${currentCase.ob_number} forwarded to the Prosecution Branch for court preparation.`
             : `Case OB ${currentCase.ob_number} status updated to ${targetStatus}.`
@@ -284,7 +285,7 @@ async function processStatusApproval(user, caseId, decision, supervisorNotes) {
 
 
 async function decideReassignment(user, proposalId, decision, decisionNote) {
-    if (!COMMANDER_ROLES.includes(user.role)) {
+    if (!roleIn(user, COMMANDER_ROLES)) {
         return fail(403, 'Only Station Officers can decide reassignment proposals.');
     }
 
@@ -351,7 +352,7 @@ async function decideReassignment(user, proposalId, decision, decisionNote) {
 
 
 async function resolveProsecutionQuery(user, caseId, resolution) {
-    if (!COMMANDER_ROLES.includes(user.role)) {
+    if (!roleIn(user, COMMANDER_ROLES)) {
         return fail(403, 'Only Station Officers can resolve prosecution queries.');
     }
 
@@ -394,7 +395,7 @@ async function getAnalytics() {
         [statusDistribution]
     ] = await Promise.all([
         db.execute(`
-            SELECT 
+            SELECT
                 TO_CHAR(created_at, 'YYYY-MM') AS month_key,
                 TO_CHAR(created_at, 'Mon YYYY') AS month_label,
                 COUNT(*) AS total_cases,
@@ -406,7 +407,7 @@ async function getAnalytics() {
         `),
 
         db.execute(`
-            SELECT 
+            SELECT
                 cc.name AS crime_category,
                 COUNT(c.id) AS total_incidents,
                 ROUND((COUNT(c.id) * 100.0 / NULLIF((SELECT COUNT(*) FROM cases), 0)), 1) AS percentage
@@ -417,7 +418,7 @@ async function getAnalytics() {
         `),
 
         db.execute(`
-            SELECT 
+            SELECT
                 incident_location AS location,
                 COUNT(*) AS incident_count,
                 SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS resolved_count,
@@ -430,7 +431,7 @@ async function getAnalytics() {
         `),
 
         db.execute(`
-            SELECT 
+            SELECT
                 status,
                 COUNT(*) AS total_count
             FROM cases
@@ -454,7 +455,7 @@ async function getAnalytics() {
 
 async function getHotspotsDetail() {
     const [hotspots] = await db.execute(`
-        SELECT 
+        SELECT
             incident_location AS location,
             COUNT(*) AS incident_count,
             SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS resolved_count,
@@ -480,7 +481,7 @@ async function getHotspotsDetail() {
 
 async function getCategoryBreakdownDetail() {
     const [categories] = await db.execute(`
-        SELECT 
+        SELECT
             cc.name AS crime_category,
             COUNT(c.id) AS total_incidents,
             ROUND((COUNT(c.id) * 100.0 / NULLIF((SELECT COUNT(*) FROM cases), 0)), 1) AS percentage,

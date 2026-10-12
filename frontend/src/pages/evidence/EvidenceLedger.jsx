@@ -118,7 +118,7 @@ export default function EvidenceLedger() {
         <>
             <PageHeader
                 title="Evidence Ledger"
-                subtitle={user?.role === 'Station Commander'
+                subtitle={user?.role === 'Station Officer'
                     ? 'Station-wide evidence oversight across all cases.'
                     : 'Evidence items logged against the cases assigned to you.'}
                 actions={

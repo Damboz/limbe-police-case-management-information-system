@@ -82,7 +82,8 @@ function toSessionUser(user) {
         email: user.email,
         role: user.role,
         role_id: user.role_id,
-        branch_id: user.branch_id
+        branch_id: user.branch_id,
+        branch: user.branch
     };
 }
 

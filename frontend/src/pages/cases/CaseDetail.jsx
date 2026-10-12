@@ -291,8 +291,8 @@ export default function CaseDetail() {
                             )}
                         </div>
                         <div className="col-md-3">
-                            <Label>Intake Officer</Label>
-                            <span className="fw-semibold">{caseItem.intake_officer_name}</span>
+                            <Label>Recorded By</Label>
+                            <span className="fw-semibold">{caseItem.recorded_by_name}</span>
                         </div>
                         <div className="col-md-3">
                             <Label>Incident Date/Time</Label>

@@ -104,71 +104,19 @@ function InvestigatorDashboard({ data }) {
 }
 
 
-function IntakeDashboard({ data }) {
-    const { todayIntakeCount, recentIntakes } = data;
-
+function RecordsDashboard() {
     return (
         <>
             <PageHeader
-                title="Intake Desk"
-                subtitle="Record walk-in complaints and field reports as Occurrence Book entries."
-                actions={
-                    <Link to="/cases/new" className="btn btn-navy">
-                        <i className="bi bi-plus-circle-fill me-1" />Register New Case
-                    </Link>
-                }
+                title="Records Desk"
+                subtitle="OB and criminal numbers are assigned to registered cases here."
             />
-
-            <div className="row g-3 mb-4">
-                <Metric
-                    label="Cases Registered Today"
-                    value={todayIntakeCount}
-                    icon="bi-journal-plus"
-                    tone="navy"
-                    color="var(--mps-navy)"
-                />
-            </div>
-
             <div className="card border-0 shadow-sm">
-                <div className="card-header bg-navy text-white py-3">
-                    <h6 className="mb-0 fw-bold">
-                        <i className="bi bi-clock-history me-2 text-warning" />Your Recent Intake Entries
-                    </h6>
-                </div>
-                <div className="table-responsive">
-                    <table className="table table-hover align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>OB Number</th>
-                                <th>Complainant</th>
-                                <th>Priority</th>
-                                <th>Status</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {recentIntakes.length === 0 ? (
-                                <tr>
-                                    <td colSpan="5">
-                                        <EmptyState
-                                            message="You haven't registered any cases yet."
-                                            action={<Link to="/cases/new" className="small">Register your first case &rarr;</Link>}
-                                        />
-                                    </td>
-                                </tr>
-                            ) : (
-                                recentIntakes.map(item => (
-                                    <tr key={item.id}>
-                                        <td className="fw-bold font-monospace" style={{ color: 'var(--mps-navy)' }}>{item.ob_number}</td>
-                                        <td className="small fw-semibold">{item.complainant_name}</td>
-                                        <td><PriorityBadge priority={item.priority} /></td>
-                                        <td><StatusBadge status={item.status} /></td>
-                                        <td className="small text-muted">{formatDate(item.created_at)}</td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                <div className="card-body">
+                    <EmptyState
+                        icon="bi-journal-text"
+                        message="The numbering queue arrives with the Records Officer workflow."
+                    />
                 </div>
             </div>
         </>
@@ -187,7 +135,9 @@ export default function Dashboard() {
         return <Navigate to={data.target} replace />;
     }
 
-    return data.variant === 'investigator'
-        ? <InvestigatorDashboard data={data} />
-        : <IntakeDashboard data={data} />;
+    if (data.variant === 'records') {
+        return <RecordsDashboard />;
+    }
+
+    return <InvestigatorDashboard data={data} />;
 }

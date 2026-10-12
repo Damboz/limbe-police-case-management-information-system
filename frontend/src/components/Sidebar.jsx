@@ -43,10 +43,10 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
     const { user, logout, homePath } = useAuth();
     const navigate = useNavigate();
     const { pathname } = useLocation();
-    const { isInvestigator, isCommander, isAdmin, isIntake } = roleFlags(user);
+    const { isPoliceOfficer, isStationOfficer, isAdmin } = roleFlags(user);
 
     const sections = useMemo(() => {
-        const commanderReports = isCommander && !isAdmin;
+        const stationReports = isStationOfficer && !isAdmin;
 
         return [
             {
@@ -55,20 +55,20 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                 links: [
                     { to: homePath, icon: 'bi-speedometer2', label: 'Dashboard', end: true },
                     !isAdmin && { to: '/cases', icon: 'bi-folder2-open', label: 'Case Register' },
-                    isIntake && !isAdmin && { to: '/cases/search', icon: 'bi-search', label: 'Smart Search' },
-                    (isInvestigator || commanderReports) && { to: '/evidence', icon: 'bi-box-seam', label: 'Evidence Ledger' }
+                    !isAdmin && { to: '/cases/search', icon: 'bi-search', label: 'Smart Search' },
+                    (isPoliceOfficer || isStationOfficer) && { to: '/evidence', icon: 'bi-box-seam', label: 'Evidence Ledger' }
                 ].filter(Boolean)
             },
             {
                 id: 'analytics',
                 title: 'Analytics & Reports',
                 links: [
-                    commanderReports && { to: '/supervisor/analytics', icon: 'bi-graph-up-arrow', label: 'Analytics & Hotspots' },
-                    (isInvestigator || isIntake) && { to: '/my-analytics', icon: 'bi-graph-up-arrow', label: 'My Analytics' },
-                    isInvestigator && { report: 'myCases', icon: 'bi-file-earmark-person', label: 'My Case Report' },
-                    commanderReports && { report: 'stationPerformance', icon: 'bi-file-earmark-bar-graph', label: 'Station Performance PDF' },
-                    commanderReports && { report: 'crimeStatistics', icon: 'bi-file-earmark-text', label: 'Crime Statistics PDF' },
-                    commanderReports && { report: 'officerProductivity', icon: 'bi-file-earmark-person', label: 'Officer Productivity PDF' }
+                    stationReports && { to: '/supervisor/analytics', icon: 'bi-graph-up-arrow', label: 'Analytics & Hotspots' },
+                    isPoliceOfficer && { to: '/my-analytics', icon: 'bi-graph-up-arrow', label: 'My Analytics' },
+                    isPoliceOfficer && { report: 'myCases', icon: 'bi-file-earmark-person', label: 'My Case Report' },
+                    stationReports && { report: 'stationPerformance', icon: 'bi-file-earmark-bar-graph', label: 'Station Performance PDF' },
+                    stationReports && { report: 'crimeStatistics', icon: 'bi-file-earmark-text', label: 'Crime Statistics PDF' },
+                    stationReports && { report: 'officerProductivity', icon: 'bi-file-earmark-person', label: 'Officer Productivity PDF' }
                 ].filter(Boolean)
             },
             {
@@ -88,7 +88,7 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                 ]
             }
         ].filter(section => section.links.length > 0);
-    }, [homePath, isInvestigator, isCommander, isAdmin, isIntake]);
+    }, [homePath, isPoliceOfficer, isStationOfficer, isAdmin]);
 
     const currentSectionId = useMemo(() => {
         const match = sections.find(section => section.links.some(link => matchesPath(link.to, pathname, link.end)));

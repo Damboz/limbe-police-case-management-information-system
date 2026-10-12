@@ -1,13 +1,14 @@
 const db = require('../config/db');
 const { ok, fail } = require('../utils/result');
+const { ROLES, roleIn } = require('../roles');
 
 const EVIDENCE_CATEGORIES = ['Physical', 'Documentary', 'Digital', 'Forensic', 'Weapon', 'Other'];
 const VALID_EVIDENCE_STATUSES = ['In Locker', 'Transferred to Lab', 'Presented in Court', 'Returned', 'Disposed'];
-const SUPERVISOR_ROLES = ['Station Commander', 'Admin'];
+const SUPERVISOR_ROLES = [ROLES.STATION_OFFICER, ROLES.ADMIN];
 
 
 function canManage(user) {
-    return SUPERVISOR_ROLES.includes(user.role);
+    return roleIn(user, SUPERVISOR_ROLES);
 }
 
 
@@ -53,7 +54,7 @@ async function getLedger(user, query) {
     const listParams = [...scopeParams, ...filterParams];
 
     const [[kpi]] = await db.execute(`
-        SELECT 
+        SELECT
             COUNT(*) AS total_items,
             SUM(CASE WHEN e.status = 'In Locker' THEN 1 ELSE 0 END) AS in_locker,
             SUM(CASE WHEN e.status = 'Transferred to Lab' THEN 1 ELSE 0 END) AS transferred,
@@ -83,7 +84,7 @@ async function getLedger(user, query) {
     `, scopeParams);
 
     const [evidenceItems] = await db.execute(`
-        SELECT 
+        SELECT
             e.id,
             e.case_id,
             e.item_number,
@@ -141,7 +142,7 @@ async function findEvidenceItem(id) {
 
 async function updateStatus(user, id, newStatus, notes) {
     if (!canManage(user)) {
-        return fail(403, 'Only Supervisors and Administrators can update evidence status.');
+        return fail(403, 'Only Station Officers and Administrators can update evidence status.');
     }
 
     if (!VALID_EVIDENCE_STATUSES.includes(newStatus)) {
@@ -169,7 +170,7 @@ async function updateStatus(user, id, newStatus, notes) {
 
 async function transfer(user, id, transferTo, transferNotes) {
     if (!canManage(user)) {
-        return fail(403, 'Only Supervisors and Administrators can transfer evidence.');
+        return fail(403, 'Only Station Officers and Administrators can transfer evidence.');
     }
 
     if (!transferTo || !transferTo.trim()) {
@@ -200,7 +201,7 @@ async function transfer(user, id, transferTo, transferNotes) {
 
 async function dispose(user, id, disposalReason) {
     if (!canManage(user)) {
-        return fail(403, 'Only Supervisors and Administrators can dispose evidence.');
+        return fail(403, 'Only Station Officers and Administrators can dispose evidence.');
     }
 
     if (!disposalReason || !disposalReason.trim()) {

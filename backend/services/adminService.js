@@ -1,8 +1,11 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { ok, fail } = require('../utils/result');
+const { ROLES, ROLE_IDS, WORKFLOW_BRANCHES } = require('../roles');
 
 const MIN_PASSWORD_LENGTH = 6;
+
+const WORKFLOW_BRANCH_NAMES = Object.values(WORKFLOW_BRANCHES);
 
 
 function getRoleMapping(roleInput) {
@@ -10,26 +13,40 @@ function getRoleMapping(roleInput) {
 
     switch (input) {
         case 'admin':
-            return { role: 'Admin', role_id: 1 };
+            return { role: ROLES.ADMIN, role_id: ROLE_IDS.ADMIN };
+        case 'police officer':
+        case 'officer':
+        case 'investigator':
+        case 'investigating officer':
+            return { role: ROLES.POLICE_OFFICER, role_id: ROLE_IDS.POLICE_OFFICER };
+        case 'records officer':
+            return { role: ROLES.RECORDS_OFFICER, role_id: ROLE_IDS.RECORDS_OFFICER };
+        case 'station officer':
         case 'station commander':
         case 'supervisor':
-            return { role: 'Station Commander', role_id: 2 };
-        case 'investigating officer':
-        case 'investigator':
-            return { role: 'Investigating Officer', role_id: 3 };
-        case 'counter/intake officer':
-        case 'officer':
-            return { role: 'Counter/Intake Officer', role_id: 4 };
-        case 'branch in-charge':
+            return { role: ROLES.STATION_OFFICER, role_id: ROLE_IDS.STATION_OFFICER };
         case 'branch officer':
+        case 'branch in-charge':
         case 'branch':
         case 'branchincharge':
-            return { role: 'Branch In-charge', role_id: 5 };
+            return { role: ROLES.BRANCH_OFFICER, role_id: ROLE_IDS.BRANCH_OFFICER };
         case 'prosecutor':
-            return { role: 'Prosecutor', role_id: 6 };
+            return { role: ROLES.PROSECUTOR, role_id: ROLE_IDS.PROSECUTOR };
         default:
-            return { role: 'Counter/Intake Officer', role_id: 4 };
+            return { role: ROLES.POLICE_OFFICER, role_id: ROLE_IDS.POLICE_OFFICER };
     }
+}
+
+
+// The workflow branch is only meaningful for Branch Officers, who
+// must head exactly one of the two workflow branches.
+function parseBranch(roleMap, branch) {
+    if (roleMap.role_id !== ROLE_IDS.BRANCH_OFFICER) {
+        return null;
+    }
+
+    const branchName = String(branch || '').trim();
+    return WORKFLOW_BRANCH_NAMES.includes(branchName) ? branchName : null;
 }
 
 
@@ -39,17 +56,17 @@ async function getAdminDashboard() {
     const [[{ total_logins }]] = await db.execute("SELECT COUNT(*) AS total_logins FROM audit_logs WHERE action = 'USER_LOGIN'");
 
     const [users] = await db.execute(`
-        SELECT id, badge_number, rank_title, first_name, last_name, email, role, role_id, is_active 
-        FROM users 
-        ORDER BY created_at DESC 
+        SELECT id, badge_number, rank_title, first_name, last_name, email, role, role_id, branch, is_active
+        FROM users
+        ORDER BY created_at DESC
         LIMIT 5
     `);
 
     const [recentLogs] = await db.execute(`
-        SELECT a.*, u.badge_number, u.first_name, u.last_name 
+        SELECT a.*, u.badge_number, u.first_name, u.last_name
         FROM audit_logs a
         LEFT JOIN users u ON a.user_id = u.id
-        ORDER BY a.created_at DESC 
+        ORDER BY a.created_at DESC
         LIMIT 10
     `);
 
@@ -66,8 +83,8 @@ async function getUsers(query) {
     const roleFilter = query.role || '';
 
     let sql = `
-        SELECT u.id, u.badge_number, u.rank_title, u.first_name, u.last_name, u.email, 
-               u.role, u.role_id, u.phone_number, u.is_active, u.created_at,
+        SELECT u.id, u.badge_number, u.rank_title, u.first_name, u.last_name, u.email,
+               u.role, u.role_id, u.phone_number, u.branch, u.branch_id, u.is_active, u.created_at,
                su.name AS branch_name
         FROM users u
         LEFT JOIN station_branch su ON u.branch_id = su.id
@@ -95,13 +112,13 @@ async function getUsers(query) {
 async function getPersonnelFormOptions() {
     const [roles] = await db.execute('SELECT * FROM roles ORDER BY id ASC');
     const [branches] = await db.execute('SELECT * FROM station_branch ORDER BY name ASC');
-    return { roles, branches };
+    return { roles, branches, workflowBranches: WORKFLOW_BRANCH_NAMES };
 }
 
 
 async function getUserToEdit(userId) {
     const [users] = await db.execute(
-        'SELECT id, badge_number, rank_title, first_name, last_name, email, phone_number, role, role_id, branch_id, is_active FROM users WHERE id = ?',
+        'SELECT id, badge_number, rank_title, first_name, last_name, email, phone_number, role, role_id, branch, branch_id, is_active FROM users WHERE id = ?',
         [userId]
     );
     if (users.length === 0) {
@@ -112,7 +129,7 @@ async function getUserToEdit(userId) {
 
 
 async function createUser(body) {
-    const { badge_number, rank_title, first_name, last_name, email, phone_number, role, branch_id, password } = body;
+    const { badge_number, rank_title, first_name, last_name, email, phone_number, role, branch, password } = body;
 
     if (!badge_number || !first_name || !last_name || !email || !role || !password) {
         return fail(400, 'Please complete all required fields.');
@@ -128,20 +145,20 @@ async function createUser(body) {
     }
 
     const roleMap = getRoleMapping(role);
-    const parsedBranchId = roleMap.role_id === 5 && branch_id ? parseInt(branch_id, 10) : null;
+    const workflowBranch = parseBranch(roleMap, branch);
 
-    if (roleMap.role_id === 5 && !parsedBranchId) {
-        return fail(400, 'Please select the branch that this Branch In-charge heads.');
+    if (roleMap.role_id === ROLE_IDS.BRANCH_OFFICER && !workflowBranch) {
+        return fail(400, 'Please select the workflow branch that this Branch Officer heads (Investigation Branch or CID).');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result] = await db.execute(`
         INSERT INTO users (
-            badge_number, rank_title, first_name, last_name, email, 
-            phone_number, role, role_id, branch_id, password_hash, is_active
+            badge_number, rank_title, first_name, last_name, email,
+            phone_number, role, role_id, branch, branch_id, password_hash, is_active
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 1)
     `, [
         badge_number.trim(),
         rank_title ? rank_title.trim() : null,
@@ -151,7 +168,7 @@ async function createUser(body) {
         phone_number ? phone_number.trim() : null,
         roleMap.role,
         roleMap.role_id,
-        parsedBranchId,
+        workflowBranch,
         hashedPassword
     ]);
 
@@ -166,7 +183,7 @@ async function createUser(body) {
 
 
 async function updateUser(userId, body) {
-    const { rank_title, first_name, last_name, email, phone_number, role, branch_id } = body;
+    const { rank_title, first_name, last_name, email, phone_number, role, branch } = body;
 
     if (!first_name || !last_name || !email || !role) {
         return fail(400, 'First Name, Last Name, Email, and Role are required fields.');
@@ -182,15 +199,16 @@ async function updateUser(userId, body) {
     }
 
     const roleMap = getRoleMapping(role);
-    const parsedBranchId = roleMap.role_id === 5 && branch_id ? parseInt(branch_id, 10) : null;
+    const workflowBranch = parseBranch(roleMap, branch);
 
-    if (roleMap.role_id === 5 && !parsedBranchId) {
-        return fail(400, 'Please select the branch that this Branch In-charge heads.');
+    if (roleMap.role_id === ROLE_IDS.BRANCH_OFFICER && !workflowBranch) {
+        return fail(400, 'Please select the workflow branch that this Branch Officer heads (Investigation Branch or CID).');
     }
 
     await db.execute(`
-        UPDATE users 
-        SET rank_title = ?, first_name = ?, last_name = ?, email = ?, phone_number = ?, role = ?, role_id = ?, branch_id = ?
+        UPDATE users
+        SET rank_title = ?, first_name = ?, last_name = ?, email = ?, phone_number = ?,
+            role = ?, role_id = ?, branch = ?
         WHERE id = ?
     `, [
         rank_title ? rank_title.trim() : null,
@@ -200,14 +218,14 @@ async function updateUser(userId, body) {
         phone_number ? phone_number.trim() : null,
         roleMap.role,
         roleMap.role_id,
-        parsedBranchId,
+        workflowBranch,
         userId
     ]);
 
     return ok({
         firstName: first_name.trim(),
         lastName: last_name.trim(),
-        auditDetails: `Updated details for User ID ${userId} (${first_name} ${last_name}). Assigned Role: ${roleMap.role}`
+        auditDetails: `Updated details for User ID ${userId} (${first_name.trim()} ${last_name.trim()}). Assigned Role: ${roleMap.role}`
     });
 }
 
@@ -272,16 +290,16 @@ async function deleteUser(actingUser, userId) {
 
     const [refs] = await db.execute(`
         SELECT
-            (SELECT COUNT(*) FROM cases                  WHERE intake_officer_id = ?)          AS intake_cases,
-            (SELECT COUNT(*) FROM evidence               WHERE collected_by_officer_id = ?)     AS evidence_records,
-            (SELECT COUNT(*) FROM case_notes             WHERE officer_id = ?)                  AS case_notes,
-            (SELECT COUNT(*) FROM case_minutes           WHERE author_id = ?)                   AS case_minutes,
-            (SELECT COUNT(*) FROM external_reports       WHERE requested_by = ?)                AS external_reports,
-            (SELECT COUNT(*) FROM case_custody_log       WHERE handed_over_by = ?)              AS custody_handovers,
-            (SELECT COUNT(*) FROM case_custody_log       WHERE received_by = ?)                 AS custody_receipts,
-            (SELECT COUNT(*) FROM reassignment_proposals WHERE proposed_by = ?)                 AS proposed_reassignments,
-            (SELECT COUNT(*) FROM reassignment_proposals WHERE proposed_investigator_id = ?)    AS reassignment_targets
-    `, [userId, userId, userId, userId, userId, userId, userId, userId, userId]);
+            (SELECT COUNT(*) FROM cases                  WHERE recorded_by = ?)             AS intake_cases,
+            (SELECT COUNT(*) FROM evidence               WHERE collected_by_officer_id = ?)  AS evidence_records,
+            (SELECT COUNT(*) FROM case_notes             WHERE officer_id = ?)               AS case_notes,
+            (SELECT COUNT(*) FROM case_minutes           WHERE author_id = ?)                AS case_minutes,
+            (SELECT COUNT(*) FROM external_reports       WHERE requested_by = ?)             AS external_reports,
+            (SELECT COUNT(*) FROM case_custody_log       WHERE handed_over_by = ?)           AS custody_handovers,
+            (SELECT COUNT(*) FROM case_custody_log       WHERE received_by = ?)              AS custody_receipts,
+            (SELECT COUNT(*) FROM reassignment_proposals WHERE proposed_by = ?)              AS proposed_reassignments,
+            (SELECT COUNT(*) FROM reassignment_proposals WHERE proposed_investigator_id = ?) AS reassignment_targets
+        `, [userId, userId, userId, userId, userId, userId, userId, userId, userId]);
 
     const intakeCases = refs[0]?.intake_cases || 0;
     const evidenceRecords = refs[0]?.evidence_records || 0;
@@ -296,7 +314,7 @@ async function deleteUser(actingUser, userId) {
     if (intakeCases > 0 || evidenceRecords > 0 || notesCount > 0 || minutesCount > 0
         || externalReports > 0 || custodyHandovers > 0 || custodyReceipts > 0
         || proposedReassignments > 0 || reassignmentTargets > 0) {
-        return fail(400, `Cannot delete ${target.badge_number} — the account has historical records (${intakeCases} case(s) as intake officer, ${evidenceRecords} evidence record(s), ${notesCount} case note(s), ${minutesCount} minute(s), ${externalReports} external report request(s), ${custodyHandovers} custody handover(s), ${custodyReceipts} custody receipt(s), ${proposedReassignments} reassignment proposal(s), ${reassignmentTargets} reassignment target(s)). Deactivate instead.`);
+        return fail(400, `Cannot delete ${target.badge_number} — the account has historical records (${intakeCases} case(s) as recording officer, ${evidenceRecords} evidence record(s), ${notesCount} case note(s), ${minutesCount} minute(s), ${externalReports} external report request(s), ${custodyHandovers} custody handover(s), ${custodyReceipts} custody receipt(s), ${proposedReassignments} reassignment proposal(s), ${reassignmentTargets} reassignment target(s)). Deactivate instead.`);
     }
 
     await db.execute('DELETE FROM users WHERE id = ?', [userId]);

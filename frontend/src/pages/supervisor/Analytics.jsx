@@ -9,8 +9,12 @@ import useReportExport from '../../hooks/useReportExport';
 
 
 const STATUS_COLORS = {
-    'Reported': CHART_COLORS.info,
+    'Registered': CHART_COLORS.slate,
+    'Numbered': CHART_COLORS.info,
+    'Classified': CHART_COLORS.info,
+    'Assigned': CHART_COLORS.info,
     'Under Investigation': CHART_COLORS.warning,
+    'Submitted for Review': CHART_COLORS.navy,
     'Court Pending': CHART_COLORS.navy,
     'Closed': CHART_COLORS.success,
     'Archived': CHART_COLORS.slate

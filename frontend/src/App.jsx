@@ -60,11 +60,11 @@ function LoginRoute() {
 }
 
 
-const CMD = ['Station Commander'];
-const CFI = ['Investigating Officer', 'Counter/Intake Officer'];
-const OPS = ['Investigating Officer', 'Station Commander'];
-const CASE_ACCESS = ['Investigating Officer', 'Station Commander', 'Counter/Intake Officer', 'Branch In-charge', 'Prosecutor'];
-const BRN = ['Branch In-charge'];
+const CMD = ['Station Officer'];
+const CFI = ['Police Officer'];
+const OPS = ['Police Officer', 'Station Officer'];
+const CASE_ACCESS = ['Police Officer', 'Records Officer', 'Station Officer', 'Branch Officer', 'Prosecutor'];
+const BRN = ['Branch Officer'];
 const PRS = ['Prosecutor'];
 
 

@@ -11,10 +11,10 @@ import usePageTitle from '../../hooks/usePageTitle';
 const MIN_PASSWORD_LENGTH = 6;
 
 const ROLE_OPTIONS = [
-    { value: 'Officer', label: 'Officer' },
-    { value: 'Investigator', label: 'Investigator' },
-    { value: 'Supervisor', label: 'Supervisor' },
-    { value: 'Branch In-charge', label: 'Branch In-charge' },
+    { value: 'Police Officer', label: 'Police Officer' },
+    { value: 'Records Officer', label: 'Records Officer' },
+    { value: 'Station Officer', label: 'Station Officer' },
+    { value: 'Branch Officer', label: 'Branch Officer' },
     { value: 'Prosecutor', label: 'Prosecutor' },
     { value: 'Admin', label: 'System Administrator' }
 ];
@@ -22,13 +22,19 @@ const ROLE_OPTIONS = [
 
 function toRoleValue(role) {
     switch (role) {
-        case 'Investigating Officer': return 'Investigator';
-        case 'Station Commander': return 'Supervisor';
-        case 'Counter/Intake Officer': return 'Officer';
-        case 'Branch In-charge': return 'Branch In-charge';
-        case 'Prosecutor': return 'Prosecutor';
-        case 'Admin': return 'Admin';
-        default: return role || 'Officer';
+        case 'Investigating Officer':
+        case 'Counter/Intake Officer':
+            return 'Police Officer';
+        case 'Station Commander':
+            return 'Station Officer';
+        case 'Branch In-charge':
+            return 'Branch Officer';
+        case 'Prosecutor':
+            return 'Prosecutor';
+        case 'Admin':
+            return 'Admin';
+        default:
+            return role || 'Police Officer';
     }
 }
 
@@ -59,13 +65,13 @@ export default function UserEdit() {
                 email: u.email || '',
                 phone_number: u.phone_number || '',
                 role: toRoleValue(u.role),
-                branch_id: u.branch_id || ''
+                branch: u.branch || ''
             });
         }
     }, [data]);
 
     const set = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value }));
-    const setRole = (e) => setForm(prev => ({ ...prev, role: e.target.value, branch_id: '' }));
+    const setRole = (e) => setForm(prev => ({ ...prev, role: e.target.value, branch: '' }));
     const setDigits = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value.replace(/[^0-9]/g, '') }));
 
     const saveProfile = async (e) => {
@@ -208,20 +214,20 @@ export default function UserEdit() {
                                             {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                                         </select>
                                     </div>
-                                    {form.role === 'Branch In-charge' && (
+                                    {form.role === 'Branch Officer' && (
                                         <div className="col-md-6">
-                                            <label htmlFor="branch_id" className="form-label small fw-semibold text-muted">Headed Branch *</label>
+                                            <label htmlFor="branch" className="form-label small fw-semibold text-muted">Workflow Branch *</label>
                                             <select
                                                 className="form-select"
-                                                id="branch_id"
-                                                value={form.branch_id}
-                                                onChange={set('branch_id')}
+                                                id="branch"
+                                                value={form.branch}
+                                                onChange={set('branch')}
                                                 required
                                             >
-                                                <option value="">Select the branch this officer heads...</option>
-                                                {(options?.branches || []).map(b => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
+                                                <option value="">Select the workflow branch this officer heads...</option>
+                                                {(options?.workflowBranches || []).map(b => <option key={b} value={b}>{b}</option>)}
                                             </select>
-                                            <div className="form-text">This Branch In-charge will only see cases from this branch.</div>
+                                            <div className="form-text">This Branch Officer only sees cases classified into this workflow branch.</div>
                                         </div>
                                     )}
                                 </div>

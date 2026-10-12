@@ -2,13 +2,17 @@ const db = require('../config/db');
 const { ok, fail } = require('../utils/result');
 const { periodAnd } = require('../utils/reportPeriod');
 const { isAssignedInvestigator } = require('./assignmentService');
+const { ROLES, roleIn } = require('../roles');
+
+const INVESTIGATOR_ROLES = [ROLES.POLICE_OFFICER];
+const LETTER_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN];
 
 
 function buildScope(user) {
-    const isInvestigator = user.role === 'Investigating Officer';
-    // An officer's scope is the cases assigned to them plus the cases they
-    // registered, matching the case list. Investigator status is per-case.
-    const whereClause = 'WHERE (c.id IN (SELECT ci.case_id FROM case_investigators ci WHERE ci.investigator_id = ?) OR c.intake_officer_id = ?)';
+    const isInvestigator = roleIn(user, INVESTIGATOR_ROLES);
+    // An officer's scope is the cases assigned to them plus the cases
+    // they recorded, matching the case list. Investigator status is per-case.
+    const whereClause = 'WHERE (c.id IN (SELECT ci.case_id FROM case_investigators ci WHERE ci.investigator_id = ?) OR c.recorded_by = ?)';
     return { isInvestigator, whereClause, params: [user.id, user.id] };
 }
 
@@ -17,7 +21,7 @@ async function getMyAnalytics(user) {
     const { isInvestigator, whereClause, params } = buildScope(user);
 
     const [monthlyTrends] = await db.execute(`
-        SELECT 
+        SELECT
             TO_CHAR(c.created_at, 'Mon YYYY') AS month_label,
             COUNT(*) AS total_cases,
             SUM(CASE WHEN c.priority IN ('High', 'Critical') THEN 1 ELSE 0 END) AS severe_cases
@@ -36,7 +40,7 @@ async function getMyAnalytics(user) {
     `, params);
 
     const [categoryBreakdown] = await db.execute(`
-        SELECT 
+        SELECT
             cc.name AS crime_category,
             COUNT(c.id) AS total_incidents
         FROM crime_categories cc
@@ -127,8 +131,7 @@ async function prepareSuspectInvitation(caseId, suspectId, user, appearanceDate)
     }
 
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    const allowed = isAssigned
-        || ['Counter/Intake Officer', 'Station Commander', 'Admin'].includes(user.role);
+    const allowed = isAssigned || roleIn(user, LETTER_ROLES);
     if (!allowed) {
         return fail(403, 'You do not have permission to generate a letter for this case.');
     }
