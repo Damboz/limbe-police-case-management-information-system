@@ -120,22 +120,13 @@ CREATE INDEX idx_users_email ON users (email);
 -- Other accounts may have different passwords set through the UI.
 -- Demo accounts share the seed default password noted above.
 INSERT INTO users (id, badge_number, rank_title, first_name, last_name, email, phone_number, password_hash, role, role_id, branch_id, branch, is_active) VALUES
-(2,  'LIM-001',   'Inspector',         'Station',    'Administrator', 'admin@limbe.police.mw',        '+265999000000', '$2b$10$EBMaLazalQcIxcMvkk2Mbe8MV3YhJ59Ursv4W7WSeiJPMAJyu..iW', 'Admin',           1, 1,    NULL,                   1),
-(4,  'LIM-002',   'Station Commander', 'George',     'Dambo',         'dambogeorge992@gmail.com',     '+265996697165', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Station Officer',  9, 1,    NULL,                   1),
-(5,  'Huka',      'Station Commander', 'Rexious',    'Huka',          'rexioushuka@gmail.com',        '099793884938',  '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Station Officer',  9, NULL, NULL,                   1),
-(6,  'Esterk',    'Station Commander', 'Esther',     'Kondowe',       'esterk@gmail.com',             '+265996697165', '$2b$10$wGeHDNRtRsrFHGfFEAQ6Gewzj9..IlqsVzxxn3zdoLAQi.WIH8sKe', 'Station Officer',  9, NULL, NULL,                   1),
-(7,  'Phady',     'Constable',         'Patrick',    'Magule',        'patrick@gmail.com',            '+265996697165', '$2b$10$ft8gJNabUp9Q8HnveDBrEO0Va5NM5vn2xlv3BZnMvYogPSqLFiz76', 'Police Officer',   7, NULL, NULL,                   1),
-(8,  'Dambo',     'Constable',         'George',     'Dambo',         'bit21-gdambo@mubas.ac.mw',     '0996697165',    '$2b$10$IWJtRc7XRt9De/1sEn8j9u8IhN44Gr/raOmeVIXX8NiVcWIX.CxXy', 'Police Officer',   7, NULL, NULL,                   1),
-(9,  'George',    'Constable',         'George',     'Dambo',         'georgebanda@gmail.com',        '+265899540451', '$2b$10$PfAmAz5R4wxNNLTF2H4.kuTCE3cUkFTk4b4zLBpP5qo1Wjp4F4WtW', 'Police Officer',   7, NULL, NULL,                   1),
-(10, 'Surgent',   'Superintendent',    'Surgent',    'Ngwira',        'surgentngwira@gmail.com',      '0887728238',    '$2b$10$lXgH84EC/Khyz6L7Kahm3e84dBCwJIL59mOWUrMUhCM8iNhA6E2z6', 'Police Officer',   7, NULL, NULL,                   1),
-(11, 'Mirrium',   'Station Commander', 'Mirrium',    'Kathabwa',      'mirrium@police.gov.mw',        '0997884578',    '$2b$10$gx8O2Mp51lqixUuROTmN8eM57adjWAcsIBgcOgFyYc2lMEKb4qWmq', 'Station Officer',  9, NULL, NULL,                   1),
-(12, 'Gloria',    'Constable',         'Gloria',     'Kachapira',     'kachapira@police.gov',         NULL,            '$2b$10$Qmk2160.0GF/CpnxkPTVnuXFcD7bNm4yInW5Mg9u3cTEfVIOuiaRm', 'Police Officer',   7, NULL, NULL,                   1),
-(13, 'LIM-003',   'Sergeant',          'Kumbukani',  'Mbewe',         'branch@limbe.police.mw',       '+265888001003', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch Officer',  10, 3,    'Investigation Branch', 1),
-(14, 'LIM-004',   'Inspector',         'Chikondi',   'Nyirenda',      'prosecutor@limbe.police.mw',   '+265888001004', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Prosecutor',       6, NULL, NULL,                   1),
-(26, 'Alex',      'Sergeant',          'Alex',       'Kathabwa',      'alexkathawa@police.gov',       '09987878979',   '$2b$10$SEKStVJ7wtJMZSpp0SXz8.YBzYgGP5Wc5H3uMDq8hqpGU7eELC45S', 'Police Officer',   7, NULL, NULL,                   1),
-(30, 'LIM-005',   'Sergeant',          'Grace',      'Banda',         'records@limbe.police.mw',      '+265888001005', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Records Officer',  8, NULL, NULL,                   1),
-(31, 'LIM-006',   'Sergeant',          'Yamikani',   'Phiri',         'ib-chief@limbe.police.mw',     '+265888001006', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch Officer',  10, NULL, 'Investigation Branch', 1),
-(32, 'LIM-007',   'Sergeant',          'Thandiwe',   'Mwale',         'cid-chief@limbe.police.mw',    '+265888001007', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch Officer',  10, NULL, 'CID',                  1);
+(2,  'LIM-001', 'Station Commander', 'Station',    'Administrator', 'admin@limbe.police.mw',      '+265999000000', '$2b$10$EBMaLazalQcIxcMvkk2Mbe8MV3YhJ59Ursv4W7WSeiJPMAJyu..iW', 'Admin',           1, 1,    NULL,                   1),
+(4,  'LIM-002', 'Station Commander', 'George',     'Dambo',         'dambogeorge992@gmail.com',   '+265996697165', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Station Officer',  9, 1,    NULL,                   1),
+(7,  'Phady',     'Constable',       'Patrick',    'Magule',        'patrick@gmail.com',          '+265996697165', '$2b$10$ft8gJNabUp9Q8HnveDBrEO0Va5NM5vn2xlv3BZnMvYogPSqLFiz76', 'Police Officer',   7, NULL, NULL,                   1),
+(13, 'LIM-003', 'Sergeant',          'Kumbukani',  'Mbewe',         'branch@limbe.police.mw',     '+265888001003', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch Officer',  10, 3,    'Investigation Branch', 1),
+(14, 'LIM-004', 'Inspector',         'Chikondi',   'Nyirenda',      'prosecutor@limbe.police.mw', '+265888001004', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Prosecutor',       6, NULL, NULL,                   1),
+(30, 'LIM-005', 'Sergeant',          'Grace',      'Banda',         'records@limbe.police.mw',    '+265888001005', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Records Officer',  8, NULL, NULL,                   1),
+(32, 'LIM-007', 'Sergeant',          'Thandiwe',   'Mwale',         'cid-chief@limbe.police.mw',  '+265888001007', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch Officer',  10, NULL, 'CID',                  1);
 
 SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
 
@@ -219,9 +210,9 @@ CREATE INDEX idx_cases_assigned_to ON cases (assigned_to);
 -- investigating officer, and Under Investigation once the officer begins
 -- recording diary entries.
 INSERT INTO cases (id, ob_number, complainant_name, complainant_id_number, complainant_phone, complainant_address, complainant_gender, category_id, branch_id, priority, incident_datetime, incident_location, incident_details, recorded_by, recorded_at, status, requested_status, status_request_notes, status_requested_by, status_requested_at, branch_review_status, branch_reviewed_by, branch_reviewed_at, forwarded_at, file_location, court_date, court_outcome, prosecution_query, prosecution_query_at, prosecution_query_resolved_at, criminal_number, numbers_assigned_by, numbers_assigned_at, classification, workflow_branch, classified_by, classified_at, assigned_to, assigned_by, assigned_at, created_at, updated_at) VALUES
-(1, 'OB-20260816-0001', 'George Dambo',    NULL,       '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 5, 3, 'Medium', '2025-03-21 12:00:00', 'Chichiri',            'mdjmsmskakamd',                          6,  '2026-08-16 14:30:27', 'Under Investigation',  NULL,  NULL,  NULL, NULL, NULL, NULL,               NULL, NULL, NULL,           NULL, NULL,     NULL,         NULL, NULL, NULL,              'CR-20260819-0001', 30, '2026-08-19 08:55:00', 'Medium', 'Investigation Branch', 9,  '2026-08-19 09:00:00', 8,  6,  '2026-08-19 09:33:04', '2026-08-16 14:30:27', '2026-08-19 09:33:04'),
-(2, 'OB-20260905-0001', 'Patrick Magule',  '004939939', '08840399483', 'Lumbadzi, Lilongwe Malawi', 'Male', 6, 2, 'High',   '2026-09-05 11:45:00', 'Zingwangwa Market',   'fjjkfkdjsKLKAJGJDKSKFHSJKSKKKSHFHFH',   9,  '2026-09-05 09:45:58', 'Numbered',             NULL,  NULL,  NULL, NULL, NULL, NULL,               NULL, NULL, NULL,           NULL, NULL,     NULL,         NULL, NULL, NULL,              'CR-20260916-0001', 30, '2026-09-16 16:02:53', NULL,     NULL,                  NULL, NULL,     NULL, NULL,                   NULL, '2026-09-05 09:45:58', '2026-09-16 16:02:53'),
-(3, 'OB-20260905-0002', 'George Dambo',    'pfoodld',  '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 7, 3, 'Medium', '2026-09-03 12:42:00', 'oflsllsld',           'kqalL;;dlszmmdk',                        2,  '2026-09-05 10:43:05', 'Submitted for Review', 'Closed', 'gdjjs', 26, '2026-09-16 16:40:50', 'Pending Review',  NULL, NULL,           NULL, NULL,     NULL,         NULL, NULL, NULL,              'CR-20260916-0002', 30, '2026-09-16 16:30:00', 'Medium', 'Investigation Branch', 12, '2026-09-16 16:00:00', 26, 12, '2026-09-16 16:36:55', '2026-09-05 10:43:05', '2026-09-16 16:40:50');
+(1, 'OB-20260816-0001', 'George Dambo', NULL, '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 5, 3, 'Medium', '2025-03-21 12:00:00', 'Chichiri', 'mdjmsmskakamd', 7, '2026-08-16 14:30:27', 'Under Investigation', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR-20260819-0001', 30, '2026-08-19 08:55:00', 'Medium', 'Investigation Branch', 4, '2026-08-19 09:00:00', 7, 13, '2026-08-19 09:33:04', '2026-08-16 14:30:27', '2026-08-19 09:33:04'),
+(2, 'OB-20260905-0001', 'Patrick Magule', '004939939', '08840399483', 'Lumbadzi, Lilongwe Malawi', 'Male', 6, 2, 'High', '2026-09-05 11:45:00', 'Zingwangwa Market', 'fjjkfkdjsKLKAJGJDKSKFHSJKSKKKSHFHFH', 7, '2026-09-05 09:45:58', 'Numbered', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR-20260916-0001', 30, '2026-09-16 16:02:53', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-09-05 09:45:58', '2026-09-16 16:02:53'),
+(3, 'OB-20260905-0002', 'George Dambo', 'pfoodld', '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 7, 3, 'Medium', '2026-09-03 12:42:00', 'oflsllsld', 'kqalL;;dlszmmdk', 7, '2026-09-05 10:43:05', 'Submitted for Review', 'Closed', 'gdjjs', 7, '2026-09-16 16:40:50', 'Pending Review', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR-20260916-0002', 30, '2026-09-16 15:45:00', 'Medium', 'Investigation Branch', 4, '2026-09-16 16:00:00', 7, 13, '2026-09-16 16:36:55', '2026-09-05 10:43:05', '2026-09-16 16:40:50');
 
 SELECT setval(pg_get_serial_sequence('cases', 'id'), (SELECT MAX(id) FROM cases));
 -- Case <> Investigators (many-to-many)
@@ -240,8 +231,8 @@ CREATE TABLE case_investigators (
 );
 
 INSERT INTO case_investigators (id, case_id, investigator_id, assigned_by, assigned_at, is_lead) VALUES
-(1, 1, 8,  6,  '2026-08-19 09:33:04', 1),
-(2, 3, 26, 12, '2026-09-16 16:36:55', 1);
+(1, 1, 7, 13, '2026-08-19 09:33:04', 1),
+(2, 3, 7, 13, '2026-09-16 16:36:55', 1);
 
 SELECT setval(pg_get_serial_sequence('case_investigators', 'id'), (SELECT MAX(id) FROM case_investigators));
 
@@ -265,8 +256,8 @@ CREATE INDEX idx_case_assignments_target ON case_assignments (assigned_to);
 
 -- Seed the history from the assignment table above.
 INSERT INTO case_assignments (case_id, assigned_to, assigned_by, reason, created_at) VALUES
-(1, 8,  6,  NULL, '2026-08-19 09:33:04'),
-(3, 26, 12, NULL, '2026-09-16 16:36:55');
+(1, 7, 13, NULL, '2026-08-19 09:33:04'),
+(3, 7, 13, NULL, '2026-09-16 16:36:55');
 
 SELECT setval(pg_get_serial_sequence('case_assignments', 'id'), (SELECT MAX(id) FROM case_assignments));
 
@@ -297,6 +288,11 @@ CREATE TABLE number_sequences (
   PRIMARY KEY (year, type),
   CONSTRAINT chk_number_type CHECK (type IN ('OB', 'CR'))
 );
+
+-- Seed the yearly counters past the existing seed numbers.
+INSERT INTO number_sequences (year, type, last_number, updated_at) VALUES
+(2026, 'OB', 2, '2026-09-16 16:02:53'),
+(2026, 'CR', 2, '2026-09-16 16:02:53');
 
 -- Suspects
 DROP TABLE IF EXISTS suspects CASCADE;
@@ -387,7 +383,7 @@ CREATE TABLE case_notes (
 CREATE INDEX idx_notes_case_id ON case_notes (case_id);
 
 INSERT INTO case_notes (id, case_id, officer_id, note, created_at) VALUES
-(1, 1, 8, 'we have now find the evidence', '2026-08-21 17:43:07');
+(1, 1, 7, 'we have now find the evidence', '2026-08-21 17:43:07');
 
 SELECT setval(pg_get_serial_sequence('case_notes', 'id'), (SELECT MAX(id) FROM case_notes));
 
@@ -491,130 +487,26 @@ CREATE INDEX idx_audit_action ON audit_logs (action);
 CREATE INDEX idx_audit_created ON audit_logs (created_at);
 
 INSERT INTO audit_logs (id, user_id, action, details, ip_address, created_at) VALUES
-(1,  2,  'USER_LOGIN',              'Officer LIM-001 logged into web portal.',                                                           NULL, '2026-08-15 09:37:45'),
-(2,  2,  'USER_CREATED',            'Created user Esterk with role Station Commander (Role ID: 2)',                                      NULL, '2026-08-15 09:40:59'),
-(3,  2,  'STATUS_CHANGE',           'Toggled status for Huka to Inactive',                                                              NULL, '2026-08-15 09:41:04'),
-(4,  2,  'STATUS_CHANGE',           'Toggled status for Huka to Active',                                                                NULL, '2026-08-15 09:41:07'),
-(5,  2,  'STATUS_CHANGE',           'Toggled status for Huka to Inactive',                                                              NULL, '2026-08-15 09:41:11'),
-(6,  2,  'STATUS_CHANGE',           'Toggled status for LIM-002 to Inactive',                                                           NULL, '2026-08-15 09:41:13'),
-(7,  2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-08-15 09:41:33'),
-(8,  6,  'USER_LOGIN',              'Officer Esterk logged into web portal.',                                                            NULL, '2026-08-15 09:41:44'),
-(9,  6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-15 09:59:48'),
-(10, 6,  'USER_LOGOUT',             'Officer Esterk logged out.',                                                                        NULL, '2026-08-15 10:05:11'),
-(11, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-15 10:05:24'),
-(12, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-15 10:14:44'),
-(13, 6,  'USER_LOGIN',              'Officer Esterk logged into web portal.',                                                            NULL, '2026-08-15 10:16:14'),
-(14, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-15 10:17:52'),
-(15, 6,  'USER_LOGOUT',             'Officer Esterk logged out.',                                                                        NULL, '2026-08-15 10:36:22'),
-(16, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-08-15 10:36:36'),
-(17, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-08-15 10:54:38'),
-(18, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-15 10:54:48'),
-(19, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-16 13:15:07'),
-(20, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-16 13:50:55'),
-(21, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-16 14:27:39'),
-(22, 6,  'CASE_REGISTERED',         'Registered new Case OB OB-20260816-0001 for complainant George Dambo.',                              NULL, '2026-08-16 14:30:27'),
-(23, 6,  'USER_LOGOUT',             'Officer Esterk logged out.',                                                                        NULL, '2026-08-16 14:36:48'),
-(24, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-08-16 14:37:07'),
-(25, 2,  'USER_CREATED',            'Created user Phady with role Counter/Intake Officer (Role ID: 4)',                                 NULL, '2026-08-16 14:43:19'),
-(26, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-08-16 14:43:26'),
-(27, 7,  'USER_LOGIN',              'Officer Phady logged in successfully.',                                                             NULL, '2026-08-16 14:43:37'),
-(28, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-17 18:09:23'),
-(29, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-19 08:50:52'),
-(30, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-19 09:26:57'),
-(31, 6,  'USER_LOGOUT',             'Officer Esterk logged out.',                                                                        NULL, '2026-08-19 09:27:12'),
-(32, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-08-19 09:27:29'),
-(33, 2,  'USER_CREATED',            'Created user Dambo with role Investigating Officer (Role ID: 3)',                                  NULL, '2026-08-19 09:28:24'),
-(34, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-08-19 09:28:48'),
-(35, 8,  'USER_LOGIN',              'Officer Dambo logged in successfully.',                                                             NULL, '2026-08-19 09:29:05'),
-(36, 8,  'USER_LOGOUT',             'Officer Dambo logged out.',                                                                        NULL, '2026-08-19 09:30:52'),
-(37, 8,  'USER_LOGIN',              'Officer Dambo logged in successfully.',                                                             NULL, '2026-08-19 09:31:28'),
-(38, 8,  'USER_LOGOUT',             'Officer Dambo logged out.',                                                                        NULL, '2026-08-19 09:32:13'),
-(39, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-19 09:32:23'),
-(40, 6,  'CASE_ASSIGNED',           'Assigned Case ID 1 to Investigator Constable Dambo (Dambo). ',                                     NULL, '2026-08-19 09:33:04'),
-(41, 6,  'USER_LOGOUT',             'Officer Esterk logged out.',                                                                        NULL, '2026-08-19 09:33:10'),
-(42, 8,  'USER_LOGIN',              'Officer Dambo logged in successfully.',                                                             NULL, '2026-08-19 09:33:35'),
-(43, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-08-19 09:38:48'),
-(44, 8,  'USER_LOGIN',              'Officer Dambo logged in successfully.',                                                             NULL, '2026-08-19 09:40:33'),
-(45, 8,  'USER_LOGIN',              'Officer Dambo logged in successfully.',                                                             NULL, '2026-08-19 09:41:24'),
-(46, 8,  'USER_LOGIN',              'Officer Dambo logged in successfully.',                                                             NULL, '2026-08-19 09:45:16'),
-(47, 8,  'USER_LOGIN',              'Officer Dambo logged in successfully.',                                                             NULL, '2026-08-19 09:49:50'),
-(48, 8,  'USER_LOGIN',              'Officer Dambo logged in successfully.',                                                             NULL, '2026-08-21 17:24:45'),
-(49, 8,  'CASE_NOTE_ADDED',         'Added investigation note to Case ID 1.',                                                           NULL, '2026-08-21 17:43:07'),
-(50, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-08-21 17:53:37'),
-(51, 2,  'PASSWORD_CHANGED',        'Officer LIM-001 updated their password.',                                                          NULL, '2026-08-21 17:54:19'),
-(52, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-08-21 17:54:33'),
-(53, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-08-21 17:56:23'),
-(54, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-08-21 18:09:25'),
-(55, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-08-21 18:10:05'),
-(56, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-08-21 18:15:08'),
-(57, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-21 18:18:37'),
-(58, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-08-28 19:49:56'),
-(59, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-09-05 09:11:12'),
-(60, 6,  'USER_LOGOUT',             'Officer Esterk logged out.',                                                                        NULL, '2026-09-05 09:12:50'),
-(61, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-09-05 09:13:33'),
-(62, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-09-05 09:19:09'),
-(63, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-09-05 09:38:37'),
-(64, 2,  'USER_CREATED',            'Created user George with role Counter/Intake Officer (Role ID: 4)',                                NULL, '2026-09-05 09:40:16'),
-(65, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-09-05 09:40:38'),
-(66, 9,  'USER_LOGIN',              'Officer George logged in successfully.',                                                            NULL, '2026-09-05 09:41:01'),
-(67, 9,  'CASE_REGISTERED',         'Registered new Case OB OB-20260905-0001 for complainant Patrick Magule.',                           NULL, '2026-09-05 09:45:58'),
-(68, 9,  'USER_LOGOUT',             'Officer George logged out.',                                                                        NULL, '2026-09-05 10:02:14'),
-(69, 6,  'USER_LOGIN',              'Officer Esterk logged in successfully.',                                                            NULL, '2026-09-05 10:02:26'),
-(70, 6,  'USER_LOGOUT',             'Officer Esterk logged out.',                                                                        NULL, '2026-09-05 10:03:27'),
-(71, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-09-05 10:03:39'),
-(72, 2,  'USER_CREATED',            'Created user Surgent with role Investigating Officer (Role ID: 3)',                                NULL, '2026-09-05 10:06:28'),
-(73, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-09-05 10:06:47'),
-(74, 10, 'USER_LOGIN',              'Officer Surgent logged in successfully.',                                                           NULL, '2026-09-05 10:07:18'),
-(75, 10, 'USER_LOGOUT',             'Officer Surgent logged out.',                                                                       NULL, '2026-09-05 10:07:39'),
-(76, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-09-05 10:07:50'),
-(77, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-09-05 10:26:11'),
-(78, 2,  'STATUS_CHANGE',           'Toggled status for Surgent to Inactive',                                                            NULL, '2026-09-05 10:28:34'),
-(79, 2,  'STATUS_CHANGE',           'Toggled status for Surgent to Active',                                                              NULL, '2026-09-05 10:28:57'),
-(80, 2,  'CASE_REGISTERED',         'Registered new Case OB OB-20260905-0002 for complainant George Dambo.',                             NULL, '2026-09-05 10:43:05'),
-(81, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-09-08 13:37:26'),
-(82, 2,  'USER_CREATED',            'Created user Mirrium with role Station Commander (Role ID: 2)',                                    NULL, '2026-09-08 13:40:52'),
-(83, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-09-08 13:41:09'),
-(84, 11, 'USER_LOGIN',              'Officer Mirrium logged in successfully.',                                                           NULL, '2026-09-08 13:41:22'),
-(85, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-09-14 18:18:56'),
-(86, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           NULL, '2026-09-14 18:58:14'),
-(87, 2,  'USER_CREATED',            'Created user Gloria with role Station Commander (Role ID: 2)',                                     NULL, '2026-09-14 18:59:23'),
-(88, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      NULL, '2026-09-14 18:59:28'),
-(89, 12, 'USER_LOGIN',              'Officer Gloria logged in successfully.',                                                            NULL, '2026-09-14 18:59:50'),
-(90, 12, 'USER_LOGIN',              'Officer Gloria logged in successfully.',                                                            NULL, '2026-09-14 19:16:40'),
-(118, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           '::1', '2026-09-16 16:09:03'),
-(119, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      '::1', '2026-09-16 16:10:40'),
-(120, 12, 'USER_LOGIN',              'Officer Gloria logged in successfully.',                                                            '::1', '2026-09-16 16:11:07'),
-(121, 12, 'USER_LOGOUT',             'Officer Gloria logged out.',                                                                        '::1', '2026-09-16 16:18:52'),
-(122, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           '::1', '2026-09-16 16:19:37'),
-(123, 2,  'PASSWORD_RESET',          'Admin reset password for User ID 8',                                                                '::1', '2026-09-16 16:20:35'),
-(124, 2,  'USER_UPDATED',            'Updated details for User ID 8 (George Dambo). Assigned Role: Counter/Intake Officer',               '::1', '2026-09-16 16:21:03'),
-(125, 2,  'STATUS_CHANGE',           'Toggled status for LIM-002 to Active',                                                              '::1', '2026-09-16 16:21:13'),
-(126, 2,  'STATUS_CHANGE',           'Toggled status for Huka to Active',                                                                '::1', '2026-09-16 16:21:16'),
-(127, 2,  'PASSWORD_RESET',          'Admin reset password for User ID 10',                                                               '::1', '2026-09-16 16:22:05'),
-(128, 2,  'USER_UPDATED',            'Updated details for User ID 10 (Surgent Ngwira). Assigned Role: Counter/Intake Officer',           '::1', '2026-09-16 16:22:20'),
-(129, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      '::1', '2026-09-16 16:22:52'),
-(130, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           '::1', '2026-09-16 16:23:02'),
-(131, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      '::1', '2026-09-16 16:23:40'),
-(132, 10, 'USER_LOGIN',              'Officer Surgent logged in successfully.',                                                           '::1', '2026-09-16 16:23:53'),
-(133, 10, 'USER_LOGOUT',             'Officer Surgent logged out.',                                                                       '::1', '2026-09-16 16:27:49'),
-(134, 8,  'USER_LOGIN',              'Officer Dambo logged in successfully.',                                                             '::1', '2026-09-16 16:28:06'),
-(135, 8,  'USER_LOGOUT',             'Officer Dambo logged out.',                                                                        '::1', '2026-09-16 16:28:15'),
-(136, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           '::1', '2026-09-16 16:28:37'),
-(137, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      '::1', '2026-09-16 16:30:01'),
-(138, 12, 'USER_LOGIN',              'Officer Gloria logged in successfully.',                                                            '::1', '2026-09-16 16:30:12'),
-(139, 12, 'USER_LOGOUT',             'Officer Gloria logged out.',                                                                        '::1', '2026-09-16 16:31:42'),
-(140, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           '::1', '2026-09-16 16:32:06'),
-(141, 2,  'USER_CREATED',            'Created user Alex with role Investigating Officer (Role ID: 3)',                                   '::1', '2026-09-16 16:33:25'),
-(142, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      '::1', '2026-09-16 16:33:31'),
-(143, 26, 'USER_LOGIN',              'Officer Alex logged in successfully.',                                                              '::1', '2026-09-16 16:33:43'),
-(144, 26, 'USER_LOGOUT',             'Officer Alex logged out.',                                                                          '::1', '2026-09-16 16:34:03'),
-(145, 2,  'USER_LOGIN',              'Officer LIM-001 logged in successfully.',                                                           '::1', '2026-09-16 16:34:24'),
-(146, 2,  'USER_LOGOUT',             'Officer LIM-001 logged out.',                                                                      '::1', '2026-09-16 16:34:35'),
-(147, 12, 'USER_LOGIN',              'Officer Gloria logged in successfully.',                                                            '::1', '2026-09-16 16:34:53'),
-(148, 12, 'CASE_ASSIGNED',           'Assigned Case ID 3 to Investigator Sergeant Kathabwa (Alex). Note: do this within a month',        '::1', '2026-09-16 16:36:55'),
-(149, 12, 'USER_LOGOUT',             'Officer Gloria logged out.',                                                                        '::1', '2026-09-16 16:37:28'),
-(150, 26, 'USER_LOGIN',              'Officer Alex logged in successfully.',                                                              '::1', '2026-09-16 16:37:40'),
-(151, 26, 'STATUS_CHANGE_REQUESTED', 'Requested status change to "Closed" for Case ID 3.',                                             '::1', '2026-09-16 16:40:50');
+(1,  2,  'USER_LOGIN',              'Officer LIM-001 logged into web portal.',                                                       NULL, '2026-08-15 09:37:45'),
+(2,  2,  'USER_CREATED',            'Created user LIM-002 (George Dambo) with role Station Officer (Role ID: 9)',                     NULL, '2026-08-15 09:40:59'),
+(3,  2,  'USER_CREATED',            'Created user Phady (Patrick Magule) with role Police Officer (Role ID: 7)',                      NULL, '2026-08-15 09:41:07'),
+(4,  2,  'USER_CREATED',            'Created user LIM-003 (Kumbukani Mbewe) with role Branch Officer (Role ID: 10), workflow branch: Investigation Branch', NULL, '2026-08-15 09:41:11'),
+(5,  2,  'USER_CREATED',            'Created user LIM-004 (Chikondi Nyirenda) with role Prosecutor (Role ID: 6)',                    NULL, '2026-08-15 09:41:13'),
+(6,  2,  'USER_CREATED',            'Created user LIM-005 (Grace Banda) with role Records Officer (Role ID: 8)',                     NULL, '2026-08-15 09:41:33'),
+(7,  2,  'USER_CREATED',            'Created user LIM-007 (Thandiwe Mwale) with role Branch Officer (Role ID: 10), workflow branch: CID', NULL, '2026-08-15 09:41:44'),
+(8,  7,  'USER_LOGIN',              'Officer Phady logged in successfully.',                                                       NULL, '2026-08-16 14:27:39'),
+(9,  7,  'CASE_REGISTERED',         'Registered new Case OB OB-20260816-0001 for complainant George Dambo.',                       NULL, '2026-08-16 14:30:27'),
+(10, 30, 'NUMBERS_ASSIGNED',        'Assigned OB number OB-20260816-0001 and criminal number CR-20260819-0001 to Case ID 1.',      NULL, '2026-08-19 08:55:00'),
+(11, 4,  'CASE_CLASSIFIED',         'Classified Case ID 1 as Medium; routed to Investigation Branch.',                             NULL, '2026-08-19 09:00:00'),
+(12, 13, 'CASE_ASSIGNED',           'Assigned Case ID 1 to Police Officer Patrick Magule.',                                        NULL, '2026-08-19 09:33:04'),
+(13, 7,  'CASE_NOTE_ADDED',         'Added investigation note to Case ID 1.',                                                      NULL, '2026-08-21 17:43:07'),
+(14, 7,  'CASE_REGISTERED',         'Registered new Case OB OB-20260905-0001 for complainant Patrick Magule.',                     NULL, '2026-09-05 09:45:58'),
+(15, 7,  'CASE_REGISTERED',         'Registered new Case OB OB-20260905-0002 for complainant George Dambo.',                       NULL, '2026-09-05 10:43:05'),
+(16, 30, 'NUMBERS_ASSIGNED',        'Assigned OB number OB-20260905-0002 and criminal number CR-20260916-0002 to Case ID 3.',      NULL, '2026-09-16 15:45:00'),
+(17, 4,  'CASE_CLASSIFIED',         'Classified Case ID 3 as Medium; routed to Investigation Branch.',                             NULL, '2026-09-16 16:00:00'),
+(18, 30, 'NUMBERS_ASSIGNED',        'Assigned OB number OB-20260905-0001 and criminal number CR-20260916-0001 to Case ID 2.',      NULL, '2026-09-16 16:02:53'),
+(19, 13, 'CASE_ASSIGNED',           'Assigned Case ID 3 to Police Officer Patrick Magule. Note: do this within a month',            NULL, '2026-09-16 16:36:55'),
+(20, 7,  'STATUS_CHANGE_REQUESTED', 'Requested status change to "Closed" for Case ID 3.',                                          '::1', '2026-09-16 16:40:50');
 
 SELECT setval(pg_get_serial_sequence('audit_logs', 'id'), (SELECT MAX(id) FROM audit_logs));
 
