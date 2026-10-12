@@ -11,16 +11,25 @@ import usePageTitle from '../../hooks/usePageTitle';
 const MIN_PASSWORD_LENGTH = 6;
 
 const ROLE_OPTIONS = [
-    { value: 'Police Officer', label: 'Police Officer' },
-    { value: 'Records Officer', label: 'Records Officer' },
+    { value: 'Admin', label: 'System Administrator' },
     { value: 'Station Officer', label: 'Station Officer' },
-    { value: 'Branch Officer', label: 'Branch Officer' },
-    { value: 'Prosecutor', label: 'Prosecutor' },
-    { value: 'Admin', label: 'System Administrator' }
+    { value: 'Police Officer', label: 'Police Officer' },
+    { value: 'CID Branch Officer', label: 'CID Branch Officer' },
+    { value: 'Investigation Branch Officer', label: 'Investigation Branch Officer' },
+    { value: 'Prosecutor', label: 'Prosecution Officer' },
+    { value: 'Records Officer', label: 'Records Officer' }
 ];
 
 
-function toRoleValue(role) {
+function branchOfficerOption(branch) {
+    const b = String(branch || '').toLowerCase();
+    if (b.includes('cid') || b.includes('criminal')) return 'CID Branch Officer';
+    if (b.includes('investigation')) return 'Investigation Branch Officer';
+    return 'CID Branch Officer';
+}
+
+
+function toRoleValue(role, branch) {
     switch (role) {
         case 'Investigating Officer':
         case 'Counter/Intake Officer':
@@ -28,7 +37,8 @@ function toRoleValue(role) {
         case 'Station Commander':
             return 'Station Officer';
         case 'Branch In-charge':
-            return 'Branch Officer';
+        case 'Branch Officer':
+            return branchOfficerOption(branch);
         case 'Prosecutor':
             return 'Prosecutor';
         case 'Admin':
@@ -64,14 +74,22 @@ export default function UserEdit() {
                 last_name: u.last_name || '',
                 email: u.email || '',
                 phone_number: u.phone_number || '',
-                role: toRoleValue(u.role),
+                role: toRoleValue(u.role, u.branch),
                 branch: u.branch || ''
             });
         }
     }, [data]);
 
     const set = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value }));
-    const setRole = (e) => setForm(prev => ({ ...prev, role: e.target.value, branch: '' }));
+    const setRole = (e) => {
+        const val = e.target.value;
+        setForm(prev => {
+            let branch = prev.branch || '';
+            if (val === 'CID Branch Officer') branch = 'Criminal Investigation Department';
+            if (val === 'Investigation Branch Officer') branch = 'Investigation Branch';
+            return { ...prev, role: val, branch };
+        });
+    };
     const setDigits = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value.replace(/[^0-9]/g, '') }));
 
     const saveProfile = async (e) => {
@@ -214,7 +232,7 @@ export default function UserEdit() {
                                             {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                                         </select>
                                     </div>
-                                    {form.role === 'Branch Officer' && (
+                                    {(form.role === 'Branch Officer' || form.role === 'CID Branch Officer' || form.role === 'Investigation Branch Officer') && (
                                         <div className="col-md-6">
                                             <label htmlFor="branch" className="form-label small fw-semibold text-muted">Workflow Branch *</label>
                                             <select

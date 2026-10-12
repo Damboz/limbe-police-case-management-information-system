@@ -36,7 +36,12 @@ const LEGACY_ROLE_ALIASES = {
     'counter/intake officer': ROLES.POLICE_OFFICER,
     officer: ROLES.POLICE_OFFICER,
     'branch in-charge': ROLES.BRANCH_OFFICER,
-    branch: ROLES.BRANCH_OFFICER
+    branch: ROLES.BRANCH_OFFICER,
+    'cid branch officer': ROLES.BRANCH_OFFICER,
+    'cid officer': ROLES.BRANCH_OFFICER,
+    'investigation branch officer': ROLES.BRANCH_OFFICER,
+    'investigation officer': ROLES.BRANCH_OFFICER,
+    'prosecution officer': ROLES.PROSECUTOR
 };
 
 const LEGACY_ROLE_ID_MAP = {

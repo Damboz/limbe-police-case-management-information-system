@@ -17,6 +17,9 @@
 --   * New tables: case_assignments (assignment history),
 --     case_file_movements (file movement log),
 --     number_sequences (OB/CR yearly counters)
+--   * Station branches are consolidated to the two the station
+--     operates: the Criminal Investigation Department and the
+--     Investigation Branch
 --   * Existing state is carried over:
 --       - the lead investigator becomes cases.assigned_to
 --       - investigated cases are classified from their
@@ -278,3 +281,23 @@ WHERE ob_number ~ '^OB-[0-9]{4}'
 GROUP BY 1
 ON CONFLICT (year, type) DO UPDATE
 SET last_number = GREATEST(number_sequences.last_number, EXCLUDED.last_number);
+
+-- 10. Consolidate station branches ----------------------------------------
+-- The station operates exactly two branches: the Criminal
+-- Investigation Department (High / Critical cases) and the
+-- Investigation Branch (Minor / Medium cases). Any other lookup
+-- rows (for example CPU or RSTD) are folded into the
+-- Investigation Branch. Cases and users that still point at a
+-- removed branch are repointed before the rows are deleted.
+UPDATE cases SET branch_id = 2 WHERE branch_id NOT IN (1, 2);
+UPDATE users SET branch_id = 2 WHERE branch_id IS NOT NULL AND branch_id NOT IN (1, 2);
+
+DELETE FROM station_branch WHERE id NOT IN (1, 2);
+
+INSERT INTO station_branch (id, code, name, description) VALUES
+(1, 'CID', 'Criminal Investigation Department', 'Handles serious crimes, homicide, armed robbery, and complex inquiries (High / Critical cases)'),
+(2, 'INV', 'Investigation Branch',              'Handles minor and medium cases and general investigations')
+ON CONFLICT (id) DO UPDATE
+SET code = EXCLUDED.code, name = EXCLUDED.name, description = EXCLUDED.description;
+
+SELECT setval(pg_get_serial_sequence('station_branch', 'id'), (SELECT MAX(id) FROM station_branch));

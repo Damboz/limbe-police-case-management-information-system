@@ -13,8 +13,10 @@ function getRoleMapping(roleInput) {
 
     switch (input) {
         case 'admin':
+        case 'system administrator':
             return { role: ROLES.ADMIN, role_id: ROLE_IDS.ADMIN };
         case 'police officer':
+        case 'police officers':
         case 'officer':
         case 'investigator':
         case 'investigating officer':
@@ -22,6 +24,7 @@ function getRoleMapping(roleInput) {
         case 'records officer':
             return { role: ROLES.RECORDS_OFFICER, role_id: ROLE_IDS.RECORDS_OFFICER };
         case 'station officer':
+        case 'station officers':
         case 'station commander':
         case 'supervisor':
             return { role: ROLES.STATION_OFFICER, role_id: ROLE_IDS.STATION_OFFICER };
@@ -29,8 +32,17 @@ function getRoleMapping(roleInput) {
         case 'branch in-charge':
         case 'branch':
         case 'branchincharge':
+        case 'cid branch officer':
+        case 'cid officer':
+        case 'criminal investigation department officer':
+        case 'investigation branch officer':
+        case 'investigation officer':
+        case 'inv branch officer':
             return { role: ROLES.BRANCH_OFFICER, role_id: ROLE_IDS.BRANCH_OFFICER };
         case 'prosecutor':
+        case 'prosecutors':
+        case 'prosecution officer':
+        case 'prosecution officers':
             return { role: ROLES.PROSECUTOR, role_id: ROLE_IDS.PROSECUTOR };
         default:
             return { role: ROLES.POLICE_OFFICER, role_id: ROLE_IDS.POLICE_OFFICER };
@@ -40,13 +52,24 @@ function getRoleMapping(roleInput) {
 
 // The workflow branch is only meaningful for Branch Officers, who
 // must head exactly one of the two workflow branches.
-function parseBranch(roleMap, branch) {
+function parseBranch(roleMap, branch, roleInput) {
     if (roleMap.role_id !== ROLE_IDS.BRANCH_OFFICER) {
         return null;
     }
 
     const branchName = String(branch || '').trim();
-    return WORKFLOW_BRANCH_NAMES.includes(branchName) ? branchName : null;
+    if (branchName && WORKFLOW_BRANCH_NAMES.includes(branchName)) {
+        return branchName;
+    }
+
+    const input = (roleInput || '').toString().toLowerCase().trim();
+    if (input.includes('cid')) {
+        return WORKFLOW_BRANCHES.CID;
+    }
+    if (input.includes('investigation')) {
+        return WORKFLOW_BRANCHES.INVESTIGATION;
+    }
+    return null;
 }
 
 
@@ -145,7 +168,7 @@ async function createUser(body) {
     }
 
     const roleMap = getRoleMapping(role);
-    const workflowBranch = parseBranch(roleMap, branch);
+    const workflowBranch = parseBranch(roleMap, branch, role);
 
     if (roleMap.role_id === ROLE_IDS.BRANCH_OFFICER && !workflowBranch) {
         return fail(400, 'Please select the workflow branch that this Branch Officer heads (Investigation Branch or CID).');
@@ -199,7 +222,7 @@ async function updateUser(userId, body) {
     }
 
     const roleMap = getRoleMapping(role);
-    const workflowBranch = parseBranch(roleMap, branch);
+    const workflowBranch = parseBranch(roleMap, branch, role);
 
     if (roleMap.role_id === ROLE_IDS.BRANCH_OFFICER && !workflowBranch) {
         return fail(400, 'Please select the workflow branch that this Branch Officer heads (Investigation Branch or CID).');

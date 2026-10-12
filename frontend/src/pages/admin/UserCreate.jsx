@@ -13,12 +13,13 @@ const MIN_PASSWORD_LENGTH = 6;
 const RANKS = ['Constable', 'Sergeant', 'Inspector', 'Assistant Superintendent', 'Superintendent', 'Station Commander'];
 
 const ROLE_OPTIONS = [
-    { value: 'Police Officer', label: 'Police Officer' },
-    { value: 'Records Officer', label: 'Records Officer' },
+    { value: 'Admin', label: 'System Administrator' },
     { value: 'Station Officer', label: 'Station Officer' },
-    { value: 'Branch Officer', label: 'Branch Officer' },
-    { value: 'Prosecutor', label: 'Prosecutor' },
-    { value: 'Admin', label: 'System Administrator' }
+    { value: 'Police Officer', label: 'Police Officer' },
+    { value: 'CID Branch Officer', label: 'CID Branch Officer' },
+    { value: 'Investigation Branch Officer', label: 'Investigation Branch Officer' },
+    { value: 'Prosecutor', label: 'Prosecution Officer' },
+    { value: 'Records Officer', label: 'Records Officer' }
 ];
 
 
@@ -43,7 +44,15 @@ export default function UserCreate() {
     const [submitting, setSubmitting] = useState(false);
 
     const set = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value }));
-    const setRole = (e) => setForm(prev => ({ ...prev, role: e.target.value, branch: '' }));
+    const setRole = (e) => {
+        const val = e.target.value;
+        setForm(prev => {
+            let branch = '';
+            if (val === 'CID Branch Officer') branch = 'Criminal Investigation Department';
+            if (val === 'Investigation Branch Officer') branch = 'Investigation Branch';
+            return { ...prev, role: val, branch };
+        });
+    };
     const setDigits = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value.replace(/[^0-9]/g, '') }));
 
     const handleSubmit = async (e) => {
@@ -143,7 +152,7 @@ export default function UserCreate() {
                                     </select>
                                 </div>
 
-                                {form.role === 'Branch Officer' && (
+                                {(form.role === 'Branch Officer' || form.role === 'CID Branch Officer' || form.role === 'Investigation Branch Officer') && (
                                     <div className="col-md-6">
                                         <label htmlFor="branch" className="form-label">Workflow Branch *</label>
                                         <select
