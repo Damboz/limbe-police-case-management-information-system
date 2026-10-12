@@ -86,6 +86,7 @@ router.delete('/admin/audit-logs', isAuthenticated, isAdmin, adminApi.clearAudit
 
 
 router.get('/supervisor/dashboard', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), supervisorApi.dashboard);
+router.post('/supervisor/cases/:id/classify', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), supervisorApi.classifyCase);
 router.post('/supervisor/cases/assign', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), supervisorApi.assignCase);
 router.post('/supervisor/cases/approve-status', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), supervisorApi.approveStatus);
 router.post('/supervisor/cases/:id/resolve-query', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), supervisorApi.resolveQuery);

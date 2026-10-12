@@ -67,7 +67,7 @@ const LEGACY_ROLE_ID_MAP = {
 // and only sees the cases classified into their branch.
 const WORKFLOW_BRANCHES = {
     INVESTIGATION: 'Investigation Branch',
-    CID: 'CID'
+    CID: 'Criminal Investigation Department'
 };
 
 

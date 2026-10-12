@@ -189,6 +189,7 @@ export const api = {
     clearAuditLogs: () => request('/admin/audit-logs', { method: 'DELETE' }),
 
     supervisorDashboard: (signal) => request('/supervisor/dashboard', { signal }),
+    classifyCase: (id, body) => request(`/supervisor/cases/${id}/classify`, { method: 'POST', body }),
     assignCase: (body) => request('/supervisor/cases/assign', { method: 'POST', body }),
     approveStatus: (body) => request('/supervisor/cases/approve-status', { method: 'POST', body }),
     resolveQuery: (id, resolution) => request(`/supervisor/cases/${id}/resolve-query`, { method: 'POST', body: { resolution } }),

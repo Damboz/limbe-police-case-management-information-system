@@ -12,6 +12,28 @@ exports.dashboard = async (req, res, next) => {
 };
 
 
+exports.classifyCase = async (req, res, next) => {
+    try {
+        const user = req.session.user;
+        const result = await supervisorService.classifyCase(
+            user,
+            req.params.id,
+            req.body.classification
+        );
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        await logAudit(req, user.id, 'CASE_CLASSIFIED', result.auditDetails);
+
+        res.json({ success: true, message: result.message });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
 exports.assignCase = async (req, res, next) => {
     try {
         const user = req.session.user;

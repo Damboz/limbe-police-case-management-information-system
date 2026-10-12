@@ -17,6 +17,13 @@
 --   * New tables: case_assignments (assignment history),
 --     case_file_movements (file movement log),
 --     number_sequences (OB/CR yearly counters)
+--   * Existing state is carried over:
+--       - the lead investigator becomes cases.assigned_to
+--       - investigated cases are classified from their
+--         priority (High/Critical -> CID, else the
+--         Investigation Branch)
+--       - number_sequences counters start past the existing
+--         OB numbers
 --
 -- Idempotent: safe to re-run against an existing database.
 -- Run with: psql -U postgres -d limbe_police -f upgrade_workflow_roles.sql
@@ -37,6 +44,10 @@ SELECT setval(pg_get_serial_sequence('roles', 'id'), (SELECT MAX(id) FROM roles)
 -- 2. Users: workflow branch + role remapping ------------------------------
 ALTER TABLE users ADD COLUMN IF NOT EXISTS branch varchar(50) DEFAULT NULL;
 
+-- The old CHECK only allows the legacy role names, so it
+-- must be dropped before the remapping UPDATEs run.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_role;
+
 UPDATE users SET role = 'Police Officer',  role_id = 7
 WHERE role IN ('Counter/Intake Officer', 'officer', 'Investigating Officer', 'investigator');
 
@@ -49,14 +60,13 @@ WHERE role IN ('Branch In-charge');
 -- Branch Officers head a workflow branch. Legacy branch in-charges are
 -- mapped from their operational branch: CID staff stay in CID, everyone
 -- else lands in the Investigation Branch.
-UPDATE users SET branch = 'CID'
+UPDATE users SET branch = 'Criminal Investigation Department'
 WHERE role = 'Branch Officer'
   AND branch_id IN (SELECT id FROM station_branch WHERE code = 'CID');
 
 UPDATE users SET branch = 'Investigation Branch'
 WHERE role = 'Branch Officer' AND branch IS NULL;
 
-ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_role;
 ALTER TABLE users ADD CONSTRAINT chk_users_role CHECK (role IN (
     'Admin', 'admin',
     'Police Officer', 'police officer',
@@ -130,11 +140,20 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_cases_workflow_branch') THEN
         ALTER TABLE cases ADD CONSTRAINT chk_cases_workflow_branch
-            CHECK (workflow_branch IS NULL OR workflow_branch IN ('Investigation Branch', 'CID'));
+            CHECK (workflow_branch IS NULL OR workflow_branch IN ('Investigation Branch', 'Criminal Investigation Department'));
     END IF;
 END $$;
 
+-- Migrate workflow branch values recorded under the old
+-- 'CID' abbreviation to the full branch name.
+UPDATE users SET branch = 'Criminal Investigation Department' WHERE branch = 'CID';
+UPDATE cases SET workflow_branch = 'Criminal Investigation Department' WHERE workflow_branch = 'CID';
+
 -- 4. Case lifecycle --------------------------------------------------------
+-- The old CHECK only allows the legacy statuses, so it
+-- must be dropped before the status UPDATEs run.
+ALTER TABLE cases DROP CONSTRAINT IF EXISTS chk_cases_status;
+
 -- Every existing case already has an OB number, so every existing case is
 -- past the numbering stage: 'Reported' becomes 'Numbered' (awaiting
 -- classification), and cases with a completion request pending branch
@@ -148,7 +167,6 @@ WHERE branch_review_status = 'Pending Review' AND requested_status IS NOT NULL;
 -- assigns it later. PostgreSQL UNIQUE allows multiple NULLs.
 ALTER TABLE cases ALTER COLUMN ob_number DROP NOT NULL;
 
-ALTER TABLE cases DROP CONSTRAINT IF EXISTS chk_cases_status;
 ALTER TABLE cases ADD CONSTRAINT chk_cases_status CHECK (status IN (
     'Registered', 'Numbered', 'Classified', 'Assigned', 'Under Investigation',
     'Submitted for Review', 'Court Pending', 'Forwarded to Prosecution',
@@ -217,3 +235,46 @@ CREATE TABLE IF NOT EXISTS number_sequences (
     PRIMARY KEY (year, type),
     CONSTRAINT chk_number_type CHECK (type IN ('OB', 'CR'))
 );
+
+-- 9. Carry existing case state over --------------------------------
+-- Cases that are already under investigation keep their
+-- investigator: the lead investigator becomes the case
+-- assignee, mirroring the assignment history seeded above.
+UPDATE cases c
+SET assigned_to = ci.investigator_id,
+    assigned_by = ci.assigned_by,
+    assigned_at = ci.assigned_at
+FROM (
+    SELECT DISTINCT ON (case_id)
+        case_id, investigator_id, assigned_by, assigned_at
+    FROM case_investigators
+    ORDER BY case_id, is_lead DESC, assigned_at ASC
+) ci
+WHERE ci.case_id = c.id
+  AND c.assigned_to IS NULL;
+
+-- Cases that were already investigated had a classification
+-- under the old workflow: their priority becomes the
+-- classification, and the workflow branch follows the
+-- classification rule (High/Critical -> CID, otherwise the
+-- Investigation Branch). Cases that were only reported stay
+-- unclassified ('Numbered', awaiting the Station Officer).
+UPDATE cases
+SET classification = CASE priority WHEN 'Low' THEN 'Minor' ELSE priority END,
+    workflow_branch = CASE
+        WHEN priority IN ('High', 'Critical') THEN 'Criminal Investigation Department'
+        ELSE 'Investigation Branch'
+    END
+WHERE classification IS NULL
+  AND status <> 'Numbered';
+
+-- Numbering continues past the existing OB numbers: one
+-- counter per year, seeded with the count of existing
+-- numbers (legacy format OB-YYYYMMDD-NNNN).
+INSERT INTO number_sequences (year, type, last_number)
+SELECT CAST(substring(ob_number FROM 4 FOR 4) AS int), 'OB', COUNT(*)
+FROM cases
+WHERE ob_number ~ '^OB-[0-9]{4}'
+GROUP BY 1
+ON CONFLICT (year, type) DO UPDATE
+SET last_number = GREATEST(number_sequences.last_number, EXCLUDED.last_number);

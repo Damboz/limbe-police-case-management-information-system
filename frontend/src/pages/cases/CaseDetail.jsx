@@ -278,6 +278,14 @@ export default function CaseDetail() {
                             <span className="fw-semibold">{caseItem.branch_name}</span>
                         </div>
                         <div className="col-md-3">
+                            <Label>Classification</Label>
+                            <span className="fw-semibold">{caseItem.classification || 'Awaiting classification'}</span>
+                        </div>
+                        <div className="col-md-3">
+                            <Label>Workflow Branch</Label>
+                            <span className="fw-semibold">{caseItem.workflow_branch || '—'}</span>
+                        </div>
+                        <div className="col-md-3">
                             <Label>Assigned Investigator(s)</Label>
                             {assignedInvestigatorNames.length === 0 ? (
                                 <span className="fw-semibold">Unassigned</span>

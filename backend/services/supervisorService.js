@@ -2,7 +2,7 @@ const db = require('../config/db');
 const { syncCaseInvestigators } = require('./assignmentService');
 const { OVERDUE_DAYS_THRESHOLD } = require('./caseService');
 const { ok, fail } = require('../utils/result');
-const { ROLES, roleIn } = require('../roles');
+const { ROLES, roleIn, CASE_CLASSIFICATIONS, CLASSIFICATION_BRANCHES, CASE_STATUSES } = require('../roles');
 
 const COMMANDER_ROLES = [ROLES.STATION_OFFICER];
 
@@ -21,7 +21,9 @@ async function getDashboard() {
                   AND CURRENT_DATE - created_at::date > ${OVERDUE_DAYS_THRESHOLD})  AS overdue_count,
             (SELECT COUNT(*) FROM reassignment_proposals WHERE status = 'Pending') AS pending_reassignments_count,
             (SELECT COUNT(*) FROM cases
-                WHERE prosecution_query IS NOT NULL AND prosecution_query_resolved_at IS NULL) AS open_queries_count
+                WHERE prosecution_query IS NOT NULL AND prosecution_query_resolved_at IS NULL) AS open_queries_count,
+            (SELECT COUNT(*) FROM cases
+                WHERE classification IS NULL AND status IN ('Registered', 'Numbered')) AS pending_classification_count
     `);
 
     const [unassignedCases] = await db.execute(`
@@ -100,6 +102,30 @@ async function getDashboard() {
         ORDER BY c.prosecution_query_at ASC
     `);
 
+    // Cases awaiting classification: the Station Officer picks
+    // the classification, which routes the case to its workflow
+    // branch (Minor/Medium -> Investigation Branch, High/Critical
+    // -> Criminal Investigation Department).
+    const [pendingClassification] = await db.execute(`
+        SELECT
+            c.id,
+            c.ob_number AS case_number,
+            c.incident_details AS title,
+            cc.name AS crime_category,
+            c.priority,
+            c.status,
+            c.created_at,
+            su.name AS station_branch_name,
+            CONCAT(rec.rank_title, ' ', rec.first_name, ' ', rec.last_name) AS recorded_by_name
+        FROM cases c
+        LEFT JOIN crime_categories cc ON c.category_id = cc.id
+        LEFT JOIN station_branch su ON c.branch_id = su.id
+        LEFT JOIN users rec ON c.recorded_by = rec.id
+        WHERE c.classification IS NULL AND c.status IN ('Registered', 'Numbered')
+        ORDER BY CASE c.priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, c.created_at ASC
+        LIMIT 50
+    `);
+
     const [investigatorWorkload] = await db.execute(`
         SELECT
             u.id,
@@ -146,15 +172,69 @@ async function getDashboard() {
             activeCases: kpiCounts.active_cases_count || 0,
             overdue: kpiCounts.overdue_count || 0,
             pendingReassignments: kpiCounts.pending_reassignments_count || 0,
-            openQueries: kpiCounts.open_queries_count || 0
+            openQueries: kpiCounts.open_queries_count || 0,
+            pendingClassification: kpiCounts.pending_classification_count || 0
         },
         overdueDaysThreshold: OVERDUE_DAYS_THRESHOLD,
         unassignedCases,
         pendingApprovals,
+        pendingClassification,
         pendingReassignments,
         prosecutionQueries,
         investigatorWorkload,
         assignedActiveCases
+    });
+}
+
+
+// The Station Officer classifies a numbered case. The
+// classification routes the case to its workflow branch:
+// Minor/Medium -> Investigation Branch, High/Critical ->
+// Criminal Investigation Department (CLASSIFICATION_BRANCHES).
+async function classifyCase(user, caseId, classification) {
+    if (!roleIn(user, COMMANDER_ROLES)) {
+        return fail(403, 'Only Station Officers can classify cases.');
+    }
+
+    const normalized = (classification || '').toString().trim();
+    if (!Object.values(CASE_CLASSIFICATIONS).includes(normalized)) {
+        return fail(400, 'Classification must be one of: Minor, Medium, High, Critical.');
+    }
+
+    const [caseRows] = await db.execute(
+        `SELECT id, ob_number, status, classification
+         FROM cases WHERE id = ?`,
+        [caseId]
+    );
+
+    if (caseRows.length === 0) {
+        return fail(404, 'Case record not found.');
+    }
+
+    const current = caseRows[0];
+    if (current.classification) {
+        return fail(400, `Case OB ${current.ob_number} is already classified as ${current.classification}.`);
+    }
+    if (current.status !== CASE_STATUSES.REGISTERED && current.status !== CASE_STATUSES.NUMBERED) {
+        return fail(400, `Case OB ${current.ob_number} cannot be classified from its current status (${current.status}). Only registered or numbered cases can be classified.`);
+    }
+
+    const workflowBranch = CLASSIFICATION_BRANCHES[normalized];
+
+    await db.execute(
+        `UPDATE cases
+         SET classification = ?, workflow_branch = ?, status = 'Classified',
+             classified_by = ?, classified_at = NOW(), updated_at = NOW()
+         WHERE id = ?`,
+        [normalized, workflowBranch, user.id, caseId]
+    );
+
+    return ok({
+        caseId,
+        classification: normalized,
+        workflowBranch,
+        auditDetails: `Station Officer classified Case OB ${current.ob_number} as ${normalized}; routed to the ${workflowBranch}.`,
+        message: `Case OB ${current.ob_number} classified as ${normalized} and routed to the ${workflowBranch}.`
     });
 }
 
@@ -506,6 +586,7 @@ async function getCategoryBreakdownDetail() {
 
 module.exports = {
     getDashboard,
+    classifyCase,
     assignCase,
     processStatusApproval,
     decideReassignment,

@@ -53,11 +53,11 @@ async function listCasesForUser(user) {
     if (roleIn(user, BRANCH_ROLES)) {
         query = `
             ${baseSelect}
-            WHERE c.branch_id = ?
+            WHERE c.workflow_branch = ?
             GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
-        params = [user.branch_id];
+        params = [user.branch];
     } else if (roleIn(user, PROSECUTOR_ROLES)) {
         query = `
             ${baseSelect}
@@ -294,7 +294,7 @@ async function getCaseDetail(caseId, user) {
     }
     const caseItem = rows[0];
 
-    if (roleIn(user, BRANCH_ROLES) && (!user.branch_id || caseItem.branch_id !== user.branch_id)) {
+    if (roleIn(user, BRANCH_ROLES) && (!user.branch || caseItem.workflow_branch !== user.branch)) {
         return fail(403, 'You can only access cases from your own branch.');
     }
 

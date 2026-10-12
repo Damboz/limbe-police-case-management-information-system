@@ -136,7 +136,7 @@ INSERT INTO users (id, badge_number, rank_title, first_name, last_name, email, p
 (13, 'LIM-003', 'Sergeant',          'Kumbukani',  'Mbewe',         'branch@limbe.police.mw',     '+265888001003', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch Officer',  10, 3,    'Investigation Branch', 1),
 (14, 'LIM-004', 'Inspector',         'Chikondi',   'Nyirenda',      'prosecutor@limbe.police.mw', '+265888001004', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Prosecutor',       6, NULL, NULL,                   1),
 (30, 'LIM-005', 'Sergeant',          'Grace',      'Banda',         'records@limbe.police.mw',    '+265888001005', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Records Officer',  8, NULL, NULL,                   1),
-(32, 'LIM-007', 'Sergeant',          'Thandiwe',   'Mwale',         'cid-chief@limbe.police.mw',  '+265888001007', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch Officer',  10, NULL, 'CID',                  1);
+(32, 'LIM-007', 'Sergeant',          'Thandiwe',   'Mwale',         'cid-chief@limbe.police.mw',  '+265888001007', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch Officer',  10, NULL, 'Criminal Investigation Department', 1);
 
 SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
 
@@ -203,7 +203,7 @@ CREATE TABLE cases (
   CONSTRAINT chk_cases_branch_review CHECK (branch_review_status IN ('Pending Review', 'Recommended', 'Returned')),
   CONSTRAINT chk_cases_court_outcome CHECK (court_outcome IN ('Convicted', 'Acquitted', 'Withdrawn', 'Adjourned')),
   CONSTRAINT chk_cases_classification CHECK (classification IS NULL OR classification IN ('Minor', 'Medium', 'High', 'Critical')),
-  CONSTRAINT chk_cases_workflow_branch CHECK (workflow_branch IS NULL OR workflow_branch IN ('Investigation Branch', 'CID'))
+  CONSTRAINT chk_cases_workflow_branch CHECK (workflow_branch IS NULL OR workflow_branch IN ('Investigation Branch', 'Criminal Investigation Department'))
 );
 
 CREATE INDEX idx_cases_ob_number ON cases (ob_number);
@@ -503,7 +503,7 @@ INSERT INTO audit_logs (id, user_id, action, details, ip_address, created_at) VA
 (4,  2,  'USER_CREATED',            'Created user LIM-003 (Kumbukani Mbewe) with role Branch Officer (Role ID: 10), workflow branch: Investigation Branch', NULL, '2026-08-15 09:41:11'),
 (5,  2,  'USER_CREATED',            'Created user LIM-004 (Chikondi Nyirenda) with role Prosecutor (Role ID: 6)',                    NULL, '2026-08-15 09:41:13'),
 (6,  2,  'USER_CREATED',            'Created user LIM-005 (Grace Banda) with role Records Officer (Role ID: 8)',                     NULL, '2026-08-15 09:41:33'),
-(7,  2,  'USER_CREATED',            'Created user LIM-007 (Thandiwe Mwale) with role Branch Officer (Role ID: 10), workflow branch: CID', NULL, '2026-08-15 09:41:44'),
+(7,  2,  'USER_CREATED',            'Created user LIM-007 (Thandiwe Mwale) with role Branch Officer (Role ID: 10), workflow branch: Criminal Investigation Department', NULL, '2026-08-15 09:41:44'),
 (8,  7,  'USER_LOGIN',              'Officer Phady logged in successfully.',                                                       NULL, '2026-08-16 14:27:39'),
 (9,  7,  'CASE_REGISTERED',         'Registered new Case OB OB-20260816-0001 for complainant George Dambo.',                       NULL, '2026-08-16 14:30:27'),
 (10, 30, 'NUMBERS_ASSIGNED',        'Assigned OB number OB-20260816-0001 and criminal number CR-20260819-0001 to Case ID 1.',      NULL, '2026-08-19 08:55:00'),
