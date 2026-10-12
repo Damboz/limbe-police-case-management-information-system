@@ -565,6 +565,10 @@ async function requestExternalReport(caseId, user, data) {
 
 
 async function getPersonalDashboard(user) {
+    if (roleIn(user, [ROLES.ADMIN])) {
+        return ok({ variant: 'redirect', role: user.role, target: '/admin/dashboard' });
+    }
+
     if (roleIn(user, BRANCH_ROLES)) {
         return ok({ variant: 'redirect', role: user.role, target: '/branch/dashboard' });
     }

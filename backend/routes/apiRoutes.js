@@ -23,7 +23,7 @@ router.get('/auth/me', isAuthenticated, authApi.me);
 router.post('/auth/change-password', isAuthenticated, authApi.changePassword);
 
 
-router.get('/dashboard', isAuthenticated, denyAdmin, generalApi.dashboard);
+router.get('/dashboard', isAuthenticated, generalApi.dashboard);
 router.get('/my-analytics', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER), reportsApi.myAnalytics);
 
 

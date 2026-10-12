@@ -75,7 +75,7 @@ export default function App() {
             <Route path="/login" element={<LoginRoute />} />
 
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-                <Route path="/dashboard" element={<ProtectedRoute roles={CASE_ACCESS}><Dashboard /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/change-password" element={<ChangePassword />} />
                 <Route path="/my-analytics" element={<ProtectedRoute roles={CFI}><MyAnalytics /></ProtectedRoute>} />
 
