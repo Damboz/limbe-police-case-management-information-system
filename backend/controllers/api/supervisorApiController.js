@@ -18,7 +18,8 @@ exports.classifyCase = async (req, res, next) => {
         const result = await supervisorService.classifyCase(
             user,
             req.params.id,
-            req.body.classification
+            req.body.classification,
+            req.body.workflow_branch
         );
 
         if (!result.ok) {

@@ -9,6 +9,18 @@ import usePageTitle from '../../hooks/usePageTitle';
 import useReportExport from '../../hooks/useReportExport';
 
 
+const WORKFLOW_BRANCHES = {
+    INVESTIGATION: 'Investigation Branch',
+    CID: 'Criminal Investigation Department'
+};
+
+
+const deriveWorkflowBranch = (classification) =>
+    (classification === 'Minor' || classification === 'Medium')
+        ? WORKFLOW_BRANCHES.INVESTIGATION
+        : WORKFLOW_BRANCHES.CID;
+
+
 function Metric({ label, value, icon, tone, color }) {
     return (
         <div className="col-12 col-sm-6 col-xl-3">
@@ -122,6 +134,7 @@ export default function SupervisorDashboard() {
 
     const [classifyTarget, setClassifyTarget] = useState(null);
     const [classification, setClassification] = useState('Medium');
+    const [workflowBranch, setWorkflowBranch] = useState(WORKFLOW_BRANCHES.INVESTIGATION);
 
     const [actionError, setActionError] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -241,12 +254,17 @@ export default function SupervisorDashboard() {
 
     const openClassify = (item) => {
         setClassifyTarget(item);
-        setClassification(
-            item.priority && ['Minor', 'Medium', 'High', 'Critical'].includes(item.priority)
-                ? item.priority
-                : 'Medium'
-        );
+        const initial = item.priority && ['Minor', 'Medium', 'High', 'Critical'].includes(item.priority)
+            ? item.priority
+            : 'Medium';
+        setClassification(initial);
+        setWorkflowBranch(deriveWorkflowBranch(initial));
         setActionError(null);
+    };
+
+    const onClassificationChange = (value) => {
+        setClassification(value);
+        setWorkflowBranch(deriveWorkflowBranch(value));
     };
 
     const submitClassify = async (e) => {
@@ -254,7 +272,10 @@ export default function SupervisorDashboard() {
         setBusy(true);
         setActionError(null);
         try {
-            const res = await api.classifyCase(classifyTarget.id, { classification });
+            const res = await api.classifyCase(classifyTarget.id, {
+                classification,
+                workflow_branch: workflowBranch
+            });
             toast.success(res.message || 'Case classified.');
             setClassifyTarget(null);
             reload();
@@ -347,7 +368,7 @@ export default function SupervisorDashboard() {
                             </table>
                         </div>
                         <div className="card-footer text-muted small">
-                            <i className="bi bi-info-circle me-1" />Classifying a case routes it to its workflow branch: Minor / Medium to the Investigation Branch, High / Critical to the Criminal Investigation Department.
+                                <i className="bi bi-info-circle me-1" />Classifying a case lets you set its workflow branch: Minor / Medium default to the Investigation Branch; High / Critical default to the Criminal Investigation Department. You can override the branch.
                         </div>
                     </div>
                 </div>
@@ -707,19 +728,21 @@ export default function SupervisorDashboard() {
                             </div>
                             <div className="mb-3">
                                 <label htmlFor="classification" className="form-label">Classification <span className="text-danger">*</span></label>
-                                <select id="classification" className="form-select" value={classification} onChange={e => setClassification(e.target.value)} required>
+                                <select id="classification" className="form-select" value={classification} onChange={e => onClassificationChange(e.target.value)} required>
                                     <option value="Minor">Minor</option>
                                     <option value="Medium">Medium</option>
                                     <option value="High">High</option>
                                     <option value="Critical">Critical</option>
                                 </select>
-                                <div className="form-text">Minor / Medium cases route to the Investigation Branch; High / Critical cases route to the Criminal Investigation Department.</div>
+                                <div className="form-text">Minor / Medium cases default to the Investigation Branch; High / Critical cases default to the Criminal Investigation Department.</div>
                             </div>
                             <div className="mb-3">
-                                <label className="form-label">ROUTED WORKFLOW BRANCH</label>
-                                <div className="form-control-plaintext fw-bold" style={{ color: 'var(--mps-navy)' }}>
-                                    {classification === 'Minor' || classification === 'Medium' ? 'Investigation Branch' : 'Criminal Investigation Department'}
-                                </div>
+                                <label htmlFor="workflow_branch" className="form-label">Workflow Branch <span className="text-danger">*</span></label>
+                                <select id="workflow_branch" className="form-select" value={workflowBranch} onChange={e => setWorkflowBranch(e.target.value)} required>
+                                    <option value={WORKFLOW_BRANCHES.INVESTIGATION}>{WORKFLOW_BRANCHES.INVESTIGATION}</option>
+                                    <option value={WORKFLOW_BRANCHES.CID}>{WORKFLOW_BRANCHES.CID}</option>
+                                </select>
+                                <div className="form-text">The Station Officer decides whether the case belongs to the Investigation Branch or the Criminal Investigation Department.</div>
                             </div>
                         </div>
                     </form>

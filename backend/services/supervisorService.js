@@ -2,7 +2,7 @@ const db = require('../config/db');
 const { syncCaseInvestigators } = require('./assignmentService');
 const { OVERDUE_DAYS_THRESHOLD } = require('./caseService');
 const { ok, fail } = require('../utils/result');
-const { ROLES, roleIn, CASE_CLASSIFICATIONS, CLASSIFICATION_BRANCHES, CASE_STATUSES } = require('../roles');
+const { ROLES, roleIn, CASE_CLASSIFICATIONS, CLASSIFICATION_BRANCHES, WORKFLOW_BRANCHES, CASE_STATUSES } = require('../roles');
 
 const COMMANDER_ROLES = [ROLES.STATION_OFFICER];
 const ASSIGN_ROLES = [ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER];
@@ -192,7 +192,7 @@ async function getDashboard() {
 // classification routes the case to its workflow branch:
 // Minor/Medium -> Investigation Branch, High/Critical ->
 // Criminal Investigation Department (CLASSIFICATION_BRANCHES).
-async function classifyCase(user, caseId, classification) {
+async function classifyCase(user, caseId, classification, workflowBranch) {
     if (!roleIn(user, COMMANDER_ROLES)) {
         return fail(403, 'Only Station Officers can classify cases.');
     }
@@ -200,6 +200,12 @@ async function classifyCase(user, caseId, classification) {
     const normalized = (classification || '').toString().trim();
     if (!Object.values(CASE_CLASSIFICATIONS).includes(normalized)) {
         return fail(400, 'Classification must be one of: Minor, Medium, High, Critical.');
+    }
+
+    const branchValues = Object.values(WORKFLOW_BRANCHES);
+    const requestedBranch = (workflowBranch || '').toString().trim();
+    if (requestedBranch && !branchValues.includes(requestedBranch)) {
+        return fail(400, 'Workflow branch must be either the Investigation Branch or the Criminal Investigation Department.');
     }
 
     const [caseRows] = await db.execute(
@@ -220,22 +226,24 @@ async function classifyCase(user, caseId, classification) {
         return fail(400, `Case OB ${current.ob_number} cannot be classified from its current status (${current.status}). Only registered or numbered cases can be classified.`);
     }
 
-    const workflowBranch = CLASSIFICATION_BRANCHES[normalized];
+    // The Station Officer may determine the workflow branch directly.
+    // When they do not, it is derived from the classification.
+    const resolvedBranch = requestedBranch || CLASSIFICATION_BRANCHES[normalized];
 
     await db.execute(
         `UPDATE cases
          SET classification = ?, workflow_branch = ?, status = 'Classified',
              classified_by = ?, classified_at = NOW(), updated_at = NOW()
          WHERE id = ?`,
-        [normalized, workflowBranch, user.id, caseId]
+        [normalized, requestedBranch, user.id, caseId]
     );
 
     return ok({
         caseId,
         classification: normalized,
-        workflowBranch,
-        auditDetails: `Station Officer classified Case OB ${current.ob_number} as ${normalized}; routed to the ${workflowBranch}.`,
-        message: `Case OB ${current.ob_number} classified as ${normalized} and routed to the ${workflowBranch}.`
+        workflowBranch: requestedBranch,
+        auditDetails: `Station Officer classified Case OB ${current.ob_number} as ${normalized}; routed to the ${requestedBranch}.`,
+        message: `Case OB ${current.ob_number} classified as ${normalized} and routed to the ${requestedBranch}.`
     });
 }
 
