@@ -79,6 +79,7 @@ async function getDashboard(user) {
             CURRENT_DATE - c.created_at::date AS days_open,
             STRING_AGG(CONCAT(inv.rank_title, ' ', inv.first_name, ' ', inv.last_name)
                 , ', ' ORDER BY ci.is_lead DESC, inv.last_name) AS investigator_names,
+            STRING_AGG(ci.investigator_id::text, ',') AS investigator_ids,
             (SELECT COUNT(*) FROM cases c2
                 WHERE c2.workflow_branch = c.workflow_branch
                   AND c2.status IN (${OPENING_STATUSES.map(() => '?').join(', ')})) AS total_branch_active
@@ -136,7 +137,8 @@ async function getDashboard(user) {
             c.created_at,
             CURRENT_DATE - c.created_at::date AS days_open,
             STRING_AGG(CONCAT(inv.rank_title, ' ', inv.first_name, ' ', inv.last_name)
-                , ', ' ORDER BY ci.is_lead DESC, inv.last_name) AS investigator_names
+                , ', ' ORDER BY ci.is_lead DESC, inv.last_name) AS investigator_names,
+            STRING_AGG(ci.investigator_id::text, ',') AS investigator_ids
         FROM cases c
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
         LEFT JOIN case_investigators ci ON c.id = ci.case_id

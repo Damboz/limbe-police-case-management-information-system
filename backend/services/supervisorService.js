@@ -5,6 +5,7 @@ const { ok, fail } = require('../utils/result');
 const { ROLES, roleIn, CASE_CLASSIFICATIONS, CLASSIFICATION_BRANCHES, CASE_STATUSES } = require('../roles');
 
 const COMMANDER_ROLES = [ROLES.STATION_OFFICER];
+const ASSIGN_ROLES = [ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER];
 
 
 async function getDashboard() {
@@ -240,8 +241,8 @@ async function classifyCase(user, caseId, classification) {
 
 
 async function assignCase(user, caseId, investigatorIds, notes) {
-    if (!roleIn(user, COMMANDER_ROLES)) {
-        return fail(403, 'Only Station Officers can assign cases to investigators.');
+    if (!roleIn(user, ASSIGN_ROLES)) {
+        return fail(403, 'Only Station Officers or Branch Officers can assign cases to investigators.');
     }
 
     const rawIds = Array.isArray(investigatorIds) ? investigatorIds : (investigatorIds ? [investigatorIds] : []);
@@ -263,9 +264,16 @@ async function assignCase(user, caseId, investigatorIds, notes) {
         return fail(400, 'Please select active officers (administrators cannot be assigned as investigators).');
     }
 
-    const [caseRows] = await db.execute('SELECT id FROM cases WHERE id = ?', [caseId]);
+    const [caseRows] = await db.execute('SELECT id, workflow_branch FROM cases WHERE id = ?', [caseId]);
     if (caseRows.length === 0) {
         return fail(404, 'Case record not found.');
+    }
+
+    // Branch Officers may only assign cases that belong to their own branch;
+    // Station Officers retain station-wide assignment authority.
+    const isBranchOnly = roleIn(user, [ROLES.BRANCH_OFFICER]) && !roleIn(user, COMMANDER_ROLES);
+    if (isBranchOnly && (!user.branch || caseRows[0].workflow_branch !== user.branch)) {
+        return fail(403, 'You can only assign cases that belong to your own branch.');
     }
 
     const [existing] = await db.execute(

@@ -1,4 +1,5 @@
 const branchService = require('../../services/branchService');
+const supervisorService = require('../../services/supervisorService');
 const { logAudit } = require('../../utils/audit');
 
 
@@ -29,6 +30,29 @@ exports.reviewCase = async (req, res, next) => {
         await logAudit(req, user.id, 'BRANCH_REVIEW_COMPLETED', result.auditDetails);
 
         res.json({ success: true, message: result.message });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+exports.assignCase = async (req, res, next) => {
+    try {
+        const user = req.session.user;
+        const result = await supervisorService.assignCase(
+            user,
+            req.body.case_id,
+            req.body.investigator_ids,
+            req.body.notes
+        );
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        await logAudit(req, user.id, result.auditAction, result.auditDetails);
+
+        res.status(201).json({ success: true, message: result.message });
     } catch (err) {
         next(err);
     }

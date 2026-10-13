@@ -70,6 +70,10 @@ export default function BranchDashboard() {
     const [reassignTarget, setReassignTarget] = useState(null);
     const [reassignForm, setReassignForm] = useState({ case_id: '', current_investigator_id: '', proposed_investigator_id: '', reason: '' });
 
+    const [assignTarget, setAssignTarget] = useState(null);
+    const [selectedInvestigators, setSelectedInvestigators] = useState([]);
+    const [assignNotes, setAssignNotes] = useState('');
+
     const [reportModal, setReportModal] = useState(null);
     const [reportForm, setReportForm] = useState({ report_type: 'Social Welfare Report', notes: '' });
 
@@ -93,9 +97,26 @@ export default function BranchDashboard() {
 
     const openReassign = (item) => {
         setReassignTarget(item);
-        setReassignForm({ case_id: String(item.id), current_investigator_id: '', proposed_investigator_id: '', reason: '' });
+        setReassignForm({ case_id: '', current_investigator_id: '', proposed_investigator_id: '', reason: '' });
         setActionError(null);
     };
+
+    const openAssign = (item) => {
+        setAssignTarget(item);
+        setSelectedInvestigators(
+            item.investigator_ids ? String(item.investigator_ids).split(',').filter(Boolean) : []
+        );
+        setAssignNotes('');
+        setActionError(null);
+    };
+
+    const toggleInvestigator = (id) => {
+        const value = String(id);
+        setSelectedInvestigators(prev =>
+            prev.includes(value) ? prev.filter(x => x !== value) : [...prev, value]
+        );
+    };
+
 
     const openReport = (item) => {
         setReportModal(item);
@@ -112,6 +133,30 @@ export default function BranchDashboard() {
             toast.success(res.message || 'Review recorded.');
             setReviewTarget(null);
             setReviewComment('');
+            reload();
+        } catch (err) {
+            setActionError(err.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const submitAssign = async (e) => {
+        e.preventDefault();
+        if (selectedInvestigators.length === 0) {
+            setActionError('Please select at least one investigator before assigning.');
+            return;
+        }
+        setBusy(true);
+        setActionError(null);
+        try {
+            const res = await api.branchAssignCase({
+                case_id: assignTarget.id,
+                investigator_ids: selectedInvestigators,
+                notes: assignNotes
+            });
+            toast.success(res.message || 'Case assigned to investigator(s).');
+            setAssignTarget(null);
             reload();
         } catch (err) {
             setActionError(err.message);
@@ -371,6 +416,9 @@ export default function BranchDashboard() {
                                                     <Link to={`/cases/${item.id}`} className="btn btn-sm btn-outline-navy me-1">
                                                         <i className="bi bi-folder2-open" />
                                                     </Link>
+                                                    <button type="button" className="btn btn-sm btn-navy me-1" onClick={() => openAssign(item)}>
+                                                        <i className="bi bi-person-check me-1" />Assign
+                                                    </button>
                                                     <button type="button" className="btn btn-sm btn-outline-navy" onClick={() => openReassign(item)}>
                                                         <i className="bi bi-arrow-repeat me-1" />Reassign
                                                     </button>
@@ -526,6 +574,66 @@ export default function BranchDashboard() {
                                     value={reviewComment}
                                     onChange={e => setReviewComment(e.target.value)}
                                     required
+                                />
+                            </div>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+
+            {assignTarget && (
+                <Modal
+                    title="Assign Investigating Officer"
+                    onClose={() => setAssignTarget(null)}
+                    footer={
+                        <>
+                            <button type="button" className="btn btn-outline-navy" onClick={() => setAssignTarget(null)}>Cancel</button>
+                            <button type="submit" form="assign-form" className="btn btn-navy" disabled={busy}>
+                                <i className="bi bi-person-check me-1" />Assign
+                            </button>
+                        </>
+                    }
+                >
+                    <form id="assign-form" onSubmit={submitAssign}>
+                        <div className="modal-body">
+                            <div className="mb-3">
+                                <label className="form-label">CASE REFERENCE</label>
+                                <div className="form-control-plaintext fw-bold">#{assignTarget.case_number}</div>
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">Select Investigator(s) <span className="text-danger">*</span></label>
+                                <div className="border rounded p-2" style={{ maxHeight: 260, overflowY: 'auto' }}>
+                                    {investigators.length === 0 ? (
+                                        <span className="text-muted small">No active officers available.</span>
+                                    ) : (
+                                        investigators.map(inv => (
+                                            <div className="form-check" key={inv.id}>
+                                                <input
+                                                    className="form-check-input"
+                                                    type="checkbox"
+                                                    id={`assign-inv-${inv.id}`}
+                                                    checked={selectedInvestigators.includes(String(inv.id))}
+                                                    onChange={() => toggleInvestigator(inv.id)}
+                                                />
+                                                <label className="form-check-label small" htmlFor={`assign-inv-${inv.id}`}>
+                                                    {inv.rank_title} {inv.first_name} {inv.last_name} ({inv.badge_number})
+                                                    <span className="text-muted"> — Active Load: {inv.active_case_count}</span>
+                                                </label>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                <div className="form-text">Any active officer can be assigned. The first selected officer becomes the lead investigator.</div>
+                            </div>
+                            <div className="mb-0">
+                                <label htmlFor="assign_notes" className="form-label">Assignment Note</label>
+                                <textarea
+                                    id="assign_notes"
+                                    rows="2"
+                                    className="form-control"
+                                    placeholder="Optional instructions for the investigating officer..."
+                                    value={assignNotes}
+                                    onChange={e => setAssignNotes(e.target.value)}
                                 />
                             </div>
                         </div>

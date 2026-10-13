@@ -97,6 +97,7 @@ router.get('/supervisor/analytics/categories', isAuthenticated, authorizeRoles(R
 
 
 router.get('/branch/dashboard', isAuthenticated, authorizeRoles(ROLES.BRANCH_OFFICER), branchApi.dashboard);
+router.post('/branch/cases/assign', isAuthenticated, authorizeRoles(ROLES.BRANCH_OFFICER), branchApi.assignCase);
 router.post('/branch/cases/:id/review', isAuthenticated, authorizeRoles(ROLES.BRANCH_OFFICER), branchApi.reviewCase);
 router.post('/branch/cases/:id/reassign-proposal', isAuthenticated, authorizeRoles(ROLES.BRANCH_OFFICER), branchApi.proposeReassignment);
 router.post('/branch/cases/:id/external-reports', isAuthenticated, authorizeRoles(ROLES.BRANCH_OFFICER), branchApi.requestExternalReport);

@@ -199,6 +199,7 @@ export const api = {
     supervisorCategories: (signal) => request('/supervisor/analytics/categories', { signal }),
 
     branchDashboard: (signal) => request('/branch/dashboard', { signal }),
+    branchAssignCase: (body) => request('/branch/cases/assign', { method: 'POST', body }),
     reviewCase: (id, body) => request(`/branch/cases/${id}/review`, { method: 'POST', body }),
     proposeReassignment: (id, body) => request(`/branch/cases/${id}/reassign-proposal`, { method: 'POST', body }),
     requestExternalReport: (id, body) => request(`/branch/cases/${id}/external-reports`, { method: 'POST', body }),
