@@ -2,11 +2,20 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Forbidden from '../pages/Forbidden';
 import { Spinner } from './ui';
-import { canonicalRole, canonicalRoleId, ROLES, ROLE_IDS, ROLE_IDS_BY_NAME } from '../lib/roles';
+import { canonicalRole, canonicalRoleId, homePathFor, ROLES, ROLE_IDS, ROLE_IDS_BY_NAME } from '../lib/roles';
 
 
-const ADMIN_MESSAGE = 'Access Denied. System Administrator permissions required.';
-const ROLE_MESSAGE = 'Access Denied. You do not have permission to view this resource.';
+// A signed-in officer who opens a section their role does not own is sent home to
+// their own dashboard instead of being stranded on the 403 page. The Forbidden page
+// is only rendered if the dashboard itself is unreachable, which would otherwise
+// turn the redirect into a loop.
+function denialFallback(user, pathname) {
+    const home = homePathFor(user);
+    if (home && home !== pathname) {
+        return <Navigate to={home} replace />;
+    }
+    return <Forbidden />;
+}
 
 
 export default function ProtectedRoute({ children, roles, adminOnly = false }) {
@@ -29,7 +38,7 @@ export default function ProtectedRoute({ children, roles, adminOnly = false }) {
         const role = canonicalRole(user);
         const roleId = canonicalRoleId(user);
         if (role !== ROLES.ADMIN && roleId !== ROLE_IDS.ADMIN) {
-            return <Forbidden message={ADMIN_MESSAGE} />;
+            return denialFallback(user, location.pathname);
         }
     }
 
@@ -40,7 +49,7 @@ export default function ProtectedRoute({ children, roles, adminOnly = false }) {
         const idMatches = roleId !== null && roles.some(r => ROLE_IDS_BY_NAME[r] === roleId);
 
         if (!roleMatches && !idMatches) {
-            return <Forbidden message={ROLE_MESSAGE} />;
+            return denialFallback(user, location.pathname);
         }
     }
 
