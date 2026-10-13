@@ -20,7 +20,8 @@ function buildScope(user) {
 async function getMyAnalytics(user) {
     const { isInvestigator, whereClause, params } = buildScope(user);
 
-    const [monthlyTrends] = await db.execute(`
+    const [monthlyTrends, statusDistribution, categoryBreakdown, hotspots, pendingRequests] = await Promise.all([
+        db.execute(`
         SELECT
             TO_CHAR(c.created_at, 'Mon YYYY') AS month_label,
             COUNT(*) AS total_cases,
@@ -30,16 +31,16 @@ async function getMyAnalytics(user) {
         GROUP BY TO_CHAR(c.created_at, 'YYYY-MM'), month_label
         ORDER BY TO_CHAR(c.created_at, 'YYYY-MM') ASC
         LIMIT 12
-    `, params);
+    `, params).then(([rows]) => rows),
 
-    const [statusDistribution] = await db.execute(`
+        db.execute(`
         SELECT status, COUNT(*) AS total_count
         FROM cases c
         ${whereClause}
         GROUP BY status
-    `, params);
+    `, params).then(([rows]) => rows),
 
-    const [categoryBreakdown] = await db.execute(`
+        db.execute(`
         SELECT
             cc.name AS crime_category,
             COUNT(c.id) AS total_incidents
@@ -48,9 +49,9 @@ async function getMyAnalytics(user) {
         ${whereClause}
         GROUP BY cc.id, cc.name
         ORDER BY total_incidents DESC
-    `, params);
+    `, params).then(([rows]) => rows),
 
-    const [hotspots] = await db.execute(`
+        db.execute(`
         SELECT incident_location AS location, COUNT(*) AS incident_count
         FROM cases c
         ${whereClause}
@@ -58,14 +59,15 @@ async function getMyAnalytics(user) {
         GROUP BY incident_location
         ORDER BY incident_count DESC
         LIMIT 8
-    `, params);
+    `, params).then(([rows]) => rows),
 
-    const [pendingRequests] = await db.execute(`
+        db.execute(`
         SELECT COUNT(*) AS pending_count
         FROM cases c
         ${whereClause}
         ${whereClause ? 'AND' : 'WHERE'} requested_status IS NOT NULL
-    `, params);
+    `, params).then(([rows]) => rows)
+    ]);
 
     const totalCases = statusDistribution.reduce((acc, s) => acc + s.total_count, 0);
     const closedCases = statusDistribution.find(s => s.status === 'Closed')?.total_count || 0;

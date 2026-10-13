@@ -8,8 +8,20 @@ const COMMANDER_ROLES = [ROLES.STATION_OFFICER];
 const ASSIGN_ROLES = [ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER];
 
 
+// Every panel on the command dashboard is an independent read; issuing them
+// together collapses eight sequential round-trips into one network wait.
 async function getDashboard() {
-    const [[kpiCounts]] = await db.execute(`
+    const [
+        [[kpiCounts]],
+        [unassignedCases],
+        [pendingApprovals],
+        [pendingReassignments],
+        [prosecutionQueries],
+        [pendingClassification],
+        [investigatorWorkload],
+        [assignedActiveCases]
+    ] = await Promise.all([
+        db.execute(`
         SELECT
             (SELECT COUNT(*) FROM cases c
                 WHERE NOT EXISTS (SELECT 1 FROM case_investigators ci WHERE ci.case_id = c.id)
@@ -25,9 +37,9 @@ async function getDashboard() {
                 WHERE prosecution_query IS NOT NULL AND prosecution_query_resolved_at IS NULL) AS open_queries_count,
             (SELECT COUNT(*) FROM cases
                 WHERE classification IS NULL AND status IN ('Registered', 'Numbered')) AS pending_classification_count
-    `);
+    `),
 
-    const [unassignedCases] = await db.execute(`
+        db.execute(`
         SELECT
             c.id,
             c.ob_number AS case_number,
@@ -43,9 +55,9 @@ async function getDashboard() {
           AND c.status != 'Closed'
         ORDER BY CASE c.priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, c.created_at ASC
         LIMIT 10
-    `);
+    `),
 
-    const [pendingApprovals] = await db.execute(`
+        db.execute(`
         SELECT
             c.id,
             c.ob_number AS case_number,
@@ -63,9 +75,9 @@ async function getDashboard() {
         LEFT JOIN users branch ON c.branch_reviewed_by = branch.id
         WHERE c.requested_status IS NOT NULL AND c.branch_review_status = 'Recommended'
         ORDER BY c.branch_reviewed_at ASC
-    `);
+    `),
 
-    const [pendingReassignments] = await db.execute(`
+        db.execute(`
         SELECT
             rp.id AS proposal_id,
             c.id AS case_id,
@@ -87,9 +99,9 @@ async function getDashboard() {
         JOIN users pb ON rp.proposed_by = pb.id
         WHERE rp.status = 'Pending'
         ORDER BY rp.created_at ASC
-    `);
+    `),
 
-    const [prosecutionQueries] = await db.execute(`
+        db.execute(`
         SELECT
             c.id,
             c.ob_number AS case_number,
@@ -101,13 +113,9 @@ async function getDashboard() {
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
         WHERE c.prosecution_query IS NOT NULL AND c.prosecution_query_resolved_at IS NULL
         ORDER BY c.prosecution_query_at ASC
-    `);
+    `),
 
-    // Cases awaiting classification: the Station Officer picks
-    // the classification, which routes the case to its workflow
-    // branch (Minor/Medium -> Investigation Branch, High/Critical
-    // -> Criminal Investigation Department).
-    const [pendingClassification] = await db.execute(`
+        db.execute(`
         SELECT
             c.id,
             c.ob_number AS case_number,
@@ -125,9 +133,9 @@ async function getDashboard() {
         WHERE c.classification IS NULL AND c.status IN ('Registered', 'Numbered')
         ORDER BY CASE c.priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, c.created_at ASC
         LIMIT 50
-    `);
+    `),
 
-    const [investigatorWorkload] = await db.execute(`
+        db.execute(`
         SELECT
             u.id,
             u.badge_number,
@@ -141,9 +149,9 @@ async function getDashboard() {
         WHERE u.is_active = 1 AND u.role NOT IN ('${ROLES.ADMIN}', 'admin')
         GROUP BY u.id
         ORDER BY active_case_count ASC
-    `);
+    `),
 
-    const [assignedActiveCases] = await db.execute(`
+        db.execute(`
         SELECT
             c.id,
             c.ob_number AS case_number,
@@ -164,7 +172,8 @@ async function getDashboard() {
         GROUP BY c.id, cc.name
         ORDER BY days_open DESC
         LIMIT 15
-    `);
+    `)
+    ]);
 
     return ok({
         kpi: {

@@ -43,7 +43,13 @@ function baseConfig() {
         port: Number(process.env.PGPORT || process.env.DB_PORT || 5432),
         ssl: sslRequired ? { rejectUnauthorized: false } : undefined,
         max: IS_SERVERLESS ? 2 : 10,
-        idleTimeoutMillis: IS_SERVERLESS ? 10000 : 30000,
+        // A cold TLS + SCRAM handshake against a remote database regularly costs
+        // more than the queries themselves, so recent connections are reused
+        // across a browsing session. min is left at 0 so that, once traffic
+        // stops, the pool drains completely and a serverless database (e.g. Neon)
+        // is free to suspend rather than bill compute for idle sockets.
+        min: 0,
+        idleTimeoutMillis: IS_SERVERLESS ? 10000 : 60000,
         connectionTimeoutMillis: 15000,
         enableKeepAlive: true,
         keepAliveInitialDelay: 0
@@ -232,9 +238,21 @@ async function query(sql, params) {
 }
 
 
+// Open the pool eagerly and establish its working set of connections. The pool
+// otherwise grows one connection at a time, so the first dashboard that issues
+// several queries at once pays a cold TCP + TLS + SCRAM handshake for each new
+// connection. Filling it at boot moves that cost off the first officer's request.
+async function warm() {
+    const pool = await getPool();
+    const target = IS_SERVERLESS ? 1 : Math.min(pool.options.max || 1, 10);
+    await Promise.all(Array.from({ length: target }, () => pool.query('SELECT 1')));
+}
+
+
 module.exports = {
     execute,
     query,
+    warm,
     ready: getPool,
     get pool() {
         if (!activePool) {

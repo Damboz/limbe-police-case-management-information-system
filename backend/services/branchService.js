@@ -20,13 +20,24 @@ function isBranchOfficer(user) {
 }
 
 
+// Branch Officers head a workflow branch and see the cases classified into it
+// (Minor/Medium -> Investigation Branch, High/Critical -> Criminal Investigation
+// Department). Every panel is an independent read, so they are issued together
+// and the dashboard pays one network round-trip instead of eight.
 async function getDashboard(user) {
-    // Branch Officers head a workflow branch and see the cases
-    // classified into it (Minor/Medium -> Investigation Branch,
-    // High/Critical -> Criminal Investigation Department).
     const workflowBranch = user.branch;
 
-    const [[kpi]] = await db.execute(`
+    const [
+        [[kpi]],
+        [pendingReviews],
+        [returnedCases],
+        [branchActiveCases],
+        [delayedExternalReports],
+        [[branchCaseStats]],
+        [branchCases],
+        [investigators]
+    ] = await Promise.all([
+        db.execute(`
         SELECT
             SUM(CASE WHEN c.branch_review_status = 'Pending Review' THEN 1 ELSE 0 END) AS pending_review_count,
             SUM(CASE WHEN c.branch_review_status = 'Returned' THEN 1 ELSE 0 END) AS returned_count,
@@ -35,9 +46,9 @@ async function getDashboard(user) {
         FROM cases c
         LEFT JOIN external_reports er ON c.id = er.case_id AND er.status = 'Requested'
         WHERE c.workflow_branch = ?
-    `, [workflowBranch]);
+    `, [workflowBranch]),
 
-    const [pendingReviews] = await db.execute(`
+        db.execute(`
         SELECT
             c.id,
             c.ob_number AS case_number,
@@ -55,9 +66,9 @@ async function getDashboard(user) {
         WHERE c.workflow_branch = ? AND c.branch_review_status = 'Pending Review' AND c.requested_status IS NOT NULL
         GROUP BY c.id, cc.name
         ORDER BY c.status_requested_at ASC
-    `, [workflowBranch]);
+    `, [workflowBranch]),
 
-    const [returnedCases] = await db.execute(`
+        db.execute(`
         SELECT c.id, c.ob_number AS case_number, c.incident_details AS title,
                cc.name AS crime_category, c.priority, c.updated_at
         FROM cases c
@@ -65,9 +76,9 @@ async function getDashboard(user) {
         WHERE c.workflow_branch = ? AND c.branch_review_status = 'Returned'
         ORDER BY c.updated_at DESC
         LIMIT 20
-    `, [workflowBranch]);
+    `, [workflowBranch]),
 
-    const [branchActiveCases] = await db.execute(`
+        db.execute(`
         SELECT
             c.id,
             c.ob_number AS case_number,
@@ -91,9 +102,9 @@ async function getDashboard(user) {
         GROUP BY c.id, cc.name
         ORDER BY days_open DESC
         LIMIT 30
-    `, [...OPENING_STATUSES, workflowBranch, ...OPENING_STATUSES]);
+    `, [...OPENING_STATUSES, workflowBranch, ...OPENING_STATUSES]),
 
-    const [delayedExternalReports] = await db.execute(`
+        db.execute(`
         SELECT
             er.id,
             er.report_type,
@@ -110,9 +121,9 @@ async function getDashboard(user) {
         LEFT JOIN users req ON er.requested_by = req.id
         WHERE c.workflow_branch = ? AND er.status = 'Requested'
         ORDER BY er.requested_at ASC
-    `, [workflowBranch]);
+    `, [workflowBranch]),
 
-    const [[branchCaseStats]] = await db.execute(`
+        db.execute(`
         SELECT
             COUNT(*) AS total_count,
             COALESCE(SUM(CASE WHEN c.status IN ('Registered', 'Numbered', 'Classified', 'Assigned') THEN 1 ELSE 0 END), 0) AS reported_count,
@@ -123,9 +134,9 @@ async function getDashboard(user) {
             COALESCE(SUM(CASE WHEN c.branch_review_status = 'Returned' THEN 1 ELSE 0 END), 0) AS returned_count
         FROM cases c
         WHERE c.workflow_branch = ?
-    `, [workflowBranch]);
+    `, [workflowBranch]),
 
-    const [branchCases] = await db.execute(`
+        db.execute(`
         SELECT
             c.id,
             c.ob_number AS case_number,
@@ -147,9 +158,9 @@ async function getDashboard(user) {
         GROUP BY c.id, cc.name
         ORDER BY c.created_at DESC
         LIMIT 100
-    `, [workflowBranch]);
+    `, [workflowBranch]),
 
-    const [investigators] = await db.execute(`
+        db.execute(`
         SELECT u.id, u.badge_number, u.rank_title, u.first_name, u.last_name, u.branch_id,
                su.name AS branch_name,
                (SELECT COUNT(*) FROM case_investigators ci
@@ -159,7 +170,8 @@ async function getDashboard(user) {
         LEFT JOIN station_branch su ON u.branch_id = su.id
         WHERE u.is_active = 1 AND u.role NOT IN ('${ROLES.ADMIN}', 'admin')
         ORDER BY active_case_count ASC
-    `);
+    `)
+    ]);
 
     return ok({
         role: user.role,

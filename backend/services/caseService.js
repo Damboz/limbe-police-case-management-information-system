@@ -106,8 +106,12 @@ async function listCasesForUser(user) {
 
 
 async function getCaseFormOptions() {
-    const [categories] = await db.execute('SELECT id, name, severity_level FROM crime_categories ORDER BY name ASC');
-    const [branches] = await db.execute('SELECT id, code, name FROM station_branch ORDER BY name ASC');
+    // Two independent reads: issue them together so the page pays one network
+    // round-trip instead of two.
+    const [[categories], [branches]] = await Promise.all([
+        db.execute('SELECT id, name, severity_level FROM crime_categories ORDER BY name ASC'),
+        db.execute('SELECT id, code, name FROM station_branch ORDER BY name ASC')
+    ]);
     return { categories, branches };
 }
 
@@ -259,61 +263,69 @@ async function searchCases(query, searchType) {
 
     if (term.length >= 2) {
         const like = `%${term}%`;
+        const lookups = [];
 
         if (type === 'all' || type === 'national_id') {
-            const [casesByComplainantId] = await db.execute(`
-                SELECT c.id, c.ob_number, c.complainant_name, c.complainant_id_number,
-                       c.priority, c.status, c.created_at, cc.name AS crime_category
-                FROM cases c
-                LEFT JOIN crime_categories cc ON c.category_id = cc.id
-                WHERE c.complainant_id_number LIKE ?
-                ORDER BY c.created_at DESC LIMIT 20
-            `, [like]);
-            results.push(...casesByComplainantId.map(r => ({ ...r, match_type: 'Complainant National ID' })));
+            lookups.push(
+                db.execute(`
+                    SELECT c.id, c.ob_number, c.complainant_name, c.complainant_id_number,
+                           c.priority, c.status, c.created_at, cc.name AS crime_category
+                    FROM cases c
+                    LEFT JOIN crime_categories cc ON c.category_id = cc.id
+                    WHERE c.complainant_id_number LIKE ?
+                    ORDER BY c.created_at DESC LIMIT 20
+                `, [like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Complainant National ID' })))
+            );
         }
 
         if (type === 'all' || type === 'phone') {
-            const [casesByPhone] = await db.execute(`
-                SELECT c.id, c.ob_number, c.complainant_name, c.complainant_phone,
-                       c.priority, c.status, c.created_at, cc.name AS crime_category
-                FROM cases c
-                LEFT JOIN crime_categories cc ON c.category_id = cc.id
-                WHERE c.complainant_phone LIKE ?
-                ORDER BY c.created_at DESC LIMIT 20
-            `, [like]);
-            results.push(...casesByPhone.map(r => ({ ...r, match_type: 'Phone Number' })));
+            lookups.push(
+                db.execute(`
+                    SELECT c.id, c.ob_number, c.complainant_name, c.complainant_phone,
+                           c.priority, c.status, c.created_at, cc.name AS crime_category
+                    FROM cases c
+                    LEFT JOIN crime_categories cc ON c.category_id = cc.id
+                    WHERE c.complainant_phone LIKE ?
+                    ORDER BY c.created_at DESC LIMIT 20
+                `, [like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Phone Number' })))
+            );
         }
 
         if (type === 'all' || type === 'suspect') {
-            const [suspectCases] = await db.execute(`
-                SELECT c.id, c.ob_number, c.complainant_name, c.priority, c.status, c.created_at,
-                       cc.name AS crime_category,
-                       CONCAT(s.first_name, ' ', s.last_name) AS suspect_name,
-                       s.national_id AS suspect_national_id
-                FROM cases c
-                JOIN case_suspects cs ON c.id = cs.case_id
-                JOIN suspects s ON cs.suspect_id = s.id
-                LEFT JOIN crime_categories cc ON c.category_id = cc.id
-                WHERE s.first_name LIKE ? OR s.last_name LIKE ? OR s.national_id LIKE ? OR s.alias LIKE ?
-                ORDER BY c.created_at DESC LIMIT 20
-            `, [like, like, like, like]);
-            results.push(...suspectCases.map(r => ({ ...r, match_type: 'Suspect Name/ID' })));
+            lookups.push(
+                db.execute(`
+                    SELECT c.id, c.ob_number, c.complainant_name, c.priority, c.status, c.created_at,
+                           cc.name AS crime_category,
+                           CONCAT(s.first_name, ' ', s.last_name) AS suspect_name,
+                           s.national_id AS suspect_national_id
+                    FROM cases c
+                    JOIN case_suspects cs ON c.id = cs.case_id
+                    JOIN suspects s ON cs.suspect_id = s.id
+                    LEFT JOIN crime_categories cc ON c.category_id = cc.id
+                    WHERE s.first_name LIKE ? OR s.last_name LIKE ? OR s.national_id LIKE ? OR s.alias LIKE ?
+                    ORDER BY c.created_at DESC LIMIT 20
+                `, [like, like, like, like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Suspect Name/ID' })))
+            );
         }
 
         if (type === 'all' || type === 'victim') {
-            const [victimCases] = await db.execute(`
-                SELECT c.id, c.ob_number, c.complainant_name, c.priority, c.status, c.created_at,
-                       cc.name AS crime_category,
-                       v.full_name AS victim_name,
-                       v.national_id AS victim_national_id
-                FROM cases c
-                JOIN victims v ON c.id = v.case_id
-                LEFT JOIN crime_categories cc ON c.category_id = cc.id
-                WHERE v.full_name LIKE ? OR v.national_id LIKE ?
-                ORDER BY c.created_at DESC LIMIT 20
-            `, [like, like]);
-            results.push(...victimCases.map(r => ({ ...r, match_type: 'Victim Name/ID' })));
+            lookups.push(
+                db.execute(`
+                    SELECT c.id, c.ob_number, c.complainant_name, c.priority, c.status, c.created_at,
+                           cc.name AS crime_category,
+                           v.full_name AS victim_name,
+                           v.national_id AS victim_national_id
+                    FROM cases c
+                    JOIN victims v ON c.id = v.case_id
+                    LEFT JOIN crime_categories cc ON c.category_id = cc.id
+                    WHERE v.full_name LIKE ? OR v.national_id LIKE ?
+                    ORDER BY c.created_at DESC LIMIT 20
+                `, [like, like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Victim Name/ID' })))
+            );
         }
+
+        // All matching sources are searched at once rather than one after another.
+        results = (await Promise.all(lookups)).flat();
 
         const seen = new Set();
         results = results.filter(r => {
@@ -329,20 +341,96 @@ async function searchCases(query, searchType) {
 
 
 async function getCaseDetail(caseId, user) {
-    const [rows] = await db.execute(`
-        SELECT
-            c.*,
-            cc.name AS crime_category,
-            su.name AS branch_name,
-            CONCAT(recorder.rank_title, ' ', recorder.first_name, ' ', recorder.last_name) AS recorded_by_name,
-            CONCAT(req_user.rank_title, ' ', req_user.first_name, ' ', req_user.last_name) AS status_requested_by_name
-        FROM cases c
-        LEFT JOIN crime_categories cc ON c.category_id = cc.id
-        LEFT JOIN station_branch su ON c.branch_id = su.id
-        LEFT JOIN users recorder ON c.recorded_by = recorder.id
-        LEFT JOIN users req_user ON c.status_requested_by = req_user.id
-        WHERE c.id = ?
-    `, [caseId]);
+    // The case row and all of its child collections are independent reads, so
+    // they are issued together: the detail page pays one round-trip instead of
+    // eight, which dominates the response time on a remote database.
+    const [
+        [rows],
+        investigators,
+        [notes],
+        [evidenceItems],
+        [suspects],
+        [victims],
+        [minutes],
+        [custodyLog],
+        [externalReports]
+    ] = await Promise.all([
+        db.execute(`
+            SELECT
+                c.*,
+                cc.name AS crime_category,
+                su.name AS branch_name,
+                CONCAT(recorder.rank_title, ' ', recorder.first_name, ' ', recorder.last_name) AS recorded_by_name,
+                CONCAT(req_user.rank_title, ' ', req_user.first_name, ' ', req_user.last_name) AS status_requested_by_name
+            FROM cases c
+            LEFT JOIN crime_categories cc ON c.category_id = cc.id
+            LEFT JOIN station_branch su ON c.branch_id = su.id
+            LEFT JOIN users recorder ON c.recorded_by = recorder.id
+            LEFT JOIN users req_user ON c.status_requested_by = req_user.id
+            WHERE c.id = ?
+        `, [caseId]),
+
+        getAssignedInvestigators(caseId),
+
+        db.execute(`
+            SELECT n.id, n.note, n.created_at, CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS officer_name
+            FROM case_notes n
+            LEFT JOIN users u ON n.officer_id = u.id
+            WHERE n.case_id = ?
+            ORDER BY n.created_at DESC
+        `, [caseId]),
+
+        db.execute(`
+            SELECT e.*, CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS collected_by_name
+            FROM evidence e
+            LEFT JOIN users u ON e.collected_by_officer_id = u.id
+            WHERE e.case_id = ?
+            ORDER BY e.collected_at DESC
+        `, [caseId]),
+
+        db.execute(`
+            SELECT s.id, s.first_name, s.last_name, s.alias, s.national_id, s.photo_url,
+                   s.phone_number, s.gender, s.date_of_birth, s.age, s.occupation, s.ta, s.village, s.address,
+                   cs.status AS link_status, cs.arrest_date
+            FROM case_suspects cs
+            JOIN suspects s ON cs.suspect_id = s.id
+            WHERE cs.case_id = ?
+        `, [caseId]),
+
+        db.execute(`
+            SELECT id, full_name, phone_number, email, national_id, address, age, occupation, ta, village, statement
+            FROM victims
+            WHERE case_id = ?
+        `, [caseId]),
+
+        db.execute(`
+            SELECT m.id, m.minute_type, m.decision, m.comment, m.created_at,
+                   CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS author_name
+            FROM case_minutes m
+            LEFT JOIN users u ON m.author_id = u.id
+            WHERE m.case_id = ?
+            ORDER BY m.created_at ASC
+        `, [caseId]),
+
+        db.execute(`
+            SELECT cl.*,
+                   CONCAT(ho.rank_title, ' ', ho.first_name, ' ', ho.last_name) AS handed_over_by_name,
+                   CONCAT(rb.rank_title, ' ', rb.first_name, ' ', rb.last_name) AS received_by_name
+            FROM case_custody_log cl
+            LEFT JOIN users ho ON cl.handed_over_by = ho.id
+            LEFT JOIN users rb ON cl.received_by = rb.id
+            WHERE cl.case_id = ?
+            ORDER BY cl.handed_over_at ASC
+        `, [caseId]),
+
+        db.execute(`
+            SELECT er.*, CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS requested_by_name
+            FROM external_reports er
+            LEFT JOIN users u ON er.requested_by = u.id
+            WHERE er.case_id = ?
+            ORDER BY er.requested_at DESC
+        `, [caseId])
+    ]);
 
     if (rows.length === 0) {
         return fail(404, 'Case record not found.');
@@ -353,68 +441,8 @@ async function getCaseDetail(caseId, user) {
         return fail(403, 'You can only access cases from your own branch.');
     }
 
-    const investigators = await getAssignedInvestigators(caseId);
     const assignedInvestigatorIds = investigators.map(inv => inv.id);
     const assignedInvestigatorNames = investigators.map(inv => `${inv.rank_title} ${inv.first_name} ${inv.last_name}`);
-
-    const [notes] = await db.execute(`
-        SELECT n.id, n.note, n.created_at, CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS officer_name
-        FROM case_notes n
-        LEFT JOIN users u ON n.officer_id = u.id
-        WHERE n.case_id = ?
-        ORDER BY n.created_at DESC
-    `, [caseId]);
-
-    const [evidenceItems] = await db.execute(`
-        SELECT e.*, CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS collected_by_name
-        FROM evidence e
-        LEFT JOIN users u ON e.collected_by_officer_id = u.id
-        WHERE e.case_id = ?
-        ORDER BY e.collected_at DESC
-    `, [caseId]);
-
-    const [suspects] = await db.execute(`
-        SELECT s.id, s.first_name, s.last_name, s.alias, s.national_id, s.photo_url,
-               s.phone_number, s.gender, s.date_of_birth, s.age, s.occupation, s.ta, s.village, s.address,
-               cs.status AS link_status, cs.arrest_date
-        FROM case_suspects cs
-        JOIN suspects s ON cs.suspect_id = s.id
-        WHERE cs.case_id = ?
-    `, [caseId]);
-
-    const [victims] = await db.execute(`
-        SELECT id, full_name, phone_number, email, national_id, address, age, occupation, ta, village, statement
-        FROM victims
-        WHERE case_id = ?
-    `, [caseId]);
-
-    const [minutes] = await db.execute(`
-        SELECT m.id, m.minute_type, m.decision, m.comment, m.created_at,
-               CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS author_name
-        FROM case_minutes m
-        LEFT JOIN users u ON m.author_id = u.id
-        WHERE m.case_id = ?
-        ORDER BY m.created_at ASC
-    `, [caseId]);
-
-    const [custodyLog] = await db.execute(`
-        SELECT cl.*,
-               CONCAT(ho.rank_title, ' ', ho.first_name, ' ', ho.last_name) AS handed_over_by_name,
-               CONCAT(rb.rank_title, ' ', rb.first_name, ' ', rb.last_name) AS received_by_name
-        FROM case_custody_log cl
-        LEFT JOIN users ho ON cl.handed_over_by = ho.id
-        LEFT JOIN users rb ON cl.received_by = rb.id
-        WHERE cl.case_id = ?
-        ORDER BY cl.handed_over_at ASC
-    `, [caseId]);
-
-    const [externalReports] = await db.execute(`
-        SELECT er.*, CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS requested_by_name
-        FROM external_reports er
-        LEFT JOIN users u ON er.requested_by = u.id
-        WHERE er.case_id = ?
-        ORDER BY er.requested_at DESC
-    `, [caseId]);
 
     const isAssignedInvestigator = assignedInvestigatorIds.includes(user.id);
     const isSupervisor = roleIn(user, SUPERVISOR_ROLES);
@@ -672,8 +700,10 @@ async function getPersonalDashboard(user) {
         return ok({ variant: 'records', role: user.role });
     }
 
-    // Police Officer: the cases assigned to them.
-    const [[kpi]] = await db.execute(`
+    // Police Officer: the cases assigned to them. The KPI totals and the
+    // case list are independent, so they run together.
+    const [[[kpi]], [assignedCases]] = await Promise.all([
+        db.execute(`
         SELECT
             COUNT(DISTINCT c.id) AS total_assigned,
             SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS active_count,
@@ -683,9 +713,9 @@ async function getPersonalDashboard(user) {
         FROM cases c
         JOIN case_investigators ci ON c.id = ci.case_id
         WHERE ci.investigator_id = ?
-    `, [user.id]);
+    `, [user.id]),
 
-    const [assignedCases] = await db.execute(`
+        db.execute(`
         SELECT
             c.id, c.ob_number, c.incident_details AS title, cc.name AS crime_category,
             c.priority, c.status, c.requested_status, c.created_at,
@@ -696,7 +726,8 @@ async function getPersonalDashboard(user) {
         WHERE ci.investigator_id = ?
         GROUP BY c.id, cc.name
         ORDER BY CASE c.priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, c.created_at ASC
-    `, [user.id]);
+    `, [user.id])
+    ]);
 
     return ok({
         variant: 'investigator',

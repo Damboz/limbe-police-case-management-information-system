@@ -53,7 +53,8 @@ async function getLedger(user, query) {
     const fullWhere = ['1=1', ...scopeConditions, ...filterConditions].filter(Boolean).join(' AND ');
     const listParams = [...scopeParams, ...filterParams];
 
-    const [[kpi]] = await db.execute(`
+    const [[kpi], [statusOptions], [categoryOptions], [evidenceItems]] = await Promise.all([
+        db.execute(`
         SELECT
             COUNT(*) AS total_items,
             SUM(CASE WHEN e.status = 'In Locker' THEN 1 ELSE 0 END) AS in_locker,
@@ -65,25 +66,25 @@ async function getLedger(user, query) {
         FROM evidence e
         JOIN cases c ON e.case_id = c.id
         WHERE ${scopeWhere}
-    `, scopeParams);
+    `, scopeParams),
 
-    const [statusOptions] = await db.execute(`
+        db.execute(`
         SELECT DISTINCT e.status
         FROM evidence e
         JOIN cases c ON e.case_id = c.id
         WHERE ${scopeWhere} AND e.status IS NOT NULL AND e.status != ''
         ORDER BY e.status
-    `, scopeParams);
+    `, scopeParams),
 
-    const [categoryOptions] = await db.execute(`
+        db.execute(`
         SELECT DISTINCT e.category
         FROM evidence e
         JOIN cases c ON e.case_id = c.id
         WHERE ${scopeWhere} AND e.category IS NOT NULL AND e.category != ''
         ORDER BY e.category
-    `, scopeParams);
+    `, scopeParams),
 
-    const [evidenceItems] = await db.execute(`
+        db.execute(`
         SELECT
             e.id,
             e.case_id,
@@ -104,7 +105,8 @@ async function getLedger(user, query) {
         WHERE ${fullWhere}
         ORDER BY e.collected_at DESC
         LIMIT 300
-    `, listParams);
+    `, listParams)
+    ]);
 
     const categories = [...new Set([...EVIDENCE_CATEGORIES, ...categoryOptions.map(o => o.category)])];
 

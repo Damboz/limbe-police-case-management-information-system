@@ -24,6 +24,7 @@ app.set('trust proxy', 1);
 
 const apiRoutes = require('./routes/apiRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const db = require('./config/db');
 const { normalizeSessionRole } = require('./middleware/authMiddleware');
 
 
@@ -151,6 +152,14 @@ if (require.main === module) {
         console.log(`Limbe Police Station API live: http://localhost:${PORT}`);
         console.log(`Accepting browser requests from: ${ALLOWED_ORIGINS.join(', ')}`);
     });
+
+    // Opening a connection to a remote database costs a full TCP + TLS + SCRAM
+    // handshake that dwarfs the queries themselves. The pool only grows on
+    // demand, so fill it during boot; otherwise the first officer pays the
+    // handshake cost, one connection at a time, on their first dashboard.
+    db.warm()
+        .then(() => console.log('[db] Connection pool warm.'))
+        .catch((err) => console.warn(`[db] Pool warm-up skipped: ${err.message}`));
 }
 
 module.exports = app;

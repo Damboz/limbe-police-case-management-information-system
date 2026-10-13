@@ -74,24 +74,30 @@ function parseBranch(roleMap, branch, roleInput) {
 
 
 async function getAdminDashboard() {
-    const [[{ total_users }]] = await db.execute('SELECT COUNT(*) AS total_users FROM users');
-    const [[{ active_users }]] = await db.execute('SELECT COUNT(*) AS active_users FROM users WHERE is_active = 1');
-    const [[{ total_logins }]] = await db.execute("SELECT COUNT(*) AS total_logins FROM audit_logs WHERE action = 'USER_LOGIN'");
-
-    const [users] = await db.execute(`
+    const [
+        [[{ total_users }]],
+        [[{ active_users }]],
+        [[{ total_logins }]],
+        [users],
+        [recentLogs]
+    ] = await Promise.all([
+        db.execute('SELECT COUNT(*) AS total_users FROM users'),
+        db.execute('SELECT COUNT(*) AS active_users FROM users WHERE is_active = 1'),
+        db.execute("SELECT COUNT(*) AS total_logins FROM audit_logs WHERE action = 'USER_LOGIN'"),
+        db.execute(`
         SELECT id, badge_number, rank_title, first_name, last_name, email, role, role_id, branch, is_active
         FROM users
         ORDER BY created_at DESC
         LIMIT 5
-    `);
-
-    const [recentLogs] = await db.execute(`
+    `),
+        db.execute(`
         SELECT a.*, u.badge_number, u.first_name, u.last_name
         FROM audit_logs a
         LEFT JOIN users u ON a.user_id = u.id
         ORDER BY a.created_at DESC
         LIMIT 10
-    `);
+    `)
+    ]);
 
     return ok({
         stats: { totalUsers: total_users, activeUsers: active_users, totalLogins: total_logins },
@@ -133,8 +139,10 @@ async function getUsers(query) {
 
 
 async function getPersonnelFormOptions() {
-    const [roles] = await db.execute('SELECT * FROM roles ORDER BY id ASC');
-    const [branches] = await db.execute('SELECT * FROM station_branch ORDER BY name ASC');
+    const [[roles], [branches]] = await Promise.all([
+        db.execute('SELECT * FROM roles ORDER BY id ASC'),
+        db.execute('SELECT * FROM station_branch ORDER BY name ASC')
+    ]);
     return { roles, branches, workflowBranches: WORKFLOW_BRANCH_NAMES };
 }
 
@@ -389,22 +397,24 @@ async function getAuditLogs(query) {
 
     const whereClause = conditions.join(' AND ');
 
-    const [logs] = await db.execute(`
+    const [[logs], [actionTypes], [roleTypes]] = await Promise.all([
+        db.execute(`
         SELECT a.*, u.badge_number, u.rank_title, u.first_name, u.last_name, u.role
         FROM audit_logs a
         LEFT JOIN users u ON a.user_id = u.id
         WHERE ${whereClause}
         ORDER BY a.created_at DESC
         LIMIT 500
-    `, params);
+    `, params),
 
-    const [actionTypes] = await db.execute(`
+        db.execute(`
         SELECT DISTINCT action FROM audit_logs ORDER BY action ASC
-    `);
+    `),
 
-    const [roleTypes] = await db.execute(`
+        db.execute(`
         SELECT DISTINCT role FROM users WHERE role IS NOT NULL ORDER BY role ASC
-    `);
+    `)
+    ]);
 
     return ok({
         logs,

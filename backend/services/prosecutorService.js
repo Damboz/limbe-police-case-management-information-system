@@ -12,7 +12,8 @@ function isProsecutor(user) {
 
 
 async function getDashboard(user) {
-    const [[kpi]] = await db.execute(`
+    const [[kpi], [forwardedCases], [pendingReceipts], [movingFiles]] = await Promise.all([
+        db.execute(`
         SELECT
             SUM(CASE WHEN c.status = 'Forwarded to Prosecution' THEN 1 ELSE 0 END) AS forwarded_count,
             SUM(CASE WHEN cl.status = 'Pending' THEN 1 ELSE 0 END) AS pending_receipt_count,
@@ -21,9 +22,9 @@ async function getDashboard(user) {
         FROM cases c
         LEFT JOIN case_custody_log cl ON c.id = cl.case_id
         WHERE c.status = 'Forwarded to Prosecution'
-    `);
+    `),
 
-    const [forwardedCases] = await db.execute(`
+        db.execute(`
         SELECT
             c.id,
             c.ob_number AS case_number,
@@ -48,9 +49,9 @@ async function getDashboard(user) {
         WHERE c.status = 'Forwarded to Prosecution'
         GROUP BY c.id, cc.name, cl.status, cl.id
         ORDER BY c.forwarded_at ASC
-    `);
+    `),
 
-    const [pendingReceipts] = await db.execute(`
+        db.execute(`
         SELECT
             cl.id AS custody_id,
             cl.handed_over_at,
@@ -67,9 +68,9 @@ async function getDashboard(user) {
         LEFT JOIN users ho ON cl.handed_over_by = ho.id
         WHERE cl.status = 'Pending'
         ORDER BY cl.handed_over_at ASC
-    `);
+    `),
 
-    const [movingFiles] = await db.execute(`
+        db.execute(`
         SELECT c.id, c.ob_number AS case_number, c.court_date, c.court_outcome,
                c.file_location, c.status, cc.name AS crime_category,
                CONCAT(rb.rank_title, ' ', rb.first_name, ' ', rb.last_name) AS received_by_name,
@@ -83,7 +84,8 @@ async function getDashboard(user) {
         )
         ORDER BY cl.received_at DESC
         LIMIT 25
-    `);
+    `)
+    ]);
 
     return ok({
         role: user.role,
