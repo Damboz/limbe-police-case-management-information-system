@@ -5,23 +5,6 @@ import { Alert, EmptyState, PageHeader, Spinner } from '../../components/ui';
 import usePageTitle from '../../hooks/usePageTitle';
 
 
-function Metric({ label, value, icon, tone, color }) {
-    return (
-        <div className="col-12 col-sm-6 col-xl-3">
-            <div className="card border-0 shadow-sm p-3">
-                <div className="metric-card">
-                    <div>
-                        <span className="text-muted small fw-semibold text-uppercase d-block mb-1">{label}</span>
-                        <h3 className="fw-bold mb-0" style={{ color }}>{value}</h3>
-                    </div>
-                    <div className={`metric-icon ${tone}`}><i className={`bi ${icon}`} /></div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 export default function HotspotsDetail() {
     const { data, error, loading } = useApiData(api.supervisorHotspots);
     usePageTitle('Top Incident Hotspots');
@@ -29,7 +12,7 @@ export default function HotspotsDetail() {
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
 
-    const { hotspots, metrics } = data;
+    const { hotspots } = data;
 
     return (
         <>
@@ -47,13 +30,6 @@ export default function HotspotsDetail() {
                     </>
                 }
             />
-
-            <div className="row g-3 mb-4">
-                <Metric label="Locations Tracked" value={metrics.locations || 0} icon="bi-geo-fill" tone="navy" color="var(--mps-navy)" />
-                <Metric label="Total Incidents" value={metrics.totalIncidents || 0} icon="bi-folder-fill" tone="warning" color="var(--mps-navy)" />
-                <Metric label="Resolved" value={metrics.totalResolved || 0} icon="bi-check-circle-fill" tone="success" color="var(--mps-success)" />
-                <Metric label="Under Investigation" value={metrics.totalActive || 0} icon="bi-hourglass-split" tone="blue" color="var(--mps-warning)" />
-            </div>
 
             <div className="card border-0 shadow-sm">
                 <div className="card-header bg-navy text-white py-3">

@@ -5,23 +5,6 @@ import { Alert, EmptyState, PageHeader, Spinner } from '../../components/ui';
 import usePageTitle from '../../hooks/usePageTitle';
 
 
-function Metric({ label, value, icon, tone, color }) {
-    return (
-        <div className="col-12 col-sm-6 col-xl-4">
-            <div className="card border-0 shadow-sm p-3">
-                <div className="metric-card">
-                    <div>
-                        <span className="text-muted small fw-semibold text-uppercase d-block mb-1">{label}</span>
-                        <h3 className="fw-bold mb-0" style={{ color }}>{value}</h3>
-                    </div>
-                    <div className={`metric-icon ${tone}`}><i className={`bi ${icon}`} /></div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 export default function CategoriesDetail() {
     const { data, error, loading } = useApiData(api.supervisorCategories);
     usePageTitle('Crime Category Breakdown');
@@ -29,7 +12,7 @@ export default function CategoriesDetail() {
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
 
-    const { categories, metrics } = data;
+    const { categories } = data;
 
     return (
         <>
@@ -47,12 +30,6 @@ export default function CategoriesDetail() {
                     </>
                 }
             />
-
-            <div className="row g-3 mb-4">
-                <Metric label="Categories Tracked" value={metrics.categories || 0} icon="bi-tags" tone="navy" color="var(--mps-navy)" />
-                <Metric label="Total Cases" value={metrics.totalCases || 0} icon="bi-folder-fill" tone="warning" color="var(--mps-warning)" />
-                <Metric label="Closed Cases" value={metrics.totalClosed || 0} icon="bi-check-circle-fill" tone="success" color="var(--mps-success)" />
-            </div>
 
             <div className="card border-0 shadow-sm">
                 <div className="card-header bg-navy text-white py-3">

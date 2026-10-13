@@ -21,23 +21,6 @@ const STATUS_COLORS = {
 };
 
 
-function Metric({ label, value, icon, tone, color, width = 'col-xl-4' }) {
-    return (
-        <div className={`col-12 col-sm-6 ${width}`}>
-            <div className="card border-0 shadow-sm p-3">
-                <div className="metric-card">
-                    <div>
-                        <span className="text-muted small fw-semibold text-uppercase d-block mb-1">{label}</span>
-                        <h3 className="fw-bold mb-0" style={{ color }}>{value}</h3>
-                    </div>
-                    <div className={`metric-icon ${tone}`}><i className={`bi ${icon}`} /></div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 export default function Analytics() {
     const { data, error, loading } = useApiData(api.supervisorAnalytics);
     const { requestReport, modal, busy: downloading } = useReportExport('Crime Statistics Report');
@@ -90,7 +73,7 @@ export default function Analytics() {
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
 
-    const { metrics, hotspots, categoryBreakdown } = data;
+    const { hotspots, categoryBreakdown } = data;
 
     return (
         <>
@@ -109,12 +92,6 @@ export default function Analytics() {
                     </>
                 }
             />
-
-            <div className="row g-3 mb-4">
-                <Metric label="Total Cases Recorded" value={metrics.totalCases || 0} icon="bi-folder-fill" tone="navy" color="var(--mps-navy)" />
-                <Metric label="Closed Cases" value={metrics.closedCases || 0} icon="bi-check-circle-fill" tone="success" color="var(--mps-success)" />
-                <Metric label="Resolution Rate" value={`${metrics.resolutionRate || 0}%`} icon="bi-speedometer2" tone="blue" color="var(--mps-blue)" />
-            </div>
 
             <div className="row g-4 mb-4">
                 <div className="col-lg-8">

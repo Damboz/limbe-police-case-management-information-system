@@ -28,23 +28,6 @@ function StatusPill({ status }) {
 }
 
 
-function Metric({ label, value, icon, tone, color }) {
-    return (
-        <div className="col-12 col-sm-6 col-xl-3">
-            <div className="card border-0 shadow-sm p-3">
-                <div className="metric-card">
-                    <div>
-                        <span className="text-muted small fw-semibold text-uppercase d-block mb-1">{label}</span>
-                        <h3 className="fw-bold mb-0" style={{ color }}>{value}</h3>
-                    </div>
-                    <div className={`metric-icon ${tone}`}><i className={`bi ${icon}`} /></div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 export default function EvidenceLedger() {
     const { user } = useAuth();
     const toast = useToast();
@@ -108,7 +91,6 @@ export default function EvidenceLedger() {
 
     if (loading && !data) return <Spinner />;
 
-    const kpi = data?.kpi || {};
     const evidenceItems = data?.evidenceItems || [];
     const statusOptions = data?.statusOptions || [];
     const categories = data?.categories || [];
@@ -188,15 +170,6 @@ export default function EvidenceLedger() {
                 </div>
 
                 <div className="col-12 col-lg-8 col-xl-9 order-lg-2">
-                    <div className="row g-3 mb-4">
-                        <Metric label="Total Evidence Items" value={kpi.totalItems || 0} icon="bi-box-seam" tone="navy" color="var(--mps-navy)" />
-                        <Metric label="In Locker" value={kpi.inLocker || 0} icon="bi-shield-lock" tone="warning" color="var(--mps-warning)" />
-                        <Metric label="Transferred to Lab" value={kpi.transferred || 0} icon="bi-truck" tone="blue" color="var(--mps-blue)" />
-                        <Metric label="In Court" value={kpi.inCourt || 0} icon="bi-gavel" tone="navy" color="var(--mps-info)" />
-                        <Metric label="Returned / Disposed" value={(kpi.returned || 0) + (kpi.disposed || 0)} icon="bi-box-arrow-up-right" tone="success" color="var(--mps-success)" />
-                        <Metric label="Cases Tracked" value={kpi.trackedCases || 0} icon="bi-folder-fill" tone="blue" color="var(--mps-blue)" />
-                    </div>
-
                     <div className="card border-0 shadow-sm">
                         <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
                             <h6 className="mb-0 fw-bold">

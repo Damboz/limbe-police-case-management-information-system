@@ -8,23 +8,6 @@ import { formatDate } from '../../lib/format';
 import usePageTitle from '../../hooks/usePageTitle';
 
 
-function Metric({ label, value, icon, tone, color }) {
-    return (
-        <div className="col-12 col-sm-6 col-xl-3">
-            <div className="card border-0 shadow-sm p-3">
-                <div className="metric-card">
-                    <div>
-                        <span className="text-muted small fw-semibold text-uppercase d-block mb-1">{label}</span>
-                        <h3 className="fw-bold mb-0" style={{ color }}>{value}</h3>
-                    </div>
-                    <div className={`metric-icon ${tone}`}><i className={`bi ${icon}`} /></div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 function BranchStat({ label, value, icon, colorClass }) {
     return (
         <div className="col-6 col-md-4 col-xl-2">
@@ -90,7 +73,7 @@ export default function BranchDashboard() {
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
 
-    const { kpi, branch, branchCaseStats, branchCases, pendingReviews, returnedCases, branchActiveCases, delayedExternalReports } = data;
+    const { branch, branchCaseStats, branchCases, pendingReviews, returnedCases, branchActiveCases, delayedExternalReports } = data;
 
     const branchName = branch && branch.name ? branch.name : 'My Branch';
     const branchCode = branch && branch.code ? branch.code : '';
@@ -250,13 +233,6 @@ export default function BranchDashboard() {
             </div>
 
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
-
-            <div className="row g-3 mb-1">
-                <Metric label="Awaiting Your Review" value={kpi.pendingReviews} icon="bi-clipboard-check-fill" tone="navy" color="var(--mps-info)" />
-                <Metric label="Branch Active Investigations" value={kpi.activeCases} icon="bi-search" tone="success" color="var(--mps-success)" />
-                <Metric label="Returned to Investigators" value={kpi.returned} icon="bi-arrow-counterclockwise" tone="warning" color="var(--mps-warning)" />
-                <Metric label="Outstanding External Reports" value={kpi.delayedExternal} icon="bi-clock-history" tone="danger" color="var(--mps-danger)" />
-            </div>
 
             <div className="card border-0 shadow-sm mb-4">
                 <div className="card-header bg-navy text-white py-3">

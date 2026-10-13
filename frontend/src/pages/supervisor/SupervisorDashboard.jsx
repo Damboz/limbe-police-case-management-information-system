@@ -21,23 +21,6 @@ const deriveWorkflowBranch = (classification) =>
         : WORKFLOW_BRANCHES.CID;
 
 
-function Metric({ label, value, icon, tone, color }) {
-    return (
-        <div className="col-12 col-sm-6 col-xl-3">
-            <div className="card border-0 shadow-sm p-3">
-                <div className="metric-card">
-                    <div>
-                        <span className="text-muted small fw-semibold text-uppercase d-block mb-1">{label}</span>
-                        <h3 className="fw-bold mb-0" style={{ color }}>{value}</h3>
-                    </div>
-                    <div className={`metric-icon ${tone}`}><i className={`bi ${icon}`} /></div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 function ExportMenu({ label, icon, items, onSelectReport }) {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
@@ -160,7 +143,7 @@ export default function SupervisorDashboard() {
         return 'Transfer to Court (COURT PENDING)';
     };
 
-    const { kpi, overdueDaysThreshold, unassignedCases, pendingApprovals, pendingClassification, pendingReassignments, prosecutionQueries, investigatorWorkload, assignedActiveCases } = data;
+    const { overdueDaysThreshold, unassignedCases, pendingApprovals, pendingClassification, pendingReassignments, prosecutionQueries, investigatorWorkload, assignedActiveCases } = data;
 
     const openAssign = (item, mode) => {
         setAssignTarget(item);
@@ -372,16 +355,6 @@ export default function SupervisorDashboard() {
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <div className="row g-3 mb-4">
-                <Metric label="Unassigned Cases" value={kpi.unassigned} icon="bi-folder2-open" tone="warning" color="var(--mps-warning)" />
-                <Metric label="Pending Classification" value={kpi.pendingClassification} icon="bi-tags-fill" tone="warning" color="var(--mps-warning)" />
-                <Metric label="Pending Approvals" value={kpi.pendingApprovals} icon="bi-clipboard-check-fill" tone="navy" color="var(--mps-info)" />
-                <Metric label="Active Investigations" value={kpi.activeCases} icon="bi-search" tone="success" color="var(--mps-success)" />
-                <Metric label={`Overdue (${overdueDaysThreshold}+ days)`} value={kpi.overdue} icon="bi-alarm-fill" tone="danger" color="var(--mps-danger)" />
-                <Metric label="Reassignment Proposals" value={kpi.pendingReassignments} icon="bi-arrow-repeat" tone="warning" color="var(--mps-warning)" />
-                <Metric label="Open Prosecution Queries" value={kpi.openQueries} icon="bi-chat-square-text" tone="navy" color="var(--mps-info)" />
             </div>
 
             <div className="row g-4 mb-4">

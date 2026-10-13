@@ -8,23 +8,6 @@ import usePageTitle from '../hooks/usePageTitle';
 import useReportExport from '../hooks/useReportExport';
 
 
-function Metric({ label, value, icon, tone, color }) {
-    return (
-        <div className="col-12 col-sm-6 col-xl-3">
-            <div className="card border-0 shadow-sm p-3">
-                <div className="metric-card">
-                    <div>
-                        <span className="text-muted small fw-semibold text-uppercase d-block mb-1">{label}</span>
-                        <h3 className="fw-bold mb-0" style={{ color }}>{value}</h3>
-                    </div>
-                    <div className={`metric-icon ${tone}`}><i className={`bi ${icon}`} /></div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 export default function MyAnalytics() {
     const { user } = useAuth();
     const { requestReport, modal, busy: downloading } = useReportExport('My Case Report');
@@ -36,7 +19,6 @@ export default function MyAnalytics() {
     if (error) return <Alert variant="danger" message={error} />;
 
     const {
-        metrics,
         monthlyTrends,
         statusDistribution,
         categoryBreakdown,
@@ -62,13 +44,6 @@ export default function MyAnalytics() {
                     </>
                 }
             />
-
-            <div className="row g-3 mb-4">
-                <Metric label="Total Cases" value={metrics.totalCases} icon="bi-folder-fill" tone="navy" color="var(--mps-navy)" />
-                <Metric label="Closed" value={metrics.closedCases} icon="bi-check-circle-fill" tone="success" color="var(--mps-success)" />
-                <Metric label="Resolution Rate" value={`${metrics.resolutionRate}%`} icon="bi-graph-ups" tone="blue" color="var(--mps-info)" />
-                <Metric label="Pending Requests" value={metrics.pendingRequests} icon="bi-hourglass-split" tone="warning" color="var(--mps-warning)" />
-            </div>
 
             <div className="row g-4 mb-4">
                 <div className="col-lg-8">

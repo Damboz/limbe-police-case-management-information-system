@@ -6,23 +6,6 @@ import { formatDate } from '../lib/format';
 import usePageTitle from '../hooks/usePageTitle';
 
 
-function Metric({ label, value, icon, tone, color }) {
-    return (
-        <div className="col-12 col-sm-6 col-xl-3">
-            <div className="card border-0 shadow-sm p-3">
-                <div className="metric-card">
-                    <div>
-                        <span className="text-muted small fw-semibold text-uppercase d-block mb-1">{label}</span>
-                        <h3 className="fw-bold mb-0" style={{ color }}>{value}</h3>
-                    </div>
-                    <div className={`metric-icon ${tone}`}><i className={`bi ${icon}`} /></div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 function InvestigatorDashboard({ data }) {
     const { kpi, assignedCases, overdueDaysThreshold } = data;
 
@@ -32,13 +15,6 @@ function InvestigatorDashboard({ data }) {
                 title="My Assigned Cases"
                 subtitle="Active investigations, evidence, and case timelines assigned to you."
             />
-
-            <div className="row g-3 mb-4">
-                <Metric label="Active Cases" value={kpi.active} icon="bi-search" tone="navy" color="var(--mps-navy)" />
-                <Metric label={`Overdue (${overdueDaysThreshold}+ days)`} value={kpi.overdue} icon="bi-alarm-fill" tone="danger" color="var(--mps-danger)" />
-                <Metric label="Pending Requests" value={kpi.pendingRequest} icon="bi-hourglass-split" tone="navy" color="var(--mps-info)" />
-                <Metric label="Closed (All Time)" value={kpi.closed} icon="bi-check-circle-fill" tone="success" color="var(--mps-success)" />
-            </div>
 
             <div className="card border-0 shadow-sm">
                 <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">

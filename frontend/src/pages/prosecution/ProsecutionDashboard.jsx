@@ -8,23 +8,6 @@ import { formatDate } from '../../lib/format';
 import usePageTitle from '../../hooks/usePageTitle';
 
 
-function Metric({ label, value, icon, tone, color }) {
-    return (
-        <div className="col-12 col-sm-6 col-xl-3">
-            <div className="card border-0 shadow-sm p-3">
-                <div className="metric-card">
-                    <div>
-                        <span className="text-muted small fw-semibold text-uppercase d-block mb-1">{label}</span>
-                        <h3 className="fw-bold mb-0" style={{ color }}>{value}</h3>
-                    </div>
-                    <div className={`metric-icon ${tone}`}><i className={`bi ${icon}`} /></div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 function Modal({ title, onClose, children, footer }) {
     return (
         <div className="modal fade show d-block" tabIndex="-1" role="dialog" aria-modal="true" style={{ background: 'rgba(15,23,42,0.5)' }}>
@@ -66,7 +49,7 @@ export default function ProsecutionDashboard() {
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
 
-    const { kpi, forwardedCases, pendingReceipts, movingFiles } = data;
+    const { forwardedCases, pendingReceipts, movingFiles } = data;
 
     const submitAcknowledge = async (e) => {
         e.preventDefault();
@@ -144,13 +127,6 @@ export default function ProsecutionDashboard() {
             />
 
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
-
-            <div className="row g-3 mb-4">
-                <Metric label="Forwarded to Prosecution" value={kpi.forwarded} icon="bi-briefcase-fill" tone="navy" color="var(--mps-info)" />
-                <Metric label="Awaiting File Receipt" value={kpi.pendingReceipts} icon="bi-inbox-fill" tone="warning" color="var(--mps-warning)" />
-                <Metric label="Court Scheduled" value={kpi.scheduled} icon="bi-bank2" tone="success" color="var(--mps-success)" />
-                <Metric label="Files Shelved" value={kpi.shelved} icon="bi-archive-fill" tone="danger" color="var(--mps-danger)" />
-            </div>
 
             <div className="row g-4 mb-4">
                 <div className="col-lg-6">
