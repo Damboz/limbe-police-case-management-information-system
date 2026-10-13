@@ -66,8 +66,8 @@ export default function CaseDetail() {
     const [requestedStatus, setRequestedStatus] = useState('');
     const [statusNotes, setStatusNotes] = useState('');
     const [evidenceForm, setEvidenceForm] = useState({ item_number: '', category: 'Physical', description: '', storage_location: '', collected_at: '' });
-    const [suspectForm, setSuspectForm] = useState({ first_name: '', last_name: '', alias: '', gender: '', national_id: '', phone_number: '' });
-    const [victimForm, setVictimForm] = useState({ full_name: '', phone_number: '', email: '', national_id: '', statement: '' });
+    const [suspectForm, setSuspectForm] = useState({ first_name: '', last_name: '', alias: '', gender: '', national_id: '', phone_number: '', age: '', occupation: '', ta: '', village: '', address: '' });
+    const [victimForm, setVictimForm] = useState({ full_name: '', phone_number: '', email: '', national_id: '', statement: '', age: '', occupation: '', ta: '', village: '', address: '' });
     const [inviteTarget, setInviteTarget] = useState(null);
     const [inviteForm, setInviteForm] = useState({ appearance_date: '', appearance_time: '09:00', officer_notes: '' });
     const [minuteForm, setMinuteForm] = useState({ decision: 'Recommend', comment: '' });
@@ -138,7 +138,7 @@ export default function CaseDetail() {
         await suspect.run(async () => {
             const res = await api.linkSuspect(id, suspectForm);
             toast.success(res.message);
-            setSuspectForm({ first_name: '', last_name: '', alias: '', gender: '', national_id: '', phone_number: '' });
+            setSuspectForm({ first_name: '', last_name: '', alias: '', gender: '', national_id: '', phone_number: '', age: '', occupation: '', ta: '', village: '', address: '' });
             reload();
         });
     };
@@ -148,7 +148,7 @@ export default function CaseDetail() {
         await victim.run(async () => {
             const res = await api.linkVictim(id, victimForm);
             toast.success(res.message);
-            setVictimForm({ full_name: '', phone_number: '', email: '', national_id: '', statement: '' });
+            setVictimForm({ full_name: '', phone_number: '', email: '', national_id: '', statement: '', age: '', occupation: '', ta: '', village: '', address: '' });
             reload();
         });
     };
@@ -267,7 +267,19 @@ export default function CaseDetail() {
                         <div className="col-md-3">
                             <Label>Complainant</Label>
                             <span className="fw-semibold">{caseItem.complainant_name}</span><br />
-                            <span className="small text-muted">{caseItem.complainant_phone}</span>
+                            <span className="small text-muted">
+                                {caseItem.complainant_phone}
+                                {caseItem.complainant_gender ? <> · {caseItem.complainant_gender}</> : null}
+                                {caseItem.complainant_age ? <> · Age: {caseItem.complainant_age}</> : null}
+                            </span>
+                            {caseItem.complainant_occupation && (
+                                <div className="small text-muted">{caseItem.complainant_occupation}</div>
+                            )}
+                            {(caseItem.complainant_ta || caseItem.complainant_village || caseItem.complainant_address) && (
+                                <div className="small text-muted">
+                                    {[caseItem.complainant_village, caseItem.complainant_ta && `T/A ${caseItem.complainant_ta}`, caseItem.complainant_address].filter(Boolean).join(', ')}
+                                </div>
+                            )}
                         </div>
                         <div className="col-md-3">
                             <Label>Category</Label>
@@ -728,6 +740,21 @@ export default function CaseDetail() {
                                         <div className="col-6">
                                             <input type="text" className="form-control form-control-sm" placeholder="Phone number" value={suspectForm.phone_number} onChange={setSuspect('phone_number')} />
                                         </div>
+                                        <div className="col-6">
+                                            <input type="number" min="0" className="form-control form-control-sm" placeholder="Age" value={suspectForm.age} onChange={setSuspect('age')} />
+                                        </div>
+                                        <div className="col-6">
+                                            <input type="text" className="form-control form-control-sm" placeholder="Occupation" value={suspectForm.occupation} onChange={setSuspect('occupation')} />
+                                        </div>
+                                        <div className="col-6">
+                                            <input type="text" className="form-control form-control-sm" placeholder="T/A (Traditional Authority)" value={suspectForm.ta} onChange={setSuspect('ta')} />
+                                        </div>
+                                        <div className="col-6">
+                                            <input type="text" className="form-control form-control-sm" placeholder="Village" value={suspectForm.village} onChange={setSuspect('village')} />
+                                        </div>
+                                        <div className="col-6">
+                                            <input type="text" className="form-control form-control-sm" placeholder="Physical address" value={suspectForm.address} onChange={setSuspect('address')} />
+                                        </div>
                                         <div className="col-12">
                                             <button type="submit" className="btn btn-navy btn-sm w-100" disabled={suspect.busy}>
                                                 <i className="bi bi-plus-lg me-1" />Link Suspect
@@ -755,8 +782,20 @@ export default function CaseDetail() {
                                                 {s.alias && <span className="text-muted">&ldquo;{s.alias}&rdquo;</span>}
                                             </div>
                                             <div className="small text-muted">
-                                                {s.link_status}{s.national_id && <> · National ID: {s.national_id}</>}
+                                                {s.link_status}
+                                                {s.gender && <> · {s.gender}</>}
+                                                {s.age ? <> · Age: {s.age}</> : null}
+                                                {s.occupation && <> · {s.occupation}</>}
                                             </div>
+                                            <div className="small text-muted">
+                                                {s.phone_number && <>Phone: {s.phone_number} · </>}
+                                                {s.national_id && <>National ID: {s.national_id}</>}
+                                            </div>
+                                            {(s.ta || s.village || s.address) && (
+                                                <div className="small text-muted">
+                                                    {[s.village, s.ta && `T/A ${s.ta}`, s.address].filter(Boolean).join(', ')}
+                                                </div>
+                                            )}
                                         </div>
                                         <button type="button" className="btn btn-warning btn-sm fw-semibold" onClick={() => openInvitation(s)}>
                                             <i className="bi bi-envelope-paper me-1" />Invitation Letter
@@ -771,7 +810,7 @@ export default function CaseDetail() {
                 <div className="col-lg-6">
                     <div className="card border-0 shadow-sm h-100">
                         <div className="card-header bg-navy text-white py-3">
-                            <h6 className="mb-0 fw-bold"><i className="bi bi-shield-fill-exclamation me-2 text-warning" />Victims</h6>
+                            <h6 className="mb-0 fw-bold"><i className="bi bi-people-fill me-2 text-warning" />Witnesses</h6>
                         </div>
                         <div className="card-body">
                             {overlay(victim)}
@@ -785,17 +824,32 @@ export default function CaseDetail() {
                                             <input type="text" className="form-control form-control-sm" placeholder="Phone number" value={victimForm.phone_number} onChange={setVictim('phone_number')} />
                                         </div>
                                         <div className="col-6">
-                                            <input type="email" className="form-control form-control-sm" placeholder="Email" value={victimForm.email} onChange={setVictim('email')} />
+                                            <input type="number" min="0" className="form-control form-control-sm" placeholder="Age" value={victimForm.age} onChange={setVictim('age')} />
+                                        </div>
+                                        <div className="col-6">
+                                            <input type="text" className="form-control form-control-sm" placeholder="Occupation" value={victimForm.occupation} onChange={setVictim('occupation')} />
+                                        </div>
+                                        <div className="col-6">
+                                            <input type="text" className="form-control form-control-sm" placeholder="T/A (Traditional Authority)" value={victimForm.ta} onChange={setVictim('ta')} />
+                                        </div>
+                                        <div className="col-6">
+                                            <input type="text" className="form-control form-control-sm" placeholder="Village" value={victimForm.village} onChange={setVictim('village')} />
                                         </div>
                                         <div className="col-6">
                                             <input type="text" className="form-control form-control-sm" placeholder="National ID" value={victimForm.national_id} onChange={setVictim('national_id')} />
                                         </div>
+                                        <div className="col-6">
+                                            <input type="email" className="form-control form-control-sm" placeholder="Email" value={victimForm.email} onChange={setVictim('email')} />
+                                        </div>
                                         <div className="col-12">
-                                            <textarea rows="2" className="form-control form-control-sm" placeholder="Victim statement (optional)" value={victimForm.statement} onChange={setVictim('statement')} />
+                                            <input type="text" className="form-control form-control-sm" placeholder="Physical address" value={victimForm.address} onChange={setVictim('address')} />
+                                        </div>
+                                        <div className="col-12">
+                                            <textarea rows="2" className="form-control form-control-sm" placeholder="Witness statement (optional)" value={victimForm.statement} onChange={setVictim('statement')} />
                                         </div>
                                         <div className="col-12">
                                             <button type="submit" className="btn btn-navy btn-sm w-100" disabled={victim.busy}>
-                                                <i className="bi bi-plus-lg me-1" />Add Victim
+                                                <i className="bi bi-plus-lg me-1" />Add Witness
                                             </button>
                                         </div>
                                     </div>
@@ -804,12 +858,21 @@ export default function CaseDetail() {
                             {permissions.canLinkSuspectVictim && <hr />}
 
                             {victims.length === 0 ? (
-                                <p className="text-muted small mb-0">No victim records linked to this case yet.</p>
+                                <p className="text-muted small mb-0">No witnesses linked to this case yet.</p>
                             ) : (
                                 victims.map(v => (
                                     <div className="mb-2 pb-2 border-bottom" key={v.id}>
                                         <div className="small fw-semibold">{v.full_name}</div>
-                                        <div className="small text-muted">{v.phone_number || 'No phone on file'}</div>
+                                        <div className="small text-muted">
+                                            {v.phone_number || 'No phone on file'}
+                                            {v.age ? <> · Age: {v.age}</> : null}
+                                            {v.occupation ? <> · {v.occupation}</> : null}
+                                        </div>
+                                        {(v.ta || v.village || v.address) && (
+                                            <div className="small text-muted">
+                                                {[v.village, v.ta && `T/A ${v.ta}`, v.address].filter(Boolean).join(', ')}
+                                            </div>
+                                        )}
                                         {v.statement && <div className="small mt-1 fst-italic">&ldquo;{v.statement}&rdquo;</div>}
                                     </div>
                                 ))

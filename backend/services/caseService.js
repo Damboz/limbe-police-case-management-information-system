@@ -7,6 +7,21 @@ const {
     roleIn
 } = require('../roles');
 
+
+function textOrNull(value) {
+    if (value === undefined || value === null) return null;
+    const trimmed = String(value).trim();
+    return trimmed === '' ? null : trimmed;
+}
+
+
+function intOrNull(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const parsed = Number.parseInt(value, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+
 const OVERDUE_DAYS_THRESHOLD = 14;
 
 const SUPERVISOR_ROLES = [ROLES.STATION_OFFICER, ROLES.ADMIN];
@@ -109,6 +124,10 @@ async function createCase(recordingOfficerId, body) {
         complainant_id_number,
         complainant_phone,
         complainant_address,
+        complainant_age,
+        complainant_occupation,
+        complainant_ta,
+        complainant_village,
         complainant_gender,
         category_id,
         branch_id,
@@ -122,7 +141,12 @@ async function createCase(recordingOfficerId, body) {
         suspect_gender,
         suspect_national_id,
         suspect_phone_number,
-        suspect_address
+        suspect_address,
+        suspect_age,
+        suspect_occupation,
+        suspect_ta,
+        suspect_village,
+        witnesses
     } = body;
 
     if (!complainant_name || !complainant_phone || !category_id || !branch_id || !incident_location || !incident_details) {
@@ -142,16 +166,20 @@ async function createCase(recordingOfficerId, body) {
 
     const [caseResult] = await db.execute(
         `INSERT INTO cases (
-            ob_number, complainant_name, complainant_id_number, complainant_phone,
-            complainant_address, complainant_gender, category_id, branch_id, priority,
-            incident_datetime, incident_location, incident_details, recorded_by, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ob_number, complainant_name, complainant_id_number, complainant_phone, complainant_address,
+            complainant_age, complainant_occupation, complainant_ta, complainant_village, complainant_gender,
+            category_id, branch_id, priority, incident_datetime, incident_location, incident_details, recorded_by, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             obNumber,
             complainant_name,
             complainant_id_number || null,
             complainant_phone,
             complainant_address || null,
+            intOrNull(complainant_age),
+            textOrNull(complainant_occupation),
+            textOrNull(complainant_ta),
+            textOrNull(complainant_village),
             complainant_gender || 'Other',
             category_id,
             branch_id,
@@ -167,8 +195,8 @@ async function createCase(recordingOfficerId, body) {
     let suspectName = null;
     if (suspectSectionUsed) {
         const [suspectResult] = await db.execute(
-            `INSERT INTO suspects (first_name, last_name, alias, national_id, gender, phone_number, address)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO suspects (first_name, last_name, alias, national_id, gender, phone_number, address, age, occupation, ta, village)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 suspectFirstName,
                 suspectLastName,
@@ -176,7 +204,11 @@ async function createCase(recordingOfficerId, body) {
                 suspect_national_id ? String(suspect_national_id).trim() || null : null,
                 suspect_gender || 'Other',
                 suspect_phone_number ? String(suspect_phone_number).trim() || null : null,
-                suspect_address ? String(suspect_address).trim() || null : null
+                suspect_address ? String(suspect_address).trim() || null : null,
+                intOrNull(suspect_age),
+                textOrNull(suspect_occupation),
+                textOrNull(suspect_ta),
+                textOrNull(suspect_village)
             ]
         );
 
@@ -186,6 +218,29 @@ async function createCase(recordingOfficerId, body) {
         );
 
         suspectName = `${suspectFirstName} ${suspectLastName}`;
+    }
+
+    const witnessList = Array.isArray(witnesses) ? witnesses : [];
+    for (const witness of witnessList) {
+        const fullName = witness && witness.full_name ? String(witness.full_name).trim() : '';
+        if (!fullName) continue;
+
+        await db.execute(
+            `INSERT INTO victims (case_id, full_name, phone_number, national_id, address, age, occupation, ta, village, statement)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                caseResult.insertId,
+                fullName,
+                textOrNull(witness.phone_number),
+                textOrNull(witness.national_id),
+                textOrNull(witness.address),
+                intOrNull(witness.age),
+                textOrNull(witness.occupation),
+                textOrNull(witness.ta),
+                textOrNull(witness.village),
+                textOrNull(witness.statement)
+            ]
+        );
     }
 
     return ok({
@@ -320,14 +375,15 @@ async function getCaseDetail(caseId, user) {
 
     const [suspects] = await db.execute(`
         SELECT s.id, s.first_name, s.last_name, s.alias, s.national_id, s.photo_url,
-               s.phone_number, cs.status AS link_status, cs.arrest_date
+               s.phone_number, s.gender, s.date_of_birth, s.age, s.occupation, s.ta, s.village, s.address,
+               cs.status AS link_status, cs.arrest_date
         FROM case_suspects cs
         JOIN suspects s ON cs.suspect_id = s.id
         WHERE cs.case_id = ?
     `, [caseId]);
 
     const [victims] = await db.execute(`
-        SELECT id, full_name, phone_number, email, national_id, statement
+        SELECT id, full_name, phone_number, email, national_id, address, age, occupation, ta, village, statement
         FROM victims
         WHERE case_id = ?
     `, [caseId]);
@@ -480,7 +536,10 @@ async function logEvidence(caseId, user, data) {
 
 
 async function linkSuspect(caseId, user, data) {
-    const { first_name, last_name, alias, national_id, gender, phone_number, photo_url, notes } = data;
+    const {
+        first_name, last_name, alias, national_id, gender, phone_number, photo_url, notes,
+        address, age, occupation, ta, village
+    } = data;
 
     if (!first_name || !last_name || !gender) {
         return fail(400, 'Suspect first name, last name, and gender are required.');
@@ -497,9 +556,23 @@ async function linkSuspect(caseId, user, data) {
     }
 
     const [suspectResult] = await db.execute(
-        `INSERT INTO suspects (first_name, last_name, alias, national_id, gender, phone_number, photo_url, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [first_name, last_name, alias || null, national_id || null, gender, phone_number || null, photo_url || null, notes || null]
+        `INSERT INTO suspects (first_name, last_name, alias, national_id, gender, phone_number, address, photo_url, notes, age, occupation, ta, village)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            first_name,
+            last_name,
+            alias || null,
+            national_id || null,
+            gender,
+            phone_number || null,
+            textOrNull(address),
+            photo_url || null,
+            notes || null,
+            intOrNull(age),
+            textOrNull(occupation),
+            textOrNull(ta),
+            textOrNull(village)
+        ]
     );
 
     await db.execute(
@@ -512,7 +585,7 @@ async function linkSuspect(caseId, user, data) {
 
 
 async function linkVictim(caseId, user, data) {
-    const { full_name, phone_number, email, national_id, address, statement } = data;
+    const { full_name, phone_number, email, national_id, address, statement, age, occupation, ta, village } = data;
 
     if (!full_name) {
         return fail(400, 'Victim full name is required.');
@@ -529,9 +602,21 @@ async function linkVictim(caseId, user, data) {
     }
 
     await db.execute(
-        `INSERT INTO victims (case_id, full_name, phone_number, email, national_id, address, statement)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [caseId, full_name, phone_number || null, email || null, national_id || null, address || null, statement || null]
+        `INSERT INTO victims (case_id, full_name, phone_number, email, national_id, address, statement, age, occupation, ta, village)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            caseId,
+            full_name,
+            phone_number || null,
+            email || null,
+            national_id || null,
+            textOrNull(address),
+            statement || null,
+            intOrNull(age),
+            textOrNull(occupation),
+            textOrNull(ta),
+            textOrNull(village)
+        ]
     );
 
     return ok({ caseId, victimName: full_name });

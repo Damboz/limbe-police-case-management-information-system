@@ -7,17 +7,31 @@ import { Alert, PageHeader, Spinner } from '../../components/ui';
 import usePageTitle from '../../hooks/usePageTitle';
 
 
+const EMPTY_WITNESS = {
+    full_name: '',
+    phone_number: '',
+    age: '',
+    occupation: '',
+    ta: '',
+    village: '',
+    address: ''
+};
+
 const EMPTY = {
     complainant_name: '',
     complainant_phone: '',
     complainant_gender: 'Other',
     complainant_id_number: '',
+    complainant_age: '',
+    complainant_occupation: '',
+    complainant_ta: '',
+    complainant_village: '',
     complainant_address: '',
     category_id: '',
     branch_id: '',
-    priority: 'Medium',
-    incident_location: '',
+    priority: '',
     incident_datetime: '',
+    incident_location: '',
     incident_details: '',
     suspect_first_name: '',
     suspect_last_name: '',
@@ -25,7 +39,12 @@ const EMPTY = {
     suspect_gender: '',
     suspect_national_id: '',
     suspect_phone_number: '',
-    suspect_address: ''
+    suspect_age: '',
+    suspect_occupation: '',
+    suspect_ta: '',
+    suspect_village: '',
+    suspect_address: '',
+    witnesses: []
 };
 
 
@@ -39,6 +58,18 @@ export default function CaseRegister() {
     const [submitting, setSubmitting] = useState(false);
 
     const set = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value }));
+
+    const addWitness = () => setForm(prev => ({ ...prev, witnesses: [...prev.witnesses, { ...EMPTY_WITNESS }] }));
+
+    const removeWitness = (index) => setForm(prev => ({
+        ...prev,
+        witnesses: prev.witnesses.filter((_, i) => i !== index)
+    }));
+
+    const setWitness = (index, key) => (e) => setForm(prev => ({
+        ...prev,
+        witnesses: prev.witnesses.map((w, i) => (i === index ? { ...w, [key]: e.target.value } : w))
+    }));
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -111,8 +142,30 @@ export default function CaseRegister() {
                                     <input type="text" className="form-control" id="complainant_id_number" placeholder="Optional" value={form.complainant_id_number} onChange={set('complainant_id_number')} />
                                 </div>
 
+                                <div className="row">
+                                    <div className="col-sm-6 mb-3">
+                                        <label htmlFor="complainant_age" className="form-label">Age</label>
+                                        <input type="number" min="0" className="form-control" id="complainant_age" placeholder="Optional" value={form.complainant_age} onChange={set('complainant_age')} />
+                                    </div>
+                                    <div className="col-sm-6 mb-3">
+                                        <label htmlFor="complainant_occupation" className="form-label">Occupation</label>
+                                        <input type="text" className="form-control" id="complainant_occupation" placeholder="Optional" value={form.complainant_occupation} onChange={set('complainant_occupation')} />
+                                    </div>
+                                </div>
+
+                                <div className="row">
+                                    <div className="col-sm-6 mb-3">
+                                        <label htmlFor="complainant_ta" className="form-label">T/A (Traditional Authority)</label>
+                                        <input type="text" className="form-control" id="complainant_ta" placeholder="Optional" value={form.complainant_ta} onChange={set('complainant_ta')} />
+                                    </div>
+                                    <div className="col-sm-6 mb-3">
+                                        <label htmlFor="complainant_village" className="form-label">Village</label>
+                                        <input type="text" className="form-control" id="complainant_village" placeholder="Optional" value={form.complainant_village} onChange={set('complainant_village')} />
+                                    </div>
+                                </div>
+
                                 <div className="mb-0">
-                                    <label htmlFor="complainant_address" className="form-label">Address</label>
+                                    <label htmlFor="complainant_address" className="form-label">Physical Address</label>
                                     <textarea rows="2" className="form-control" id="complainant_address" placeholder="Optional" value={form.complainant_address} onChange={set('complainant_address')} />
                                 </div>
                             </div>
@@ -250,10 +303,92 @@ export default function CaseRegister() {
                                         <input type="text" className="form-control" id="suspect_phone_number" placeholder="Optional" value={form.suspect_phone_number} onChange={set('suspect_phone_number')} />
                                     </div>
                                     <div className="col-md-3 mb-3">
-                                        <label htmlFor="suspect_address" className="form-label">Residential Address</label>
+                                        <label htmlFor="suspect_age" className="form-label">Age</label>
+                                        <input type="number" min="0" className="form-control" id="suspect_age" placeholder="Optional" value={form.suspect_age} onChange={set('suspect_age')} />
+                                    </div>
+                                </div>
+                                <div className="row">
+                                    <div className="col-md-3 mb-3">
+                                        <label htmlFor="suspect_occupation" className="form-label">Occupation</label>
+                                        <input type="text" className="form-control" id="suspect_occupation" placeholder="Optional" value={form.suspect_occupation} onChange={set('suspect_occupation')} />
+                                    </div>
+                                    <div className="col-md-3 mb-3">
+                                        <label htmlFor="suspect_ta" className="form-label">T/A (Traditional Authority)</label>
+                                        <input type="text" className="form-control" id="suspect_ta" placeholder="Optional" value={form.suspect_ta} onChange={set('suspect_ta')} />
+                                    </div>
+                                    <div className="col-md-3 mb-3">
+                                        <label htmlFor="suspect_village" className="form-label">Village</label>
+                                        <input type="text" className="form-control" id="suspect_village" placeholder="Optional" value={form.suspect_village} onChange={set('suspect_village')} />
+                                    </div>
+                                    <div className="col-md-3 mb-3">
+                                        <label htmlFor="suspect_address" className="form-label">Physical Address</label>
                                         <input type="text" className="form-control" id="suspect_address" placeholder="Optional — used on the letter" value={form.suspect_address} onChange={set('suspect_address')} />
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="col-12">
+                        <div className="card border-0 shadow-sm border-info">
+                            <div className="card-header bg-info text-dark py-3 d-flex justify-content-between align-items-center">
+                                <h6 className="mb-0 fw-bold">
+                                    <i className="bi bi-people-fill me-2" />Witness Information
+                                    <span className="badge bg-light text-dark ms-2" style={{ fontSize: '0.7rem' }}>Optional</span>
+                                </h6>
+                                <button type="button" className="btn btn-sm btn-light" onClick={addWitness}>
+                                    <i className="bi bi-plus-lg me-1" />Add Witness
+                                </button>
+                            </div>
+                            <div className="card-body">
+                                {form.witnesses.length === 0 ? (
+                                    <p className="text-muted small mb-0">
+                                        No witnesses added. Click &ldquo;Add Witness&rdquo; to record a person who witnessed the incident.
+                                    </p>
+                                ) : (
+                                    form.witnesses.map((witness, index) => (
+                                        <div key={index} className="border rounded p-3 mb-3">
+                                            <div className="d-flex justify-content-between align-items-center mb-3">
+                                                <span className="fw-semibold text-navy">Witness {index + 1}</span>
+                                                <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => removeWitness(index)}>
+                                                    <i className="bi bi-trash me-1" />Remove
+                                                </button>
+                                            </div>
+                                            <div className="row">
+                                                <div className="col-md-4 mb-3">
+                                                    <label className="form-label">Full Name</label>
+                                                    <input type="text" className="form-control" value={witness.full_name} onChange={setWitness(index, 'full_name')} />
+                                                </div>
+                                                <div className="col-md-4 mb-3">
+                                                    <label className="form-label">Phone Number</label>
+                                                    <input type="text" className="form-control" value={witness.phone_number} onChange={setWitness(index, 'phone_number')} />
+                                                </div>
+                                                <div className="col-md-4 mb-3">
+                                                    <label className="form-label">Age</label>
+                                                    <input type="number" min="0" className="form-control" value={witness.age} onChange={setWitness(index, 'age')} />
+                                                </div>
+                                            </div>
+                                            <div className="row">
+                                                <div className="col-md-4 mb-3">
+                                                    <label className="form-label">Occupation</label>
+                                                    <input type="text" className="form-control" value={witness.occupation} onChange={setWitness(index, 'occupation')} />
+                                                </div>
+                                                <div className="col-md-4 mb-3">
+                                                    <label className="form-label">T/A (Traditional Authority)</label>
+                                                    <input type="text" className="form-control" value={witness.ta} onChange={setWitness(index, 'ta')} />
+                                                </div>
+                                                <div className="col-md-4 mb-3">
+                                                    <label className="form-label">Village</label>
+                                                    <input type="text" className="form-control" value={witness.village} onChange={setWitness(index, 'village')} />
+                                                </div>
+                                            </div>
+                                            <div className="mb-0">
+                                                <label className="form-label">Physical Address</label>
+                                                <input type="text" className="form-control" value={witness.address} onChange={setWitness(index, 'address')} />
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
                     </div>
