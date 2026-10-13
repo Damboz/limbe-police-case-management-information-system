@@ -86,7 +86,55 @@ export function homePathFor(user) {
     if (isStationOfficer) return '/supervisor/dashboard';
     if (isBranchOfficer) return '/branch/dashboard';
     if (isProsecutor) return '/prosecution/dashboard';
-    // Police Officers and the Records Officer land on the personal
-    // dashboard (the Records Desk arrives with the numbering workflow).
     return '/dashboard';
+}
+
+// Which roles may open each guarded section. Mirrors the route guards in
+// App.jsx so the post-login redirect can validate a remembered deep link
+// before sending the user to it; otherwise a role that lacks access lands
+// straight on the 403 page instead of its dashboard.
+export const ROUTE_ROLES = {
+    MY_ANALYTICS: [ROLES.POLICE_OFFICER],
+    CASES: [ROLES.POLICE_OFFICER, ROLES.RECORDS_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.PROSECUTOR],
+    EVIDENCE: [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER],
+    SUPERVISOR: [ROLES.STATION_OFFICER],
+    BRANCH: [ROLES.BRANCH_OFFICER],
+    PROSECUTION: [ROLES.PROSECUTOR],
+    ADMIN: [ROLES.ADMIN]
+};
+
+// Sections any signed-in user may open.
+const OPEN_PATH_PREFIXES = ['/dashboard', '/change-password'];
+
+const GUARDED_PATH_ROLES = [
+    { prefix: '/my-analytics', roles: ROUTE_ROLES.MY_ANALYTICS },
+    { prefix: '/cases', roles: ROUTE_ROLES.CASES },
+    { prefix: '/evidence', roles: ROUTE_ROLES.EVIDENCE },
+    { prefix: '/supervisor', roles: ROUTE_ROLES.SUPERVISOR },
+    { prefix: '/branch', roles: ROUTE_ROLES.BRANCH },
+    { prefix: '/prosecution', roles: ROUTE_ROLES.PROSECUTION },
+    { prefix: '/admin', roles: ROUTE_ROLES.ADMIN }
+];
+
+function matchesPrefix(pathname, prefix) {
+    return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+export function canAccessPath(user, pathname) {
+    if (!user) return false;
+
+    const path = String(pathname || '').split('?')[0].replace(/\/+$/, '') || '/';
+
+    if (OPEN_PATH_PREFIXES.some(prefix => matchesPrefix(path, prefix))) return true;
+
+    const rule = GUARDED_PATH_ROLES.find(route => matchesPrefix(path, route.prefix));
+    if (!rule) return false;
+
+    const role = canonicalRole(user);
+    const roleId = canonicalRoleId(user);
+
+    const roleMatches = Boolean(role) && rule.roles.includes(role);
+    const idMatches = roleId !== null && rule.roles.some(name => ROLE_IDS_BY_NAME[name] === roleId);
+
+    return roleMatches || idMatches;
 }

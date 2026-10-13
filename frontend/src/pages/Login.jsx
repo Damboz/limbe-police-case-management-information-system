@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { canAccessPath, homePathFor } from '../lib/roles';
 import { useToast } from '../context/ToastContext';
 import { Alert } from '../components/ui';
 import PasswordInput from '../components/PasswordInput';
@@ -8,7 +9,7 @@ import usePageTitle from '../hooks/usePageTitle';
 
 
 export default function Login() {
-    const { login, homePath } = useAuth();
+    const { login } = useAuth();
     const toast = useToast();
     const navigate = useNavigate();
     const location = useLocation();
@@ -28,7 +29,9 @@ export default function Login() {
         try {
             const user = await login(badgeNumber, password);
             toast.success(`Welcome back, ${user.first_name || 'Officer'}.`);
-            navigate(location.state?.from || homePath, { replace: true });
+            const from = location.state?.from;
+            const target = from && canAccessPath(user, from) ? from : homePathFor(user);
+            navigate(target, { replace: true });
         } catch (err) {
             setError(err.message);
         } finally {

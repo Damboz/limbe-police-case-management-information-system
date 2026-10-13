@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { canAccessPath, ROUTE_ROLES } from './lib/roles';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Spinner } from './components/ui';
@@ -54,18 +55,20 @@ function LoginRoute() {
         );
     }
     if (user) {
-        return <Navigate to={location.state?.from || homePath} replace />;
+        const from = location.state?.from;
+        const target = from && canAccessPath(user, from) ? from : homePath;
+        return <Navigate to={target} replace />;
     }
     return <Login />;
 }
 
 
-const CMD = ['Station Officer'];
-const CFI = ['Police Officer'];
-const OPS = ['Police Officer', 'Station Officer'];
-const CASE_ACCESS = ['Police Officer', 'Records Officer', 'Station Officer', 'Branch Officer', 'Prosecutor'];
-const BRN = ['Branch Officer'];
-const PRS = ['Prosecutor'];
+const CMD = ROUTE_ROLES.SUPERVISOR;
+const CFI = ROUTE_ROLES.MY_ANALYTICS;
+const OPS = ROUTE_ROLES.EVIDENCE;
+const CASE_ACCESS = ROUTE_ROLES.CASES;
+const BRN = ROUTE_ROLES.BRANCH;
+const PRS = ROUTE_ROLES.PROSECUTION;
 
 
 export default function App() {
