@@ -7,7 +7,7 @@ const MIN_PASSWORD_LENGTH = 6;
 
 async function findUserByIdentifier(identifier) {
     const [users] = await db.execute(`
-        SELECT id, badge_number, rank_title, first_name, last_name, email, password_hash, role, role_id, branch_id, is_active 
+        SELECT id, badge_number, rank_title, first_name, last_name, email, password_hash, role, role_id, branch_id, branch, is_active 
         FROM users 
         WHERE badge_number = ? OR email = ?
     `, [identifier, identifier.toLowerCase()]);

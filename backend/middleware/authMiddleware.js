@@ -5,6 +5,7 @@ const {
     canonicalRole,
     canonicalRoleId
 } = require('../roles');
+const db = require('../config/db');
 
 const ADMIN_MESSAGE = 'Access Denied. System Administrator permissions required.';
 const ROLE_MESSAGE = 'Access Denied. You do not have permission to view this resource.';
@@ -27,7 +28,7 @@ function denyForbidden(req, res, message) {
 // role names and role ids. Rewrite them in place so every
 // downstream role check sees the new canonical values; the
 // encrypted session cookie is then re-issued with the fix.
-function normalizeSessionRole(req, res, next) {
+async function normalizeSessionRole(req, res, next) {
     const user = req.session && req.session.user;
     if (user) {
         const role = canonicalRole(user.role);
@@ -37,6 +38,21 @@ function normalizeSessionRole(req, res, next) {
         const roleId = canonicalRoleId(user.role_id);
         if (roleId) {
             user.role_id = roleId;
+        }
+
+        // Sessions minted before the workflow branch was added to the login
+        // projection carry no `branch`, which would hide a Branch Officer's
+        // entire dashboard. Rehydrate it once; the session cookie is
+        // re-issued with the value on this response.
+        if (!user.branch && user.role === ROLES.BRANCH_OFFICER) {
+            try {
+                const [rows] = await db.execute('SELECT branch FROM users WHERE id = ?', [user.id]);
+                if (rows.length > 0 && rows[0].branch) {
+                    user.branch = rows[0].branch;
+                }
+            } catch (err) {
+                // Non-fatal: the dashboard will simply have no branch to filter by.
+            }
         }
     }
     return next();

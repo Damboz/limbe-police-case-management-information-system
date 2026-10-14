@@ -244,15 +244,15 @@ async function classifyCase(user, caseId, classification, workflowBranch) {
          SET classification = ?, workflow_branch = ?, status = 'Classified',
              classified_by = ?, classified_at = NOW(), updated_at = NOW()
          WHERE id = ?`,
-        [normalized, requestedBranch, user.id, caseId]
+        [normalized, resolvedBranch, user.id, caseId]
     );
 
     return ok({
         caseId,
         classification: normalized,
-        workflowBranch: requestedBranch,
-        auditDetails: `Station Officer classified Case OB ${current.ob_number} as ${normalized}; routed to the ${requestedBranch}.`,
-        message: `Case OB ${current.ob_number} classified as ${normalized} and routed to the ${requestedBranch}.`
+        workflowBranch: resolvedBranch,
+        auditDetails: `Station Officer classified Case OB ${current.ob_number} as ${normalized}; routed to the ${resolvedBranch}.`,
+        message: `Case OB ${current.ob_number} classified as ${normalized} and routed to the ${resolvedBranch}.`
     });
 }
 
