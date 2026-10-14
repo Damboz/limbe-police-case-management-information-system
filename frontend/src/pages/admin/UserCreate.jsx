@@ -53,7 +53,11 @@ export default function UserCreate() {
             return { ...prev, role: val, branch };
         });
     };
-    const setDigits = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value.replace(/[^0-9]/g, '') }));
+    const setPhone = (key) => (e) => {
+        const raw = e.target.value;
+        const digits = raw.replace(/[^0-9]/g, '');
+        setForm(prev => ({ ...prev, [key]: (raw.startsWith('+') ? '+' : '') + digits }));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -135,12 +139,12 @@ export default function UserCreate() {
                                         type="tel"
                                         className="form-control"
                                         id="phone_number"
-                                        placeholder="e.g. 0888123456"
-                                        inputMode="numeric"
-                                        pattern="[0-9]*"
-                                        title="Numbers only"
+                                        placeholder="e.g. +265888123456"
+                                        inputMode="tel"
+                                        pattern="\+?[0-9]*"
+                                        title="May start with + followed by digits, e.g. +265888123456"
                                         value={form.phone_number}
-                                        onChange={setDigits('phone_number')}
+                                        onChange={setPhone('phone_number')}
                                     />
                                 </div>
 
