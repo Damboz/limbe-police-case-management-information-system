@@ -85,6 +85,9 @@ export default function Topbar({ onToggleSidebar }) {
                                         {user.first_name} {user.last_name}
                                     </div>
                                     <span className="badge badge-case-open">{user.role}</span>
+                                    {user.branch && (
+                                        <span className="badge bg-light text-dark border ms-1">{user.branch}</span>
+                                    )}
                                 </li>
                                 <li className="pt-1">
                                     <Link className="dropdown-item py-2 px-3 d-flex align-items-center gap-2" to="/change-password" style={{ fontSize: '0.85rem' }} onClick={() => setOpen(false)}>

@@ -189,6 +189,9 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                                     {user.first_name ? `${user.first_name} ${user.last_name}` : 'Officer'}
                                 </div>
                                 <div className="text-warning text-truncate" style={{ fontSize: '0.7rem' }}>{user.role}</div>
+                                {user.branch && (
+                                    <div className="text-info text-truncate" style={{ fontSize: '0.7rem' }}>{user.branch}</div>
+                                )}
                             </div>
                         </div>
                     )}
