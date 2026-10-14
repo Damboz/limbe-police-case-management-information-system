@@ -8,6 +8,7 @@ const adminApi = require('../controllers/api/adminApiController');
 const supervisorApi = require('../controllers/api/supervisorApiController');
 const branchApi = require('../controllers/api/branchApiController');
 const prosecutorApi = require('../controllers/api/prosecutorApiController');
+const recordsApi = require('../controllers/api/recordsApiController');
 const reportsApi = require('../controllers/api/reportsApiController');
 const generalApi = require('../controllers/api/generalApiController');
 
@@ -102,6 +103,10 @@ router.post('/branch/cases/:id/review', isAuthenticated, authorizeRoles(ROLES.BR
 router.post('/branch/cases/:id/reassign-proposal', isAuthenticated, authorizeRoles(ROLES.BRANCH_OFFICER), branchApi.proposeReassignment);
 router.post('/branch/cases/:id/external-reports', isAuthenticated, authorizeRoles(ROLES.BRANCH_OFFICER), branchApi.requestExternalReport);
 router.post('/branch/external-reports/:reportId/received', isAuthenticated, authorizeRoles(ROLES.BRANCH_OFFICER), branchApi.markReportReceived);
+
+
+router.get('/records/dashboard', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER), recordsApi.dashboard);
+router.post('/records/cases/:id/numbers', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER), recordsApi.assignNumbers);
 
 
 router.get('/prosecution/dashboard', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.dashboard);

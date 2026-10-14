@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { isAssignedInvestigator, getAssignedInvestigators } = require('./assignmentService');
+const recordsService = require('./recordsService');
 const { ok, fail } = require('../utils/result');
 const {
     ROLES,
@@ -27,21 +28,9 @@ const OVERDUE_DAYS_THRESHOLD = 14;
 const SUPERVISOR_ROLES = [ROLES.STATION_OFFICER, ROLES.ADMIN];
 const BRANCH_ROLES = [ROLES.BRANCH_OFFICER];
 const PROSECUTOR_ROLES = [ROLES.PROSECUTOR];
+const RECORDS_ROLES = [ROLES.RECORDS_OFFICER];
 const LINK_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN];
 const COMPLETION_STATUSES = ['Closed', 'Court Pending', 'Forwarded to Prosecution'];
-
-
-async function generateObNumber() {
-    const today = new Date();
-    const datePart = today.toISOString().slice(0, 10).replace(/-/g, '');
-
-    const [[{ today_count }]] = await db.execute(
-        `SELECT COUNT(*) AS today_count FROM cases WHERE DATE(created_at) = CURRENT_DATE`
-    );
-
-    const sequence = String(today_count + 1).padStart(4, '0');
-    return `OB-${datePart}-${sequence}`;
-}
 
 
 async function listCasesForUser(user) {
@@ -80,7 +69,9 @@ async function listCasesForUser(user) {
             GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
-    } else if (roleIn(user, SUPERVISOR_ROLES)) {
+    } else if (roleIn(user, SUPERVISOR_ROLES) || roleIn(user, RECORDS_ROLES)) {
+        // Station Officers oversee the whole station register; Records Officers
+        // maintain it, so both see every case.
         query = `
             ${baseSelect}
             GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
@@ -166,16 +157,16 @@ async function createCase(recordingOfficerId, body) {
         return fail(400, 'To add a suspect, please provide both the first name and last name (or leave the suspect section blank).');
     }
 
-    const obNumber = await generateObNumber();
-
+    // The OB and criminal numbers are not generated here. A registered case
+    // is left unnumbered (ob_number NULL, status "Registered") and the Records
+    // Officer assigns both numbers through the numbering desk.
     const [caseResult] = await db.execute(
         `INSERT INTO cases (
-            ob_number, complainant_name, complainant_id_number, complainant_phone, complainant_address,
+            complainant_name, complainant_id_number, complainant_phone, complainant_address,
             complainant_age, complainant_occupation, complainant_ta, complainant_village, complainant_gender,
             category_id, branch_id, priority, incident_datetime, incident_location, incident_details, recorded_by, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-            obNumber,
             complainant_name,
             complainant_id_number || null,
             complainant_phone,
@@ -249,7 +240,6 @@ async function createCase(recordingOfficerId, body) {
 
     return ok({
         caseId: caseResult.insertId,
-        obNumber,
         suspectName,
         complainantName: complainant_name
     });
@@ -694,10 +684,10 @@ async function getPersonalDashboard(user) {
         return ok({ variant: 'redirect', role: user.role, target: '/supervisor/dashboard' });
     }
 
-    // The Records Officer dashboard arrives with the numbering
-    // workflow; until then the endpoint reports an empty desk.
+    // The Records Officer works from the numbering desk: registered cases
+    // awaiting an OB and criminal number, plus the numbers assigned recently.
     if (roleIn(user, [ROLES.RECORDS_OFFICER])) {
-        return ok({ variant: 'records', role: user.role });
+        return recordsService.getRecordsDashboard(user);
     }
 
     // Police Officer: the cases assigned to them. The KPI totals and the
@@ -747,7 +737,6 @@ async function getPersonalDashboard(user) {
 
 module.exports = {
     OVERDUE_DAYS_THRESHOLD,
-    generateObNumber,
     listCasesForUser,
     getCaseFormOptions,
     caseExists,

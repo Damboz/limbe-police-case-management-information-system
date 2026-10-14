@@ -31,19 +31,19 @@ exports.create = async (req, res, next) => {
             return res.status(result.status).json({ success: false, error: result.error });
         }
 
-        const { caseId, obNumber, suspectName, complainantName } = result;
+        const { caseId, suspectName, complainantName } = result;
 
         if (suspectName) {
-            await logAudit(req, user.id, 'SUSPECT_LINKED', `Linked suspect "${suspectName}" to Case OB ${obNumber} during intake.`);
+            await logAudit(req, user.id, 'SUSPECT_LINKED', `Linked suspect "${suspectName}" to Case ID ${caseId} during intake.`);
         }
 
-        await logAudit(req, user.id, 'CASE_REGISTERED', `Registered new Case OB ${obNumber} for complainant ${complainantName}.`);
+        await logAudit(req, user.id, 'CASE_REGISTERED', `Registered new Case ID ${caseId} for complainant ${complainantName}. Awaiting OB and criminal numbers.`);
 
         const message = suspectName
-            ? `Case registered successfully with reference ${obNumber}. Suspect "${suspectName}" was added — you can now generate an invitation letter for him/her.`
-            : `Case registered successfully with reference ${obNumber}.`;
+            ? `Case registered successfully. The Records Officer will assign its OB and criminal numbers. Suspect "${suspectName}" was added — you can now generate an invitation letter for him/her.`
+            : 'Case registered successfully. The Records Officer will assign its OB and criminal numbers.';
 
-        return res.status(201).json({ success: true, message, data: { caseId, obNumber } });
+        return res.status(201).json({ success: true, message, data: { caseId } });
     } catch (err) {
         next(err);
     }

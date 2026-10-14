@@ -245,7 +245,7 @@ export default function CaseDetail() {
     return (
         <>
             <PageHeader
-                title={`Case ${caseItem.ob_number}`}
+                title={caseItem.ob_number ? `Case ${caseItem.ob_number}` : `Case #${caseItem.id} (Unnumbered)`}
                 subtitle={`${caseItem.incident_location} · Registered ${formatDate(caseItem.created_at)}`}
                 actions={
                     <Link to="/cases" className="btn btn-outline-navy btn-sm">
@@ -280,6 +280,13 @@ export default function CaseDetail() {
                                     {[caseItem.complainant_village, caseItem.complainant_ta && `T/A ${caseItem.complainant_ta}`, caseItem.complainant_address].filter(Boolean).join(', ')}
                                 </div>
                             )}
+                        </div>
+                        <div className="col-md-3">
+                            <Label>Case Numbers</Label>
+                            <span className="fw-semibold d-block">
+                                OB: {caseItem.ob_number || <span className="text-muted fst-italic fw-normal">Unnumbered</span>}
+                            </span>
+                            <span className="fw-semibold d-block">Criminal: {caseItem.criminal_number || '—'}</span>
                         </div>
                         <div className="col-md-3">
                             <Label>Category</Label>

@@ -205,6 +205,9 @@ export const api = {
     requestExternalReport: (id, body) => request(`/branch/cases/${id}/external-reports`, { method: 'POST', body }),
     markReportReceived: (reportId, body) => request(`/branch/external-reports/${reportId}/received`, { method: 'POST', body }),
 
+    recordsDashboard: (signal) => request('/records/dashboard', { signal }),
+    assignCaseNumbers: (id, body) => request(`/records/cases/${id}/numbers`, { method: 'POST', body }),
+
     prosecutionDashboard: (signal) => request('/prosecution/dashboard', { signal }),
     acknowledgeReceipt: (id, body) => request(`/prosecution/cases/${id}/acknowledge`, { method: 'POST', body }),
     updateFileLocation: (id, body) => request(`/prosecution/cases/${id}/file-location`, { method: 'POST', body }),

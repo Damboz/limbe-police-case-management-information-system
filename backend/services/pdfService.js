@@ -31,6 +31,9 @@ function buildSuspectInvitationPdf({ caseItem, suspect, user, appearanceDate, ap
         ? new Date(caseItem.incident_datetime).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         : 'Not recorded';
     const suspectFullName = `${suspect.first_name} ${suspect.last_name}`;
+    // A case can be invited before the Records Officer has assigned its OB
+    // number, so fall back to the internal Case ID until it is numbered.
+    const caseReference = caseItem.ob_number || `Case #${caseItem.id}`;
 
     doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(14).text('REPUBLIC OF MALAWI', { align: 'center' });
     doc.fillColor(DARK).fontSize(18).text('MALAWI POLICE SERVICE', { align: 'center' });
@@ -45,7 +48,7 @@ function buildSuspectInvitationPdf({ caseItem, suspect, user, appearanceDate, ap
     doc.moveDown(1);
 
     doc.font('Helvetica').fontSize(9).fillColor(DARK);
-    doc.text(`OUR REF: ${caseItem.ob_number}`, { align: 'right' });
+    doc.text(`OUR REF: ${caseReference}`, { align: 'right' });
     doc.text(`DATE: ${today}`, { align: 'right' });
     doc.moveDown(0.8);
 
@@ -68,7 +71,7 @@ function buildSuspectInvitationPdf({ caseItem, suspect, user, appearanceDate, ap
 
     doc.font('Helvetica-Bold').fontSize(10.5).text('MATTER / REPORT AGAINST YOU:');
     doc.fillColor(DARK).font('Helvetica').fontSize(10);
-    doc.text(`Offence Reported: ${caseItem.crime_category || 'Uncategorised'} (OB Reference ${caseItem.ob_number})`);
+    doc.text(`Offence Reported: ${caseItem.crime_category || 'Uncategorised'} (OB Reference ${caseReference})`);
     doc.text(`Date & Time of Incident: ${incidentOn}`);
     doc.text(`Place of Incident: ${caseItem.incident_location}`);
     doc.text(`Complainant: ${caseItem.complainant_name}`);
@@ -112,7 +115,7 @@ function buildSuspectInvitationPdf({ caseItem, suspect, user, appearanceDate, ap
     doc.moveDown(0.3);
     doc.fontSize(7.5).fillColor('#94A3B8').font('Helvetica')
         .text('System-generated invitation letter — Malawi Police Service, Limbe Station.', { align: 'center' })
-        .text(`Reference ${caseItem.ob_number} | Restricted — Official Use Only`, { align: 'center' });
+        .text(`Reference ${caseReference} | Restricted — Official Use Only`, { align: 'center' });
 
     doc.end();
 

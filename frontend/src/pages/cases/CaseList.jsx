@@ -62,7 +62,9 @@ export default function CaseList() {
                             ) : (
                                 cases.map(item => (
                                     <tr key={item.id}>
-                                        <td className="fw-bold font-monospace" style={{ color: 'var(--mps-navy)' }}>{item.ob_number}</td>
+                                        <td className="fw-bold font-monospace" style={{ color: 'var(--mps-navy)' }}>
+                                            {item.ob_number || <span className="text-muted fst-italic fw-normal">Unnumbered</span>}
+                                        </td>
                                         <td className="small fw-semibold">{item.complainant_name}</td>
                                         <td className="small">{item.crime_category || '—'}</td>
                                         <td><PriorityBadge priority={item.priority} /></td>

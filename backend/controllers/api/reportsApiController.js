@@ -43,6 +43,7 @@ exports.suspectInvitation = async (req, res, next) => {
 
         const { caseItem, suspect } = result;
         const suspectFullName = `${suspect.first_name} ${suspect.last_name}`;
+        const caseReference = caseItem.ob_number || `Case #${caseItem.id}`;
 
         const { buffer } = pdfService.buildSuspectInvitationPdf({
             caseItem,
@@ -59,11 +60,11 @@ exports.suspectInvitation = async (req, res, next) => {
             req,
             user.id,
             'INVITATION_LETTER_GENERATED',
-            `Generated invitation letter for suspect "${suspectFullName}" (ID ${suspectId}) to appear on ${appearance_date} — Case ${caseItem.ob_number}.`
+            `Generated invitation letter for suspect "${suspectFullName}" (ID ${suspectId}) to appear on ${appearance_date} — Case ${caseReference}.`
         );
 
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="Invitation_${caseItem.ob_number}_${suspectId}.pdf"`);
+        res.setHeader('Content-Disposition', `inline; filename="Invitation_${caseReference.replace(/[^A-Za-z0-9._-]+/g, '-')}_${suspectId}.pdf"`);
         return res.send(pdfBuffer);
     } catch (err) {
         next(err);

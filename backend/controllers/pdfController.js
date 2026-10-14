@@ -80,7 +80,7 @@ exports.exportMyCasesPDF = async (req, res, next) => {
         } else {
             cases.forEach(c => {
                 doc.font('Helvetica-Bold')
-                    .text(`${c.ob_number} — ${c.crime_category || 'Uncategorised'} (${c.status})`);
+                    .text(`${c.ob_number || `Case #${c.id} (Unnumbered)`} — ${c.crime_category || 'Uncategorised'} (${c.status})`);
                 doc.font('Helvetica').text(`   ${c.incident_details || ''}`);
                 doc.font('Helvetica').text(`   Priority: ${c.priority} | Registered: ${c.created_at ? new Date(c.created_at).toLocaleDateString('en-GB') : '—'}`);
                 doc.moveDown(0.4);

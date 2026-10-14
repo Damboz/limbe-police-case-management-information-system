@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useApiData } from '../hooks/useApiData';
-import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../components/ui';
+import { useToast } from '../context/ToastContext';
+import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatCard, StatusBadge } from '../components/ui';
 import { formatDate } from '../lib/format';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -80,28 +82,204 @@ function InvestigatorDashboard({ data }) {
 }
 
 
-function RecordsDashboard() {
+function RecordsModal({ title, onClose, children, footer }) {
+    return (
+        <div className="modal fade show d-block" tabIndex="-1" role="dialog" aria-modal="true" style={{ background: 'rgba(15,23,42,0.5)' }}>
+            <div className="modal-dialog modal-dialog-centered">
+                <div className="modal-content border-0 shadow">
+                    <div className="modal-header bg-navy text-white">
+                        <h5 className="modal-title fw-bold">{title}</h5>
+                        <button type="button" className="btn-close btn-close-white" aria-label="Close" onClick={onClose} />
+                    </div>
+                    {children}
+                    {footer && <div className="modal-footer" style={{ backgroundColor: 'var(--mps-bg-subtle)' }}>{footer}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+function RecordsDashboard({ data, reload }) {
+    const toast = useToast();
+    const { kpi, numberingQueue, recentlyNumbered } = data;
+
+    const [target, setTarget] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [actionError, setActionError] = useState(null);
+
+    const assignNumbers = async () => {
+        setBusy(true);
+        setActionError(null);
+        try {
+            const res = await api.assignCaseNumbers(target.id, {});
+            toast.success(res.message || 'Numbers assigned.');
+            setTarget(null);
+            reload();
+        } catch (err) {
+            setActionError(err.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
     return (
         <>
             <PageHeader
                 title="Records Desk"
-                subtitle="OB and criminal numbers are assigned to registered cases here."
+                subtitle="Assign OB and criminal numbers to registered cases before they are classified."
             />
-            <div className="card border-0 shadow-sm">
-                <div className="card-body">
-                    <EmptyState
-                        icon="bi-journal-text"
-                        message="The numbering queue arrives with the Records Officer workflow."
-                    />
+
+            <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
+
+            <div className="row g-3 mb-4">
+                <div className="col-6 col-md-4">
+                    <StatCard label="Awaiting Numbers" value={kpi.pending} icon="bi-hourglass-split" tone="navy" />
+                </div>
+                <div className="col-6 col-md-4">
+                    <StatCard label="Numbered Today" value={kpi.numberedToday} icon="bi-check2-circle" tone="success" />
+                </div>
+                <div className="col-6 col-md-4">
+                    <StatCard label="Total Numbered" value={kpi.totalNumbered} icon="bi-journal-check" tone="navy" />
                 </div>
             </div>
+
+            <div className="card border-0 shadow-sm mb-4">
+                <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
+                    <h6 className="mb-0 fw-bold">
+                        <i className="bi bi-journal-text me-2 text-warning" />Numbering Queue
+                    </h6>
+                    <span className="badge bg-gold text-dark">{numberingQueue.length} Pending</span>
+                </div>
+                <div className="table-responsive">
+                    <table className="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Case ID</th>
+                                <th>Complainant</th>
+                                <th>Category</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Branch</th>
+                                <th>Recorded By</th>
+                                <th className="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {numberingQueue.length === 0 ? (
+                                <tr>
+                                    <td colSpan="8">
+                                        <EmptyState icon="bi-check-circle-fill" message="No registered cases are awaiting numbers." />
+                                    </td>
+                                </tr>
+                            ) : (
+                                numberingQueue.map(item => (
+                                    <tr key={item.id}>
+                                        <td className="fw-bold font-monospace" style={{ color: 'var(--mps-navy)' }}>#{item.id}</td>
+                                        <td>
+                                            <div className="fw-semibold text-dark">{item.complainant_name}</div>
+                                            <small className="text-muted">{item.complainant_phone || '—'}</small>
+                                        </td>
+                                        <td className="small">{item.crime_category || '—'}</td>
+                                        <td><PriorityBadge priority={item.priority} /></td>
+                                        <td><StatusBadge status={item.status} /></td>
+                                        <td className="small text-muted">{item.branch_name || '—'}</td>
+                                        <td className="small">{item.recorded_by_name || '—'}</td>
+                                        <td className="text-end text-nowrap">
+                                            <button type="button" className="btn btn-sm btn-navy" onClick={() => { setTarget(item); setActionError(null); }}>
+                                                <i className="bi bi-hash me-1" />Assign Numbers
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="card border-0 shadow-sm">
+                <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
+                    <h6 className="mb-0 fw-bold">
+                        <i className="bi bi-clock-history me-2 text-warning" />Recently Numbered
+                    </h6>
+                </div>
+                <div className="table-responsive">
+                    <table className="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>OB Number</th>
+                                <th>Criminal Number</th>
+                                <th>Complainant</th>
+                                <th>Category</th>
+                                <th>Assigned By</th>
+                                <th>Assigned</th>
+                                <th className="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {recentlyNumbered.length === 0 ? (
+                                <tr><td colSpan="7"><EmptyState message="No numbers have been assigned yet." /></td></tr>
+                            ) : (
+                                recentlyNumbered.map(item => (
+                                    <tr key={item.id}>
+                                        <td className="fw-bold font-monospace" style={{ color: 'var(--mps-navy)' }}>{item.ob_number || '—'}</td>
+                                        <td className="fw-semibold font-monospace">{item.criminal_number || '—'}</td>
+                                        <td className="small fw-semibold">{item.complainant_name}</td>
+                                        <td className="small">{item.crime_category || '—'}</td>
+                                        <td className="small">{item.assigned_by_name || '—'}</td>
+                                        <td className="small text-muted">{formatDate(item.numbers_assigned_at)}</td>
+                                        <td className="text-end">
+                                            <Link to={`/cases/${item.id}`} className="btn btn-sm btn-outline-navy">
+                                                <i className="bi bi-eye-fill me-1" />View
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {target && (
+                <RecordsModal
+                    title="Assign OB & Criminal Numbers"
+                    onClose={() => setTarget(null)}
+                    footer={
+                        <>
+                            <button type="button" className="btn btn-outline-navy" onClick={() => setTarget(null)}>Cancel</button>
+                            <button type="submit" form="assign-numbers-form" className="btn btn-navy" disabled={busy}>
+                                <i className="bi bi-check-lg me-1" />Assign Numbers
+                            </button>
+                        </>
+                    }
+                >
+                    <form id="assign-numbers-form" onSubmit={(e) => { e.preventDefault(); assignNumbers(); }}>
+                        <div className="modal-body">
+                            <div className="mb-3">
+                                <label className="form-label">CASE</label>
+                                <div className="form-control-plaintext fw-bold">#{target.id} — {target.complainant_name}</div>
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">CATEGORY</label>
+                                <div className="form-control-plaintext">{target.crime_category || '—'}</div>
+                            </div>
+                            <p className="text-muted small mb-0">
+                                The next OB and criminal numbers will be drawn from the station registers and
+                                recorded against this case. This moves the case to <strong>Numbered</strong>.
+                            </p>
+                        </div>
+                    </form>
+                </RecordsModal>
+            )}
         </>
     );
 }
 
 
 export default function Dashboard() {
-    const { data, error, loading } = useApiData(api.dashboard);
+    const { data, error, loading, reload } = useApiData(api.dashboard);
     usePageTitle('Dashboard');
 
     if (loading) return <Spinner />;
@@ -112,7 +290,7 @@ export default function Dashboard() {
     }
 
     if (data.variant === 'records') {
-        return <RecordsDashboard />;
+        return <RecordsDashboard data={data} reload={reload} />;
     }
 
     return <InvestigatorDashboard data={data} />;
