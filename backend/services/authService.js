@@ -15,6 +15,16 @@ async function findUserByIdentifier(identifier) {
 }
 
 
+async function findUserById(id) {
+    const [users] = await db.execute(`
+        SELECT id, badge_number, rank_title, first_name, last_name, email, password_hash, role, role_id, branch_id, branch, is_active 
+        FROM users 
+        WHERE id = ?
+    `, [id]);
+    return users[0] || null;
+}
+
+
 async function authenticate(badgeNumber, password) {
     if (!badgeNumber || !password) {
         return fail(400, 'Please provide both Badge Number / Username and Password.');
@@ -37,6 +47,25 @@ async function authenticate(badgeNumber, password) {
     }
 
     return ok({ user: toSessionUser(user) });
+}
+
+
+// Re-read the account behind a signed session cookie and rebuild the session
+// projection from the database. The cookie is a snapshot taken at login, so
+// without this an officer who is deactivated, deleted or moved to another role
+// would keep their old privileges until the cookie expires. Returns null when
+// the account no longer exists or is inactive, which forces a fresh login.
+async function refreshSessionUser(sessionUser) {
+    if (!sessionUser || sessionUser.id === undefined || sessionUser.id === null) {
+        return null;
+    }
+
+    const user = await findUserById(sessionUser.id);
+    if (!user || !user.is_active) {
+        return null;
+    }
+
+    return toSessionUser(user);
 }
 
 
@@ -91,7 +120,9 @@ function toSessionUser(user) {
 module.exports = {
     MIN_PASSWORD_LENGTH,
     findUserByIdentifier,
+    findUserById,
     authenticate,
+    refreshSessionUser,
     changePassword,
     toSessionUser
 };

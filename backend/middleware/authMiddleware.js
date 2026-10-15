@@ -6,9 +6,15 @@ const {
     canonicalRoleId
 } = require('../roles');
 const db = require('../config/db');
+const { SESSION_IDLE_TIMEOUT, SESSION_MAX_AGE } = require('../config/session');
 
 const ADMIN_MESSAGE = 'Access Denied. System Administrator permissions required.';
 const ROLE_MESSAGE = 'Access Denied. You do not have permission to view this resource.';
+
+// Activity is only written back to the cookie once a minute. Updating on every request
+// would re-issue the Set-Cookie header on nearly every response, and a minute of slack
+// is invisible against a multi-minute idle window.
+const ACTIVITY_WRITE_INTERVAL = 60 * 1000;
 
 
 // This service only speaks JSON. It used to redirect browsers into the SPA on an
@@ -54,6 +60,45 @@ async function normalizeSessionRole(req, res, next) {
                 // Non-fatal: the dashboard will simply have no branch to filter by.
             }
         }
+    }
+    return next();
+}
+
+
+// End a session that has been idle too long, or that has outlived its absolute cap.
+// cookie-session stores the whole session in the cookie and only re-issues it when the
+// session changes, so activity is tracked with a `lastSeen` timestamp that is refreshed
+// as the officer uses the app. When the window lapses the session is dropped here and
+// every downstream guard answers 401, which sends the browser back to the login page
+// instead of leaving the previous officer's dashboard open.
+function enforceSessionTimeout(req, res, next) {
+    const session = req.session;
+    if (!session || !session.user) {
+        return next();
+    }
+
+    const now = Date.now();
+    const lastSeen = Number(session.lastSeen) || 0;
+    const expiresAt = Number(session.expiresAt) || 0;
+
+    // Sessions minted before idle tracking existed carry no timestamps. Adopt them
+    // rather than expiring every current officer the moment this ships.
+    if (!lastSeen) {
+        session.lastSeen = now;
+        session.expiresAt = expiresAt || now + SESSION_MAX_AGE;
+        return next();
+    }
+
+    const idleExpired = now - lastSeen > SESSION_IDLE_TIMEOUT;
+    const absoluteExpired = expiresAt > 0 && now > expiresAt;
+
+    if (idleExpired || absoluteExpired) {
+        req.session = null; // cookie-session clears the cookie on the way out
+        return next();
+    }
+
+    if (now - lastSeen > ACTIVITY_WRITE_INTERVAL) {
+        session.lastSeen = now;
     }
     return next();
 }
@@ -117,3 +162,4 @@ exports.authorizeRoles = (...allowedRoles) => {
 
 
 exports.normalizeSessionRole = normalizeSessionRole;
+exports.enforceSessionTimeout = enforceSessionTimeout;

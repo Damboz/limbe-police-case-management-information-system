@@ -25,7 +25,13 @@ app.set('trust proxy', 1);
 const apiRoutes = require('./routes/apiRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const db = require('./config/db');
-const { normalizeSessionRole } = require('./middleware/authMiddleware');
+const {
+    ALLOWED_ORIGINS,
+    SESSION_COOKIE_NAME,
+    SESSION_MAX_AGE,
+    SESSION_COOKIE_OPTIONS
+} = require('./config/session');
+const { normalizeSessionRole, enforceSessionTimeout } = require('./middleware/authMiddleware');
 
 
 app.use(morgan('dev'));
@@ -36,14 +42,8 @@ app.use(express.urlencoded({ extended: true }));
 // The frontend is deployed on its own domain, so every browser request arrives as a
 // cross-origin call. An allowlist is required rather than '*': with credentials the
 // CORS spec forbids the wildcard, and a blanket origin would let any site on the
-// internet try to act as a logged-in officer.
-// CHANGED: trailing slashes are stripped, because browsers send the Origin header
-// without one and a value like "https://app.vercel.app/" would never match.
-const ALLOWED_ORIGINS = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
-    .split(',')
-    .map(origin => origin.trim().replace(/\/+$/, ''))
-    .filter(Boolean);
-
+// internet try to act as a logged-in officer. The list lives in config/session.js
+// because the cookie's SameSite/Secure policy is derived from it.
 app.use(cors({
     origin(origin, callback) {
         // No Origin header: same-origin request, curl, or a server-side call.
@@ -67,8 +67,6 @@ app.use((req, res, next) => {
 });
 
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-
 // Falling back to a fixed secret would let anyone who has read the source forge an
 // admin session cookie, so refuse to start rather than sign one with a known key.
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -79,29 +77,40 @@ if (!SESSION_SECRET) {
 }
 
 // The session lives in a signed cookie rather than server memory, so logins survive
-// restarts and scale-out without sticky sessions.
-
-// The frontend and API are on different domains, so the browser treats this as a
-// third-party cookie. 'none' is the only value that survives that trip; it in turn
-// requires HTTPS, which is why Secure is tied to production and why the cookie is
-// only relaxed once a real deployment origin is configured. SameSite=None is what
-// makes CSRF possible in principle, so the exact-origin CORS allowlist above is the
-// control that actually protects the session.
-const CROSS_ORIGIN_DEPLOY = ALLOWED_ORIGINS.some(origin => !/^https?:\/\/(localhost|127\.0\.0\.1)/.test(origin));
-
+// restarts and scale-out without sticky sessions. The cookie's SameSite/Secure policy
+// is defined once in config/session.js so logout can clear the exact cookie this sets:
+// a browser only deletes a cookie whose clearing attributes match the original.
 app.use(cookieSession({
-    name: 'limbe.sid',
+    name: SESSION_COOKIE_NAME,
     keys: [SESSION_SECRET],
-    maxAge: 1000 * 60 * 60 * 8,
-    httpOnly: true,
-    sameSite: CROSS_ORIGIN_DEPLOY ? 'none' : 'lax',
-    secure: CROSS_ORIGIN_DEPLOY || IS_PRODUCTION
+    maxAge: SESSION_MAX_AGE,
+    ...SESSION_COOKIE_OPTIONS
 }));
+
+
+// Every response here is either a signed-in officer's data or a generated document.
+// Without an explicit no-store, a browser, proxy or CDN edge can cache GET
+// /api/auth/me and hand the previous officer's session to the next person who opens
+// the app — who then lands on someone else's dashboard without ever seeing a login.
+// Vary: Cookie stops any shared cache from mixing two officers' responses.
+app.use((req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    // append (not set) so the CORS middleware's own `Vary: Origin` is preserved.
+    res.append('Vary', 'Cookie');
+    next();
+});
 
 
 // Rewrite legacy role names in existing session cookies so role
 // checks see the new canonical roles until the officer logs in again.
 app.use(normalizeSessionRole);
+
+
+// Drop sessions that have been idle past the timeout (or past their absolute cap)
+// before any route can read them, so an abandoned shared-terminal session cannot be
+// picked up by the next person who opens the app.
+app.use(enforceSessionTimeout);
 
 
 app.get('/api/health', (req, res) => {

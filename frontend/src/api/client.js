@@ -46,6 +46,13 @@ async function request(path, { method = 'GET', body, signal } = {}) {
         const message = (isJson && payload && payload.error)
             ? payload.error
             : `Request failed (${res.status}).`;
+        // A 401 on a normal API call means the session ended underneath us — idle
+        // timeout, sign-out in another tab, or cookie expiry. Notify the auth layer so
+        // the app returns to the login page instead of showing a dead dashboard.
+        // /auth/* is excluded: a 401 there is an ordinary failed login.
+        if (res.status === 401 && !path.startsWith('/auth/')) {
+            window.dispatchEvent(new Event('auth:expired'));
+        }
         throw new ApiError(message, res.status, payload);
     }
 
@@ -93,6 +100,11 @@ async function requestBlob(path, { method = 'POST', body, fileName = 'document.p
     if (!res.ok || isJson) {
         const payload = isJson ? await res.json().catch(() => null) : await res.text();
         if (!res.ok) {
+            // Same session-expiry signal as request(); these PDF routes are also
+            // session-guarded.
+            if (res.status === 401) {
+                window.dispatchEvent(new Event('auth:expired'));
+            }
             throw new ApiError((payload && payload.error) || `Request failed (${res.status}).`, res.status, payload);
         }
         return payload;
