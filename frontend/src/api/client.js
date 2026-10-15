@@ -144,7 +144,11 @@ const PDF_REPORTS = {
     myCases: { path: '/reports/my-cases', fileName: 'My_Cases_Report.pdf' },
     stationPerformance: { path: '/supervisor/reports/station-performance', fileName: 'Station_Performance_Report.pdf' },
     crimeStatistics: { path: '/supervisor/reports/crime-statistics', fileName: 'Crime_Statistics_Report.pdf' },
-    officerProductivity: { path: '/supervisor/reports/officer-productivity', fileName: 'Officer_Productivity_Report.pdf' }
+    officerProductivity: { path: '/supervisor/reports/officer-productivity', fileName: 'Officer_Productivity_Report.pdf' },
+    branchCases: { path: '/branch/reports/cases', fileName: 'Branch_Case_Report.pdf' },
+    recordsRegister: { path: '/records/reports/numbering', fileName: 'Records_Numbering_Register.pdf' },
+    prosecutionReport: { path: '/prosecution/reports/cases', fileName: 'Prosecution_Report.pdf' },
+    systemReport: { path: '/admin/reports/system', fileName: 'System_Report.pdf' }
 };
 
 export const downloadPdfReport = (key, { period } = {}) => {

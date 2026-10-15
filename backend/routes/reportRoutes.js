@@ -35,5 +35,37 @@ router.get(
     pdfController.exportOfficerProductivityPDF
 );
 
+// Role-scoped reports. Each role gets a report built from the data they are
+// responsible for: branch officers their branch, the records desk the
+// numbering register, prosecutors the prosecution caseload and admins the
+// system-wide snapshot.
+router.get(
+    '/branch/reports/cases',
+    isAuthenticated,
+    authorizeRoles(ROLES.BRANCH_OFFICER),
+    pdfController.exportBranchCasesPDF
+);
+
+router.get(
+    '/records/reports/numbering',
+    isAuthenticated,
+    authorizeRoles(ROLES.RECORDS_OFFICER, ROLES.ADMIN),
+    pdfController.exportNumberingRegisterPDF
+);
+
+router.get(
+    '/prosecution/reports/cases',
+    isAuthenticated,
+    authorizeRoles(ROLES.PROSECUTOR, ROLES.ADMIN),
+    pdfController.exportProsecutionCasesPDF
+);
+
+router.get(
+    '/admin/reports/system',
+    isAuthenticated,
+    authorizeRoles(ROLES.ADMIN),
+    pdfController.exportSystemReportPDF
+);
+
 
 module.exports = router;

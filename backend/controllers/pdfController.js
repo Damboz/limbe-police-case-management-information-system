@@ -48,6 +48,10 @@ function reportFileName(base, period) {
     return `${base}${suffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
 }
 
+function slug(text) {
+    return String(text || 'report').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'report';
+}
+
 
 exports.exportMyCasesPDF = async (req, res, next) => {
     try {
@@ -297,6 +301,214 @@ exports.exportOfficerProductivityPDF = async (req, res, next) => {
 
         drawRestrictedFooter(doc);
 
+        doc.end();
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+// Branch Officer: the cases classified into the officer's workflow branch.
+exports.exportBranchCasesPDF = async (req, res, next) => {
+    try {
+        const user = req.session.user;
+        if (!user.branch) {
+            return res.status(400).json({
+                success: false,
+                error: 'Your account is not assigned to a workflow branch, so a branch report cannot be generated.'
+            });
+        }
+
+        const period = resolvePeriod(req.query.period);
+        const { branch, summary, statusBreakdown, cases } = await reportsService.getBranchCasesForReport(user, period);
+
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${reportFileName(`Branch_Case_Report_${slug(branch)}`, period)}"`);
+        doc.pipe(res);
+
+        drawReportHeader(doc, `Branch Case Report — ${branch}`, period);
+
+        drawSectionTitle(doc, 'Overview');
+        doc.text(`Total Cases: ${summary.total_cases}`);
+        doc.text(`Active Cases: ${summary.active_cases}`);
+        doc.text(`Closed Cases: ${summary.closed_cases}`);
+        doc.text(`Awaiting Branch Review: ${summary.pending_review}`);
+        doc.text(`Returned to Investigator: ${summary.returned_cases}`);
+        doc.text(`Forwarded to Prosecution: ${summary.forwarded_cases}`);
+
+        drawSectionTitle(doc, 'Status Breakdown');
+        if (statusBreakdown.length === 0) {
+            doc.text('No cases on record for this branch during the selected period.');
+        } else {
+            statusBreakdown.forEach(s => {
+                doc.text(`${s.status || 'Unknown'}: ${s.total} case(s)`);
+            });
+        }
+
+        drawSectionTitle(doc, 'Branch Case List');
+        if (cases.length === 0) {
+            doc.text('No cases on record for this branch during the selected period.');
+        } else {
+            cases.forEach(c => {
+                doc.font('Helvetica-Bold')
+                    .text(`${c.ob_number || `Case #${c.id} (Unnumbered)`} — ${c.crime_category || 'Uncategorised'} (${c.status})`);
+                doc.font('Helvetica').text(`   ${c.incident_details || ''}`);
+                doc.font('Helvetica').text(
+                    `   Priority: ${c.priority} | Investigators: ${c.investigator_names || 'Unassigned'} | Registered: ${c.created_at ? new Date(c.created_at).toLocaleDateString('en-GB') : '—'}`
+                );
+                doc.moveDown(0.4);
+            });
+        }
+
+        drawRestrictedFooter(doc);
+        doc.end();
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+// Records Officer: the station's numbering register and pending queue.
+exports.exportNumberingRegisterPDF = async (req, res, next) => {
+    try {
+        const period = resolvePeriod(req.query.period);
+        const { summary, numbered, pending } = await reportsService.getNumberingRegisterForReport(period);
+
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${reportFileName('Records_Numbering_Register', period)}"`);
+        doc.pipe(res);
+
+        drawReportHeader(doc, 'Records Numbering Register', period);
+
+        drawSectionTitle(doc, 'Overview');
+        doc.text(`Cases Numbered (All Time): ${summary.total_numbered}`);
+        doc.text(`Awaiting OB / Criminal Numbers: ${summary.pending_count}`);
+        doc.text(`Numbered in Selected Period: ${numbered.length}`);
+
+        drawSectionTitle(doc, 'Numbered Cases');
+        if (numbered.length === 0) {
+            doc.text('No cases were numbered during the selected period.');
+        } else {
+            numbered.forEach(n => {
+                doc.font('Helvetica-Bold').text(`${n.ob_number || '—'}  |  ${n.criminal_number || '—'}`);
+                doc.font('Helvetica').text(`   ${n.complainant_name || 'Unknown complainant'} — ${n.crime_category || 'Uncategorised'}`);
+                doc.font('Helvetica').text(
+                    `   Assigned: ${n.numbers_assigned_at ? new Date(n.numbers_assigned_at).toLocaleDateString('en-GB') : '—'}${n.assigned_by_name ? ' | By: ' + n.assigned_by_name : ''}`
+                );
+                doc.moveDown(0.4);
+            });
+        }
+
+        drawSectionTitle(doc, 'Pending Numbering Queue');
+        if (pending.length === 0) {
+            doc.text('No cases are awaiting OB and criminal numbers.');
+        } else {
+            pending.forEach(p => {
+                doc.font('Helvetica-Bold').text(`${p.complainant_name || 'Unknown complainant'} — ${p.priority} priority`);
+                doc.font('Helvetica').text(
+                    `   ${p.crime_category || 'Uncategorised'} | Status: ${p.status} | Registered: ${p.created_at ? new Date(p.created_at).toLocaleDateString('en-GB') : '—'}`
+                );
+                doc.moveDown(0.3);
+            });
+        }
+
+        drawRestrictedFooter(doc);
+        doc.end();
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+// Prosecutor: the station's prosecution caseload and court outcomes.
+exports.exportProsecutionCasesPDF = async (req, res, next) => {
+    try {
+        const period = resolvePeriod(req.query.period);
+        const { summary, cases } = await reportsService.getProsecutionCasesForReport(period);
+
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${reportFileName('Prosecution_Report', period)}"`);
+        doc.pipe(res);
+
+        drawReportHeader(doc, 'Prosecution Report', period);
+
+        drawSectionTitle(doc, 'Overview');
+        doc.text(`Cases Forwarded to Prosecution: ${summary.forwarded_total}`);
+        doc.text(`Awaiting Prosecution Action: ${summary.pending_prosecution}`);
+        doc.text(`With Scheduled Court Date: ${summary.scheduled}`);
+        doc.text(`Convictions Recorded: ${summary.convicted}`);
+        doc.text(`Acquitted / Withdrawn: ${summary.not_convicted}`);
+
+        drawSectionTitle(doc, 'Prosecution Case List');
+        if (cases.length === 0) {
+            doc.text('No prosecution cases on record for the selected period.');
+        } else {
+            cases.forEach(c => {
+                doc.font('Helvetica-Bold')
+                    .text(`${c.ob_number || 'Unnumbered'} — ${c.crime_category || 'Uncategorised'} (${c.status})`);
+                doc.font('Helvetica').text(`   ${c.incident_details || ''}`);
+                doc.font('Helvetica').text(
+                    `   Priority: ${c.priority} | Forwarded: ${c.forwarded_at ? new Date(c.forwarded_at).toLocaleDateString('en-GB') : '—'} | Court: ${c.court_date ? new Date(c.court_date).toLocaleDateString('en-GB') : 'Not set'} | Outcome: ${c.court_outcome || 'Pending'}`
+                );
+                if (c.file_location) {
+                    doc.font('Helvetica').text(`   File Location: ${c.file_location}`);
+                }
+                doc.moveDown(0.4);
+            });
+        }
+
+        drawRestrictedFooter(doc);
+        doc.end();
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+// Admin: personnel, case and audit activity snapshot across the whole system.
+exports.exportSystemReportPDF = async (req, res, next) => {
+    try {
+        const period = resolvePeriod(req.query.period);
+        const { userStats, caseStats, roleBreakdown, recentActivity } = await reportsService.getSystemReport(period);
+
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${reportFileName('System_Report', period)}"`);
+        doc.pipe(res);
+
+        drawReportHeader(doc, 'System & Audit Report', period);
+
+        drawSectionTitle(doc, 'Personnel');
+        doc.text(`Total User Accounts: ${userStats.total_users}`);
+        doc.text(`Active Accounts: ${userStats.active_users}`);
+
+        drawSectionTitle(doc, 'Cases');
+        doc.text(`Total Cases: ${caseStats.total_cases}`);
+        doc.text(`Active Cases: ${caseStats.active_cases}`);
+        doc.text(`Closed Cases: ${caseStats.closed_cases}`);
+
+        drawSectionTitle(doc, 'Personnel by Role');
+        if (roleBreakdown.length === 0) {
+            doc.text('No personnel records found.');
+        } else {
+            roleBreakdown.forEach(r => {
+                doc.text(`${r.role || 'Unassigned'}: ${r.total} account(s)`);
+            });
+        }
+
+        drawSectionTitle(doc, 'Audit Activity (Top Actions)');
+        if (recentActivity.length === 0) {
+            doc.text('No audit activity recorded for the selected period.');
+        } else {
+            recentActivity.forEach(a => {
+                doc.text(`${a.action}: ${a.total} event(s)`);
+            });
+        }
+
+        drawRestrictedFooter(doc);
         doc.end();
     } catch (err) {
         next(err);

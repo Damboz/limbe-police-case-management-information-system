@@ -43,10 +43,11 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
     const { user, logout, homePath } = useAuth();
     const navigate = useNavigate();
     const { pathname } = useLocation();
-    const { isPoliceOfficer, isStationOfficer, isAdmin } = roleFlags(user);
+    const { isPoliceOfficer, isStationOfficer, isAdmin, isRecordsOfficer, isBranchOfficer, isProsecutor } = roleFlags(user);
 
     const sections = useMemo(() => {
-        const stationReports = isStationOfficer && !isAdmin;
+        const supervisorAnalytics = isStationOfficer && !isAdmin;
+        const stationReports = isStationOfficer || isAdmin;
 
         return [
             {
@@ -63,12 +64,16 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                 id: 'analytics',
                 title: 'Analytics & Reports',
                 links: [
-                    stationReports && { to: '/supervisor/analytics', icon: 'bi-graph-up-arrow', label: 'Analytics & Hotspots' },
+                    supervisorAnalytics && { to: '/supervisor/analytics', icon: 'bi-graph-up-arrow', label: 'Analytics & Hotspots' },
                     isPoliceOfficer && { to: '/my-analytics', icon: 'bi-graph-up-arrow', label: 'My Analytics' },
                     isPoliceOfficer && { report: 'myCases', icon: 'bi-file-earmark-person', label: 'My Case Report' },
+                    isBranchOfficer && { report: 'branchCases', icon: 'bi-diagram-3', label: 'Branch Case Report' },
+                    isRecordsOfficer && { report: 'recordsRegister', icon: 'bi-journal-check', label: 'Numbering Register' },
+                    isProsecutor && { report: 'prosecutionReport', icon: 'bi-bank', label: 'Prosecution Report' },
                     stationReports && { report: 'stationPerformance', icon: 'bi-file-earmark-bar-graph', label: 'Station Performance PDF' },
                     stationReports && { report: 'crimeStatistics', icon: 'bi-file-earmark-text', label: 'Crime Statistics PDF' },
-                    stationReports && { report: 'officerProductivity', icon: 'bi-file-earmark-person', label: 'Officer Productivity PDF' }
+                    stationReports && { report: 'officerProductivity', icon: 'bi-file-earmark-person', label: 'Officer Productivity PDF' },
+                    isAdmin && { report: 'systemReport', icon: 'bi-file-earmark-lock', label: 'System Report PDF' }
                 ].filter(Boolean)
             },
             {
@@ -88,7 +93,7 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                 ]
             }
         ].filter(section => section.links.length > 0);
-    }, [homePath, isPoliceOfficer, isStationOfficer, isAdmin]);
+    }, [homePath, isPoliceOfficer, isStationOfficer, isAdmin, isRecordsOfficer, isBranchOfficer, isProsecutor]);
 
     const currentSectionId = useMemo(() => {
         const match = sections.find(section => section.links.some(link => matchesPath(link.to, pathname, link.end)));
