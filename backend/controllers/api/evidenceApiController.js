@@ -1,10 +1,11 @@
 const evidenceService = require('../../services/evidenceService');
 const { logAudit } = require('../../utils/audit');
+const { normalizeQuery } = require('../../utils/query');
 
 
 exports.ledger = async (req, res, next) => {
     try {
-        const result = await evidenceService.getLedger(req.session.user, req.query);
+        const result = await evidenceService.getLedger(req.session.user, normalizeQuery(req.query));
 
         if (!result.ok) {
             return res.status(result.status).json({ success: false, error: result.error });

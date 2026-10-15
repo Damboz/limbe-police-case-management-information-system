@@ -2,6 +2,7 @@ const db = require('../config/db');
 const { isAssignedInvestigator, getAssignedInvestigators } = require('./assignmentService');
 const recordsService = require('./recordsService');
 const { ok, fail } = require('../utils/result');
+const { containsPattern } = require('../utils/query');
 const {
     ROLES,
     CASE_STATUSES,
@@ -252,7 +253,7 @@ async function searchCases(query, searchType) {
     let results = [];
 
     if (term.length >= 2) {
-        const like = `%${term}%`;
+        const like = containsPattern(term);
         const lookups = [];
 
         if (type === 'all' || type === 'national_id') {
@@ -262,7 +263,7 @@ async function searchCases(query, searchType) {
                            c.priority, c.status, c.created_at, cc.name AS crime_category
                     FROM cases c
                     LEFT JOIN crime_categories cc ON c.category_id = cc.id
-                    WHERE c.complainant_id_number LIKE ?
+                    WHERE c.complainant_id_number ILIKE ?
                     ORDER BY c.created_at DESC LIMIT 20
                 `, [like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Complainant National ID' })))
             );
@@ -275,7 +276,7 @@ async function searchCases(query, searchType) {
                            c.priority, c.status, c.created_at, cc.name AS crime_category
                     FROM cases c
                     LEFT JOIN crime_categories cc ON c.category_id = cc.id
-                    WHERE c.complainant_phone LIKE ?
+                    WHERE c.complainant_phone ILIKE ?
                     ORDER BY c.created_at DESC LIMIT 20
                 `, [like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Phone Number' })))
             );
@@ -292,7 +293,7 @@ async function searchCases(query, searchType) {
                     JOIN case_suspects cs ON c.id = cs.case_id
                     JOIN suspects s ON cs.suspect_id = s.id
                     LEFT JOIN crime_categories cc ON c.category_id = cc.id
-                    WHERE s.first_name LIKE ? OR s.last_name LIKE ? OR s.national_id LIKE ? OR s.alias LIKE ?
+                    WHERE s.first_name ILIKE ? OR s.last_name ILIKE ? OR s.national_id ILIKE ? OR s.alias ILIKE ?
                     ORDER BY c.created_at DESC LIMIT 20
                 `, [like, like, like, like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Suspect Name/ID' })))
             );
@@ -308,7 +309,7 @@ async function searchCases(query, searchType) {
                     FROM cases c
                     JOIN victims v ON c.id = v.case_id
                     LEFT JOIN crime_categories cc ON c.category_id = cc.id
-                    WHERE v.full_name LIKE ? OR v.national_id LIKE ?
+                    WHERE v.full_name ILIKE ? OR v.national_id ILIKE ?
                     ORDER BY c.created_at DESC LIMIT 20
                 `, [like, like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Victim Name/ID' })))
             );

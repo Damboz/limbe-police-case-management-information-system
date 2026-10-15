@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { ok, fail } = require('../utils/result');
 const { ROLES, roleIn } = require('../roles');
+const { containsPattern } = require('../utils/query');
 
 const EVIDENCE_CATEGORIES = ['Physical', 'Documentary', 'Digital', 'Forensic', 'Weapon', 'Other'];
 const VALID_EVIDENCE_STATUSES = ['In Locker', 'Transferred to Lab', 'Presented in Court', 'Returned', 'Disposed'];
@@ -36,8 +37,8 @@ async function getLedger(user, query) {
         filterParams.push(filters.category);
     }
     if (filters.q) {
-        filterConditions.push('(e.item_number LIKE ? OR e.description LIKE ? OR e.storage_location LIKE ? OR c.ob_number LIKE ?)');
-        const like = `%${filters.q}%`;
+        filterConditions.push('(e.item_number ILIKE ? OR e.description ILIKE ? OR e.storage_location ILIKE ? OR c.ob_number ILIKE ?)');
+        const like = containsPattern(filters.q);
         filterParams.push(like, like, like, like);
     }
     if (filters.from) {

@@ -1,5 +1,6 @@
 const adminService = require('../../services/adminService');
 const { logAudit } = require('../../utils/audit');
+const { normalizeQuery } = require('../../utils/query');
 
 
 exports.dashboard = async (req, res, next) => {
@@ -14,7 +15,7 @@ exports.dashboard = async (req, res, next) => {
 
 exports.users = async (req, res, next) => {
     try {
-        const result = await adminService.getUsers(req.query);
+        const result = await adminService.getUsers(normalizeQuery(req.query));
         res.json({ success: true, data: result });
     } catch (err) {
         next(err);
@@ -144,7 +145,7 @@ exports.deleteUser = async (req, res, next) => {
 
 exports.auditLogs = async (req, res, next) => {
     try {
-        const result = await adminService.getAuditLogs(req.query);
+        const result = await adminService.getAuditLogs(normalizeQuery(req.query));
         res.json({ success: true, data: result });
     } catch (err) {
         next(err);

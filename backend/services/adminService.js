@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { ok, fail } = require('../utils/result');
+const { containsPattern } = require('../utils/query');
 const { ROLES, ROLE_IDS, WORKFLOW_BRANCHES } = require('../roles');
 
 const MIN_PASSWORD_LENGTH = 6;
@@ -108,7 +109,7 @@ async function getAdminDashboard() {
 
 
 async function getUsers(query) {
-    const search = query.search ? `%${query.search.trim()}%` : '%';
+    const search = query.search ? containsPattern(query.search) : '%';
     const roleFilter = query.role || '';
 
     let sql = `
@@ -117,7 +118,7 @@ async function getUsers(query) {
                su.name AS branch_name
         FROM users u
         LEFT JOIN station_branch su ON u.branch_id = su.id
-        WHERE (u.badge_number LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)
+        WHERE (u.badge_number ILIKE ? OR u.first_name ILIKE ? OR u.last_name ILIKE ? OR u.email ILIKE ?)
     `;
     const params = [search, search, search, search];
 
@@ -365,7 +366,7 @@ async function clearAuditLogs() {
 
 
 async function getAuditLogs(query) {
-    const search = query.search ? `%${query.search.trim()}%` : '';
+    const search = query.search ? containsPattern(query.search) : '';
     const actionFilter = query.action || '';
     const roleFilter = query.role || '';
     const dateFrom = query.date_from || '';
@@ -375,7 +376,7 @@ async function getAuditLogs(query) {
     const params = [];
 
     if (search) {
-        conditions.push('(a.details LIKE ? OR u.badge_number LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)');
+        conditions.push('(a.details ILIKE ? OR u.badge_number ILIKE ? OR u.first_name ILIKE ? OR u.last_name ILIKE ?)');
         params.push(search, search, search, search);
     }
     if (actionFilter) {

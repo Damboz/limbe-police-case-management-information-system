@@ -1,5 +1,6 @@
 const caseService = require('../../services/caseService');
 const { logAudit } = require('../../utils/audit');
+const { normalizeQuery } = require('../../utils/query');
 
 
 exports.list = async (req, res, next) => {
@@ -52,8 +53,9 @@ exports.create = async (req, res, next) => {
 
 exports.search = async (req, res, next) => {
     try {
-        const query = (req.query.q || '').trim();
-        const searchType = req.query.type || 'all';
+        const params = normalizeQuery(req.query);
+        const query = (params.q || '').trim();
+        const searchType = params.type || 'all';
         const results = await caseService.searchCases(query, searchType);
 
         res.json({ success: true, data: { results, query, searchType } });
