@@ -1,11 +1,45 @@
 import { useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useApiData } from '../hooks/useApiData';
 import { useToast } from '../context/ToastContext';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatCard, StatusBadge } from '../components/ui';
 import { formatDate } from '../lib/format';
 import usePageTitle from '../hooks/usePageTitle';
+
+
+function DashboardSearchBar() {
+    const navigate = useNavigate();
+    const [query, setQuery] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const trimmed = query.trim();
+        if (!trimmed) return;
+        navigate(`/cases/search?q=${encodeURIComponent(trimmed)}`);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="d-flex align-items-center gap-2" role="search">
+            <div className="input-group" style={{ minWidth: '260px' }}>
+                <span className="input-group-text bg-white border-end-0">
+                    <i className="bi bi-search text-muted" />
+                </span>
+                <input
+                    type="search"
+                    className="form-control border-start-0"
+                    placeholder="Search cases, IDs, suspects..."
+                    aria-label="Search cases"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                />
+            </div>
+            <button type="submit" className="btn btn-navy text-nowrap">
+                Search
+            </button>
+        </form>
+    );
+}
 
 
 function InvestigatorDashboard({ data }) {
@@ -16,6 +50,7 @@ function InvestigatorDashboard({ data }) {
             <PageHeader
                 title="My Assigned Cases"
                 subtitle="Active investigations, evidence, and case timelines assigned to you."
+                actions={<DashboardSearchBar />}
             />
 
             <div className="card border-0 shadow-sm">
@@ -128,6 +163,7 @@ function RecordsDashboard({ data, reload }) {
             <PageHeader
                 title="Records Desk"
                 subtitle="Assign OB and criminal numbers to registered cases before they are classified."
+                actions={<DashboardSearchBar />}
             />
 
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />

@@ -56,7 +56,6 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                 links: [
                     { to: homePath, icon: 'bi-speedometer2', label: 'Dashboard', end: true },
                     !isAdmin && { to: '/cases', icon: 'bi-folder2-open', label: 'Case Register' },
-                    !isAdmin && { to: '/cases/search', icon: 'bi-search', label: 'Smart Search' },
                     (isPoliceOfficer || isStationOfficer) && { to: '/evidence', icon: 'bi-box-seam', label: 'Evidence Ledger' }
                 ].filter(Boolean)
             },
