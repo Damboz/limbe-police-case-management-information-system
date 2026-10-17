@@ -5,7 +5,8 @@ const { isAssignedInvestigator } = require('./assignmentService');
 const { ROLES, roleIn } = require('../roles');
 
 const INVESTIGATOR_ROLES = [ROLES.POLICE_OFFICER];
-const LETTER_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN];
+// The letter route is behind denyAdmin, so Admin is deliberately absent here too.
+const LETTER_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER];
 
 
 function buildScope(user) {
@@ -327,6 +328,7 @@ async function prepareSuspectInvitation(caseId, suspectId, user, appearanceDate)
 
 
 module.exports = {
+    LETTER_ROLES,
     getMyAnalytics,
     getCasesForReport,
     getBranchCasesForReport,

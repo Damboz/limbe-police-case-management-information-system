@@ -47,7 +47,7 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
 
     const sections = useMemo(() => {
         const supervisorAnalytics = isStationOfficer && !isAdmin;
-        const stationReports = isStationOfficer || isAdmin;
+        const stationReports = isStationOfficer && !isAdmin;
 
         return [
             {

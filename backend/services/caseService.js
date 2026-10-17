@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { isAssignedInvestigator, getAssignedInvestigators } = require('./assignmentService');
 const recordsService = require('./recordsService');
+const { LETTER_ROLES } = require('./reportsService');
 const { ok, fail } = require('../utils/result');
 const { containsPattern } = require('../utils/query');
 const {
@@ -447,6 +448,7 @@ async function getCaseDetail(caseId, user) {
         canRequestStatus: isAssignedInvestigator && !caseItem.requested_status && caseItem.status === 'Under Investigation',
         canAddEvidence: isAssignedInvestigator,
         canLinkSuspectVictim: isAssignedInvestigator || roleIn(user, LINK_ROLES),
+        canGenerateInvitationLetter: isAssignedInvestigator || roleIn(user, LETTER_ROLES),
         canRequestExternalReport: isAssignedInvestigator && caseItem.status === 'Under Investigation' && !caseItem.requested_status,
         canReview: isBranchOfficer && caseItem.branch_review_status === 'Pending Review',
         canAcknowledgeReceipt: isProsecutor && caseItem.status === 'Forwarded to Prosecution' && hasPendingCustody,

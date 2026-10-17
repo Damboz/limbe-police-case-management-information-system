@@ -804,9 +804,11 @@ export default function CaseDetail() {
                                                 </div>
                                             )}
                                         </div>
-                                        <button type="button" className="btn btn-warning btn-sm fw-semibold" onClick={() => openInvitation(s)}>
-                                            <i className="bi bi-envelope-paper me-1" />Invitation Letter
-                                        </button>
+                                        {permissions.canGenerateInvitationLetter && (
+                                            <button type="button" className="btn btn-warning btn-sm fw-semibold" onClick={() => openInvitation(s)}>
+                                                <i className="bi bi-envelope-paper me-1" />Invitation Letter
+                                            </button>
+                                        )}
                                     </div>
                                 ))
                             )}

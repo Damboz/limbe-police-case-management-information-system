@@ -722,7 +722,8 @@ suspects, victims. It also returns a `permissions` object:
 
 ```js
 permissions: {
-    canAddNote, canRequestStatus, canAddEvidence, canLinkSuspectVictim
+    canAddNote, canRequestStatus, canAddEvidence, canLinkSuspectVictim,
+    canGenerateInvitationLetter
 }
 ```
 
@@ -1072,7 +1073,7 @@ about to print.
 
 ## 17. `pdfController.js` — generating the PDF reports
 
-**File:** `controllers/pdfController.js` · **4 handlers + 3 private helpers**
+**File:** `controllers/pdfController.js` · **8 handlers + 3 private helpers**
 
 These live at non-`/api` paths (`routes/reportRoutes.js`) because they stream a file
 rather than returning JSON.
@@ -1080,7 +1081,7 @@ rather than returning JSON.
 ### Three private helpers
 
 Not Express handlers — just functions that draw the shared look. They exist because all
-four reports should look like they came from the same office.
+eight reports should look like they came from the same office.
 
 - **`drawReportHeader(doc, title)`** — centred station name, report title, timestamp,
   then a gold rule.
@@ -1091,7 +1092,7 @@ four reports should look like they came from the same office.
 
 ### The streaming pattern
 
-All four handlers follow the same shape:
+All eight handlers follow the same shape:
 
 ```js
 const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -1295,10 +1296,19 @@ immediately after install.
 
 | Method | Path | Guard | Handler |
 |---|---|---|---|
-| GET | `/reports/my-cases` | auth, IO/SC/Admin | `exportMyCasesPDF` |
-| GET | `/supervisor/reports/station-performance` | auth, SC/Admin | `exportStationPerformancePDF` |
-| GET | `/supervisor/reports/crime-statistics` | auth, SC/Admin | `exportCrimeStatsPDF` |
-| GET | `/supervisor/reports/officer-productivity` | auth, SC/Admin | `exportOfficerProductivityPDF` |
+| GET | `/reports/my-cases` | auth, IO/SC | `exportMyCasesPDF` |
+| GET | `/supervisor/reports/station-performance` | auth, SC | `exportStationPerformancePDF` |
+| GET | `/supervisor/reports/crime-statistics` | auth, SC | `exportCrimeStatsPDF` |
+| GET | `/supervisor/reports/officer-productivity` | auth, SC | `exportOfficerProductivityPDF` |
+| GET | `/branch/reports/cases` | auth, BR | `exportBranchCasesPDF` |
+| GET | `/records/reports/numbering` | auth, REC | `exportNumberingRegisterPDF` |
+| GET | `/prosecution/reports/cases` | auth, PROS | `exportProsecutionCasesPDF` |
+| GET | `/admin/reports/system` | auth, ADM | `exportSystemReportPDF` |
+
+Each guard lists exactly the roles whose operations that report summarises —
+an officer's own cases, the station commander's station, the branch officer's
+branch, the numbering register, the prosecution caseload. Admin's only report
+is the system snapshot, matching Admin's personnel-and-audit remit.
 
 One more, defined in `app.js:92` rather than a router: `GET /api/health` returns
 `{ status: 'UP' }` with no auth, for uptime checks.
