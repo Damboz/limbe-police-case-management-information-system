@@ -200,7 +200,6 @@ export const api = {
     getUser: (id, signal) => request(`/admin/users/${id}`, { signal }),
     createUser: (body) => request('/admin/users', { method: 'POST', body }),
     updateUser: (id, body) => request(`/admin/users/${id}`, { method: 'PUT', body }),
-    resetUserPassword: (id) => request(`/admin/users/${id}/reset-password`, { method: 'POST' }),
     toggleUserStatus: (id) => request(`/admin/users/${id}/toggle-status`, { method: 'POST' }),
     deleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
     auditLogs: (params, signal) => request(`/admin/audit-logs${toQuery(params)}`, { signal }),

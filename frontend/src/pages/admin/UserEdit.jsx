@@ -57,7 +57,6 @@ export default function UserEdit() {
 
     const [form, setForm] = useState(null);
     const [profileError, setProfileError] = useState(null);
-    const [passwordError, setPasswordError] = useState(null);
     const [statusError, setStatusError] = useState(null);
     const [busy, setBusy] = useState(null);
 
@@ -102,19 +101,6 @@ export default function UserEdit() {
             reload();
         } catch (err) {
             setProfileError(err.message);
-        } finally {
-            setBusy(null);
-        }
-    };
-
-    const resetPassword = async () => {
-        setBusy('password');
-        setPasswordError(null);
-        try {
-            const res = await api.resetUserPassword(id);
-            toast.success(res.message);
-        } catch (err) {
-            setPasswordError(err.message);
         } finally {
             setBusy(null);
         }
@@ -261,29 +247,6 @@ export default function UserEdit() {
                 </div>
 
                 <div className="col-lg-4">
-                    <div className="card border-0 shadow-sm mb-4">
-                        <div className="card-header bg-navy text-white py-3">
-                            <h6 className="mb-0 fw-bold"><i className="bi bi-shield-lock-fill me-2" />Reset Password</h6>
-                        </div>
-                        <div className="card-body p-4">
-                            <Alert variant="danger" message={passwordError} onDismiss={() => setPasswordError(null)} />
-
-                            <p className="small text-muted mb-3">
-                                This generates a new temporary password and emails the officer a secure link to set
-                                their own password. Their current password stops working immediately.
-                            </p>
-                            <button
-                                type="button"
-                                className="btn btn-warning w-100 fw-bold"
-                                onClick={resetPassword}
-                                disabled={busy === 'password'}
-                            >
-                                <i className="bi bi-envelope-arrow-up-fill me-1" />
-                                {busy === 'password' ? 'Sending…' : 'Send Password Reset Link'}
-                            </button>
-                        </div>
-                    </div>
-
                     <div className="card border-0 shadow-sm">
                         <div className="card-header bg-navy text-white py-3">
                             <h6 className="mb-0 fw-bold"><i className="bi bi-toggle-on me-2" />Account Status</h6>

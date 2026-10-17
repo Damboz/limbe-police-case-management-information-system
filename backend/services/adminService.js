@@ -286,50 +286,6 @@ async function updateUser(userId, body) {
 }
 
 
-async function resetPassword(userId) {
-    const [users] = await db.execute(
-        'SELECT id, badge_number, first_name, last_name, email FROM users WHERE id = ?',
-        [userId]
-    );
-    if (users.length === 0) {
-        return fail(404, 'User account not found.');
-    }
-
-    const target = users[0];
-
-    // Same approach as account creation: replace the password with a random value
-    // the officer never sees, then email a one-time link to set their own.
-    const hashedPassword = await bcrypt.hash(generateRandomPassword(), 10);
-    await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, userId]);
-
-    const token = createResetToken({ userId: target.id, passwordHash: hashedPassword });
-
-    let emailStatus;
-    try {
-        emailStatus = await emailService.sendAccountSetupEmail({
-            email: target.email,
-            firstName: target.first_name,
-            lastName: target.last_name,
-            badgeNumber: target.badge_number,
-            token,
-            expiresMinutes: Math.round(TOKEN_TTL_MS / 60000),
-            purpose: 'reset'
-        });
-    } catch (err) {
-        emailStatus = { sent: false, error: err.message };
-    }
-
-    return ok({
-        userId,
-        badgeNumber: target.badge_number,
-        email: target.email,
-        emailSent: Boolean(emailStatus && emailStatus.sent),
-        emailError: emailStatus && !emailStatus.sent ? emailStatus.error : null,
-        auditDetails: `Admin reset password for User ID ${userId}. Password reset email: ${emailStatus && emailStatus.sent ? 'sent' : 'NOT sent'}`
-    });
-}
-
-
 async function toggleUserStatus(actingUser, userId) {
     if (actingUser && parseInt(userId, 10) === parseInt(actingUser.id, 10)) {
         return fail(400, 'You cannot deactivate your own active account.');
@@ -492,7 +448,6 @@ module.exports = {
     getUserToEdit,
     createUser,
     updateUser,
-    resetPassword,
     toggleUserStatus,
     deleteUser,
     clearAuditLogs,

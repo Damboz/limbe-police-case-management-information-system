@@ -93,32 +93,6 @@ exports.updateUser = async (req, res, next) => {
 };
 
 
-exports.resetPassword = async (req, res, next) => {
-    try {
-        const adminId = req.session.user.id;
-        const result = await adminService.resetPassword(req.params.id);
-
-        if (!result.ok) {
-            return res.status(result.status).json({ success: false, error: result.error });
-        }
-
-        await logAudit(req, adminId, 'PASSWORD_RESET', result.auditDetails);
-
-        const emailNote = result.emailSent
-            ? ` A password reset link has been emailed to ${result.email}.`
-            : ` However, the password reset email could not be sent to ${result.email}: ${result.emailError || 'unknown error'}. The officer cannot sign in until a new link is generated.`;
-
-        res.json({
-            success: true,
-            message: `Password reset initiated for ${result.badgeNumber}.${emailNote}`,
-            data: { emailSent: result.emailSent }
-        });
-    } catch (err) {
-        next(err);
-    }
-};
-
-
 exports.toggleStatus = async (req, res, next) => {
     try {
         const adminId = req.session.user.id;

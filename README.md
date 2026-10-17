@@ -891,7 +891,8 @@ const result = await adminService.createUser(req.body);
 That ordering is deliberate. `req.body` is the *new user's* data, so if the audit line
 were built afterwards from the wrong object you'd log the wrong person. The service
 validates required fields, rejects duplicate badge or email, maps the role string to
-its `role_id`, and hashes the password with bcrypt.
+its `role_id`, generates a random temporary password (hashed with bcrypt, never
+revealed), and emails the officer a one-time link to set their own password.
 
 ### `updateUser` — `PUT /admin/users/:id`
 
@@ -899,11 +900,12 @@ Updates identity and role. **It does not touch `is_active`** — deactivating so
 a separate, separately-audited action. If updating a profile could silently re-enable
 a suspended account, there'd be no record of it.
 
-### `resetPassword` — `POST /admin/users/:id/reset-password`
+### Password resets
 
-An admin resetting someone's password. Note the check order: length is tested *before*
-the two passwords match, so a missing confirmation field reports the length error. Odd,
-but harmless. This function has **no existence check** — see issue #5.
+Password resets are **self-service only**. Officers use *Forgot password* on the login
+page and set a new password through a one-time emailed link. The former
+`POST /admin/users/:id/reset-password` endpoint and its `adminService.resetPassword`
+function have been removed.
 
 ### `toggleStatus` — `POST /admin/users/:id/toggle-status`
 
@@ -1273,7 +1275,6 @@ immediately after install.
 | POST | `/api/admin/users` | `adminApi.createUser` |
 | GET | `/api/admin/users/:id` | `adminApi.editUser` |
 | PUT | `/api/admin/users/:id` | `adminApi.updateUser` |
-| POST | `/api/admin/users/:id/reset-password` | `adminApi.resetPassword` |
 | POST | `/api/admin/users/:id/toggle-status` | `adminApi.toggleStatus` |
 | DELETE | `/api/admin/users/:id` | `adminApi.deleteUser` |
 | GET | `/api/admin/audit-logs` | `adminApi.auditLogs` |
@@ -1490,10 +1491,7 @@ logged as **`REJECTD`** — permanently, in the audit trail. The related action 
 also inconsistent: `STATUS_APPROVAL_APPROVE` / `STATUS_APPROVAL_REJECT` (not
 `_APPROVED`).
 
-**5. `resetPassword` has no existence check.** Resetting a nonexistent user ID
-returns success, so a typo looks like it worked.
-
-**6. `deleteUser` misses `case_investigators` — and the database silently cascades.**
+**5. `deleteUser` misses `case_investigators` — and the database silently cascades.**
 The guard counts `cases.intake_officer_id`, `evidence.collected_by_officer_id`, and
 `case_notes.officer_id` but not `case_investigators`. The other three are additionally
 protected by `ON DELETE RESTRICT`, so the database would block the delete anyway.
@@ -1503,15 +1501,15 @@ assigned to**, with no prompt and no audit record of the reassignment. The
 `Cannot delete … the account has historical records … Deactivate instead.` message
 should cover this table too.
 
-**7. `reportsApi.dashboard` is dead code.** It's a verbatim copy of
+**6. `reportsApi.dashboard` is dead code.** It's a verbatim copy of
 `generalApi.dashboard`, but the route points at the `generalApi` version, so the
 `reportsApi` copy is never called.
 
-**8. `syncCaseInvestigators` has no transaction.** It deletes the existing
+**7. `syncCaseInvestigators` has no transaction.** It deletes the existing
 assignments then inserts the new ones. If an insert fails midway, the case is left with
 fewer investigators than intended — or none. Wrapping it in `BEGIN`/`COMMIT` would fix
 it.
 
-**9. The login messages differ for unknown-badge vs wrong-password**
+**8. The login messages differ for unknown-badge vs wrong-password**
 (`...verify your badge number or email` vs `...check your password`), which lets an
 attacker enumerate valid badge numbers. A single generic message would be better.

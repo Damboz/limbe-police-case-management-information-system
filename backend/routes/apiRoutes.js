@@ -81,7 +81,6 @@ router.get('/admin/users/form-options', isAuthenticated, isAdmin, adminApi.formO
 router.post('/admin/users', isAuthenticated, isAdmin, adminApi.createUser);
 router.get('/admin/users/:id', isAuthenticated, isAdmin, adminApi.editUser);
 router.put('/admin/users/:id', isAuthenticated, isAdmin, adminApi.updateUser);
-router.post('/admin/users/:id/reset-password', isAuthenticated, isAdmin, adminApi.resetPassword);
 router.post('/admin/users/:id/toggle-status', isAuthenticated, isAdmin, adminApi.toggleStatus);
 router.delete('/admin/users/:id', isAuthenticated, isAdmin, adminApi.deleteUser);
 router.get('/admin/audit-logs', isAuthenticated, isAdmin, adminApi.auditLogs);
