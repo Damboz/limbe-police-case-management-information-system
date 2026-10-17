@@ -20,6 +20,8 @@ const {
 
 router.post('/auth/login', authApi.login);
 router.post('/auth/logout', authApi.logout);
+router.post('/auth/forgot-password', authApi.forgotPassword);
+router.post('/auth/reset-password', authApi.resetPassword);
 router.get('/auth/me', isAuthenticated, authApi.me);
 router.post('/auth/change-password', isAuthenticated, authApi.changePassword);
 

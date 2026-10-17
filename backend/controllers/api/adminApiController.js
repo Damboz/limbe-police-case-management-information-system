@@ -60,10 +60,14 @@ exports.createUser = async (req, res, next) => {
 
         await logAudit(req, adminId, 'USER_CREATED', result.auditDetails);
 
+        const emailNote = result.emailSent
+            ? ` A password setup link has been emailed to ${result.email}.`
+            : ` However, the password setup email could not be sent to ${result.email}: ${result.emailError || 'unknown error'}. The officer cannot sign in until they set a password.`;
+
         res.status(201).json({
             success: true,
-            message: `Officer ${result.firstName} ${result.lastName} (${result.badgeNumber}) registered successfully.`,
-            data: { userId: result.userId }
+            message: `Officer ${result.firstName} ${result.lastName} (${result.badgeNumber}) registered successfully.${emailNote}`,
+            data: { userId: result.userId, emailSent: result.emailSent }
         });
     } catch (err) {
         next(err);
@@ -92,7 +96,7 @@ exports.updateUser = async (req, res, next) => {
 exports.resetPassword = async (req, res, next) => {
     try {
         const adminId = req.session.user.id;
-        const result = await adminService.resetPassword(req.params.id, req.body.new_password, req.body.confirm_password);
+        const result = await adminService.resetPassword(req.params.id);
 
         if (!result.ok) {
             return res.status(result.status).json({ success: false, error: result.error });
@@ -100,7 +104,15 @@ exports.resetPassword = async (req, res, next) => {
 
         await logAudit(req, adminId, 'PASSWORD_RESET', result.auditDetails);
 
-        res.json({ success: true, message: 'User password reset successfully.' });
+        const emailNote = result.emailSent
+            ? ` A password reset link has been emailed to ${result.email}.`
+            : ` However, the password reset email could not be sent to ${result.email}: ${result.emailError || 'unknown error'}. The officer cannot sign in until a new link is generated.`;
+
+        res.json({
+            success: true,
+            message: `Password reset initiated for ${result.badgeNumber}.${emailNote}`,
+            data: { emailSent: result.emailSent }
+        });
     } catch (err) {
         next(err);
     }

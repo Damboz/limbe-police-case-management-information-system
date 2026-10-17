@@ -1,10 +1,11 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
+const emailService = require('./emailService');
+const { generateRandomPassword } = require('../utils/password');
+const { TOKEN_TTL_MS, createResetToken } = require('../utils/resetToken');
 const { ok, fail } = require('../utils/result');
 const { containsPattern } = require('../utils/query');
 const { ROLES, ROLE_IDS, WORKFLOW_BRANCHES } = require('../roles');
-
-const MIN_PASSWORD_LENGTH = 6;
 
 const WORKFLOW_BRANCH_NAMES = Object.values(WORKFLOW_BRANCHES);
 
@@ -161,14 +162,14 @@ async function getUserToEdit(userId) {
 
 
 async function createUser(body) {
-    const { badge_number, rank_title, first_name, last_name, email, phone_number, role, branch, password } = body;
+    const { badge_number, rank_title, first_name, last_name, email, phone_number, role, branch } = body;
 
-    if (!badge_number || !first_name || !last_name || !email || !role || !password) {
+    if (!badge_number || !first_name || !last_name || !email || !role) {
         return fail(400, 'Please complete all required fields.');
     }
 
     const [existing] = await db.execute(
-        'SELECT id FROM users WHERE badge_number = ? OR email = ?',
+        'SELECT id FROM users WHERE badge_number = ? OR LOWER(email) = ?',
         [badge_number.trim(), email.trim().toLowerCase()]
     );
 
@@ -183,7 +184,10 @@ async function createUser(body) {
         return fail(400, 'Please select the workflow branch that this Branch Officer heads (Investigation Branch or CID).');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // The officer chooses their own password through the emailed setup link. Until
+    // then the account holds a random, unknown password so it cannot be signed into.
+    const hashedPassword = await bcrypt.hash(generateRandomPassword(), 10);
+    const normalizedEmail = email.trim().toLowerCase();
 
     const [result] = await db.execute(`
         INSERT INTO users (
@@ -196,7 +200,7 @@ async function createUser(body) {
         rank_title ? rank_title.trim() : null,
         first_name.trim(),
         last_name.trim(),
-        email.trim().toLowerCase(),
+        normalizedEmail,
         phone_number ? phone_number.trim() : null,
         roleMap.role,
         roleMap.role_id,
@@ -204,12 +208,32 @@ async function createUser(body) {
         hashedPassword
     ]);
 
+    const token = createResetToken({ userId: result.insertId, passwordHash: hashedPassword });
+
+    let emailStatus;
+    try {
+        emailStatus = await emailService.sendAccountSetupEmail({
+            email: normalizedEmail,
+            firstName: first_name.trim(),
+            lastName: last_name.trim(),
+            badgeNumber: badge_number.trim(),
+            token,
+            expiresMinutes: Math.round(TOKEN_TTL_MS / 60000),
+            purpose: 'created'
+        });
+    } catch (err) {
+        emailStatus = { sent: false, error: err.message };
+    }
+
     return ok({
         userId: result.insertId,
         badgeNumber: badge_number.trim(),
         firstName: first_name.trim(),
         lastName: last_name.trim(),
-        auditDetails: `Created user ${badge_number.trim()} with role ${roleMap.role} (Role ID: ${roleMap.role_id})`
+        email: normalizedEmail,
+        emailSent: Boolean(emailStatus && emailStatus.sent),
+        emailError: emailStatus && !emailStatus.sent ? emailStatus.error : null,
+        auditDetails: `Created user ${badge_number.trim()} with role ${roleMap.role} (Role ID: ${roleMap.role_id}). Password setup email: ${emailStatus && emailStatus.sent ? 'sent' : 'NOT sent'}`
     });
 }
 
@@ -222,7 +246,7 @@ async function updateUser(userId, body) {
     }
 
     const [existing] = await db.execute(
-        'SELECT id FROM users WHERE email = ? AND id != ?',
+        'SELECT id FROM users WHERE LOWER(email) = ? AND id != ?',
         [email.trim().toLowerCase(), userId]
     );
 
@@ -262,19 +286,47 @@ async function updateUser(userId, body) {
 }
 
 
-async function resetPassword(userId, newPassword, confirmPassword) {
-    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
-        return fail(400, 'Password must be at least 6 characters long.');
+async function resetPassword(userId) {
+    const [users] = await db.execute(
+        'SELECT id, badge_number, first_name, last_name, email FROM users WHERE id = ?',
+        [userId]
+    );
+    if (users.length === 0) {
+        return fail(404, 'User account not found.');
     }
 
-    if (newPassword !== confirmPassword) {
-        return fail(400, 'Passwords do not match.');
-    }
+    const target = users[0];
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    // Same approach as account creation: replace the password with a random value
+    // the officer never sees, then email a one-time link to set their own.
+    const hashedPassword = await bcrypt.hash(generateRandomPassword(), 10);
     await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, userId]);
 
-    return ok({ userId, auditDetails: `Admin reset password for User ID ${userId}` });
+    const token = createResetToken({ userId: target.id, passwordHash: hashedPassword });
+
+    let emailStatus;
+    try {
+        emailStatus = await emailService.sendAccountSetupEmail({
+            email: target.email,
+            firstName: target.first_name,
+            lastName: target.last_name,
+            badgeNumber: target.badge_number,
+            token,
+            expiresMinutes: Math.round(TOKEN_TTL_MS / 60000),
+            purpose: 'reset'
+        });
+    } catch (err) {
+        emailStatus = { sent: false, error: err.message };
+    }
+
+    return ok({
+        userId,
+        badgeNumber: target.badge_number,
+        email: target.email,
+        emailSent: Boolean(emailStatus && emailStatus.sent),
+        emailError: emailStatus && !emailStatus.sent ? emailStatus.error : null,
+        auditDetails: `Admin reset password for User ID ${userId}. Password reset email: ${emailStatus && emailStatus.sent ? 'sent' : 'NOT sent'}`
+    });
 }
 
 

@@ -102,3 +102,41 @@ exports.changePassword = async (req, res, next) => {
         next(err);
     }
 };
+
+
+exports.forgotPassword = async (req, res, next) => {
+    try {
+        const result = await authService.requestPasswordReset(req.body.email);
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        // A generic message keeps the endpoint from revealing which emails exist.
+        return res.json({
+            success: true,
+            message: 'If that email address is registered, a password reset link has been sent. Please check your inbox and spam folder.'
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+exports.resetPassword = async (req, res, next) => {
+    try {
+        const { token, new_password, confirm_password } = req.body;
+
+        const result = await authService.resetPasswordWithToken(token, new_password, confirm_password);
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        await logAudit(req, null, 'PASSWORD_RESET', `Password reset via emailed link for officer ${result.badgeNumber}.`);
+
+        return res.json({ success: true, message: 'Your password has been reset successfully. You can now sign in with your new password.' });
+    } catch (err) {
+        next(err);
+    }
+};

@@ -4,11 +4,8 @@ import { api } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
 import { useToast } from '../../context/ToastContext';
 import { Alert, PageHeader, Spinner } from '../../components/ui';
-import PasswordInput from '../../components/PasswordInput';
 import usePageTitle from '../../hooks/usePageTitle';
 
-
-const MIN_PASSWORD_LENGTH = 6;
 
 const RANKS = ['Constable', 'Sergeant', 'Inspector', 'Assistant Superintendent', 'Superintendent', 'Station Commander'];
 
@@ -37,8 +34,7 @@ export default function UserCreate() {
         email: '',
         phone_number: '',
         role: '',
-        branch: '',
-        password: ''
+        branch: ''
     });
     const [error, setError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
@@ -172,18 +168,12 @@ export default function UserCreate() {
                                         <div className="form-text">This Branch Officer only sees cases classified into this workflow branch.</div>
                                     </div>
                                 )}
+                            </div>
 
-                                <div className="col-md-6">
-                                    <label htmlFor="password" className="form-label">Initial Password *</label>
-                                    <PasswordInput
-                                        id="password"
-                                        value={form.password}
-                                        onChange={set('password')}
-                                        placeholder={`Min ${MIN_PASSWORD_LENGTH} characters`}
-                                        autoComplete="new-password"
-                                        minLength={MIN_PASSWORD_LENGTH}
-                                    />
-                                </div>
+                            <div className="alert alert-info border-0 small mt-4 mb-0">
+                                <i className="bi bi-envelope-check-fill me-2" />
+                                The system generates a secure temporary password. A link to set a personal
+                                password will be emailed to the officer at the address above.
                             </div>
 
                             <hr className="my-4 text-muted" />

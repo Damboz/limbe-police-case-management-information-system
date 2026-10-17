@@ -1,5 +1,7 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
+const emailService = require('./emailService');
+const { TOKEN_TTL_MS, passwordFingerprint, createResetToken, verifyResetToken } = require('../utils/resetToken');
 const { ok, fail } = require('../utils/result');
 
 const MIN_PASSWORD_LENGTH = 6;
@@ -9,7 +11,7 @@ async function findUserByIdentifier(identifier) {
     const [users] = await db.execute(`
         SELECT id, badge_number, rank_title, first_name, last_name, email, password_hash, role, role_id, branch_id, branch, is_active 
         FROM users 
-        WHERE badge_number = ? OR email = ?
+        WHERE badge_number = ? OR LOWER(email) = ?
     `, [identifier, identifier.toLowerCase()]);
     return users[0] || null;
 }
@@ -101,6 +103,82 @@ async function changePassword(user, currentPassword, newPassword, confirmPasswor
 }
 
 
+// Send a password-reset link to the account that owns the given email address.
+// The response is deliberately identical whether or not the address exists, so
+// the endpoint cannot be used to discover which emails are registered.
+async function requestPasswordReset(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) {
+        return fail(400, 'Please enter your registered email address.');
+    }
+
+    const [users] = await db.execute(
+        'SELECT id, badge_number, first_name, last_name, email, password_hash, is_active FROM users WHERE LOWER(email) = ?',
+        [normalized]
+    );
+
+    const user = users[0];
+    if (!user || !user.is_active) {
+        return ok({ delivered: false });
+    }
+
+    const token = createResetToken({ userId: user.id, passwordHash: user.password_hash });
+
+    let emailStatus;
+    try {
+        emailStatus = await emailService.sendAccountSetupEmail({
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            badgeNumber: user.badge_number,
+            token,
+            expiresMinutes: Math.round(TOKEN_TTL_MS / 60000),
+            purpose: 'reset'
+        });
+    } catch (err) {
+        emailStatus = { sent: false, error: err.message };
+    }
+
+    return ok({
+        delivered: Boolean(emailStatus && emailStatus.sent),
+        error: emailStatus && !emailStatus.sent ? emailStatus.error : null
+    });
+}
+
+
+// Complete a reset started by requestPasswordReset. The token is stateless and
+// bound to the password hash that was current when it was issued, so it becomes
+// unusable the moment the password changes (single use) or once it expires.
+async function resetPasswordWithToken(token, newPassword, confirmPassword) {
+    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+        return fail(400, 'Password must be at least 6 characters long.');
+    }
+
+    if (newPassword !== confirmPassword) {
+        return fail(400, 'Password and confirmation password do not match.');
+    }
+
+    const data = verifyResetToken(token);
+    if (!data) {
+        return fail(400, 'This password reset link is invalid or has expired. Please request a new one.');
+    }
+
+    const [users] = await db.execute(
+        'SELECT id, badge_number, password_hash FROM users WHERE id = ?',
+        [data.uid]
+    );
+
+    if (users.length === 0 || passwordFingerprint(users[0].password_hash) !== data.ph) {
+        return fail(400, 'This password reset link is invalid or has already been used. Please request a new one.');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, users[0].id]);
+
+    return ok({ badgeNumber: users[0].badge_number });
+}
+
+
 function toSessionUser(user) {
     return {
         id: user.id,
@@ -124,5 +202,7 @@ module.exports = {
     authenticate,
     refreshSessionUser,
     changePassword,
+    requestPasswordReset,
+    resetPasswordWithToken,
     toSessionUser
 };

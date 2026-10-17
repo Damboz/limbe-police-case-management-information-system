@@ -4,11 +4,8 @@ import { api } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
 import { useToast } from '../../context/ToastContext';
 import { Alert, PageHeader, Spinner } from '../../components/ui';
-import PasswordInput from '../../components/PasswordInput';
 import usePageTitle from '../../hooks/usePageTitle';
 
-
-const MIN_PASSWORD_LENGTH = 6;
 
 const ROLE_OPTIONS = [
     { value: 'Admin', label: 'System Administrator' },
@@ -59,7 +56,6 @@ export default function UserEdit() {
     const { data: options } = useApiData(api.personnelFormOptions);
 
     const [form, setForm] = useState(null);
-    const [passwords, setPasswords] = useState({ new_password: '', confirm_password: '' });
     const [profileError, setProfileError] = useState(null);
     const [passwordError, setPasswordError] = useState(null);
     const [statusError, setStatusError] = useState(null);
@@ -111,14 +107,12 @@ export default function UserEdit() {
         }
     };
 
-    const resetPassword = async (e) => {
-        e.preventDefault();
+    const resetPassword = async () => {
         setBusy('password');
         setPasswordError(null);
         try {
-            const res = await api.resetUserPassword(id, passwords);
+            const res = await api.resetUserPassword(id);
             toast.success(res.message);
-            setPasswords({ new_password: '', confirm_password: '' });
         } catch (err) {
             setPasswordError(err.message);
         } finally {
@@ -274,34 +268,19 @@ export default function UserEdit() {
                         <div className="card-body p-4">
                             <Alert variant="danger" message={passwordError} onDismiss={() => setPasswordError(null)} />
 
-                            <form onSubmit={resetPassword}>
-                                <div className="mb-3">
-                                    <label htmlFor="new_password" className="form-label small fw-semibold text-muted">New Password</label>
-                                    <PasswordInput
-                                        id="new_password"
-                                        value={passwords.new_password}
-                                        onChange={e => setPasswords(prev => ({ ...prev, new_password: e.target.value }))}
-                                        placeholder={`Min ${MIN_PASSWORD_LENGTH} characters`}
-                                        autoComplete="new-password"
-                                        minLength={MIN_PASSWORD_LENGTH}
-                                    />
-                                </div>
-                                <div className="mb-3">
-                                    <label htmlFor="confirm_password" className="form-label small fw-semibold text-muted">Confirm New Password</label>
-                                    <PasswordInput
-                                        id="confirm_password"
-                                        value={passwords.confirm_password}
-                                        onChange={e => setPasswords(prev => ({ ...prev, confirm_password: e.target.value }))}
-                                        placeholder="Repeat new password"
-                                        autoComplete="new-password"
-                                        minLength={MIN_PASSWORD_LENGTH}
-                                    />
-                                </div>
-                                <button type="submit" className="btn btn-warning w-100 fw-bold mt-2" disabled={busy === 'password'}>
-                                    <i className="bi bi-key-fill me-1" />
-                                    {busy === 'password' ? 'Updating…' : 'Update Password'}
-                                </button>
-                            </form>
+                            <p className="small text-muted mb-3">
+                                This generates a new temporary password and emails the officer a secure link to set
+                                their own password. Their current password stops working immediately.
+                            </p>
+                            <button
+                                type="button"
+                                className="btn btn-warning w-100 fw-bold"
+                                onClick={resetPassword}
+                                disabled={busy === 'password'}
+                            >
+                                <i className="bi bi-envelope-arrow-up-fill me-1" />
+                                {busy === 'password' ? 'Sending…' : 'Send Password Reset Link'}
+                            </button>
                         </div>
                     </div>
 

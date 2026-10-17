@@ -161,6 +161,8 @@ export const downloadPdfReport = (key, { period } = {}) => {
 export const api = {
     login: (badge_number, password) => request('/auth/login', { method: 'POST', body: { badge_number, password } }),
     logout: () => request('/auth/logout', { method: 'POST' }),
+    forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: { email } }),
+    resetPassword: (body) => request('/auth/reset-password', { method: 'POST', body }),
     me: (signal) => request('/auth/me', { signal }),
     changePassword: (body) => request('/auth/change-password', { method: 'POST', body }),
 
@@ -198,7 +200,7 @@ export const api = {
     getUser: (id, signal) => request(`/admin/users/${id}`, { signal }),
     createUser: (body) => request('/admin/users', { method: 'POST', body }),
     updateUser: (id, body) => request(`/admin/users/${id}`, { method: 'PUT', body }),
-    resetUserPassword: (id, body) => request(`/admin/users/${id}/reset-password`, { method: 'POST', body }),
+    resetUserPassword: (id) => request(`/admin/users/${id}/reset-password`, { method: 'POST' }),
     toggleUserStatus: (id) => request(`/admin/users/${id}/toggle-status`, { method: 'POST' }),
     deleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
     auditLogs: (params, signal) => request(`/admin/audit-logs${toQuery(params)}`, { signal }),

@@ -6,6 +6,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { Spinner } from './components/ui';
 
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
 import MyAnalytics from './pages/MyAnalytics';
@@ -76,6 +78,8 @@ export default function App() {
         <Routes>
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/login" element={<LoginRoute />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<Dashboard />} />

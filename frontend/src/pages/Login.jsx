@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { canAccessPath, homePathFor } from '../lib/roles';
 import { useToast } from '../context/ToastContext';
@@ -87,7 +87,7 @@ export default function Login() {
                                 </div>
                             </div>
 
-                            <div className="mb-4">
+                            <div className="mb-2">
                                 <label
                                     htmlFor="password"
                                     className="form-label text-uppercase text-muted fw-bold mb-1"
@@ -101,6 +101,16 @@ export default function Login() {
                                     onChange={e => setPassword(e.target.value)}
                                     label
                                 />
+                            </div>
+
+                            <div className="text-end mb-4">
+                                <Link
+                                    to="/forgot-password"
+                                    className="small text-decoration-none"
+                                    style={{ color: 'rgb(2, 116, 176)' }}
+                                >
+                                    Forgot password?
+                                </Link>
                             </div>
 
                             <button
