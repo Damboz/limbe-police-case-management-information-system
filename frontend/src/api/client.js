@@ -181,7 +181,9 @@ export const api = {
     linkSuspect: (id, body) => request(`/cases/${id}/suspects`, { method: 'POST', body }),
     linkVictim: (id, body) => request(`/cases/${id}/victims`, { method: 'POST', body }),
     suspectInvitation: (id, suspectId, body) => requestBlob(
-        `/cases/${id}/suspects/${suspectId}/letter`,
+        // The letter route lives under /api (unlike the root-mounted report
+        // routes requestBlob normally serves), so the prefix goes here.
+        `/api/cases/${id}/suspects/${suspectId}/letter`,
         {
             method: 'POST',
             body,
