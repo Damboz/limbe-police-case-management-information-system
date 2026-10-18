@@ -1040,12 +1040,10 @@ Two small files for the dashboards every logged-in user can see.
 **`reportsApiController.js`** (3 functions) — the two above plus the one genuinely
 interesting function:
 
-### `suspectInvitation` — `GET /api/cases/:id/suspects/:suspectId/letter`
+### `suspectInvitation` — `POST /api/cases/:id/suspects/:suspectId/letter`
 
-The only controller in the project that returns a **PDF** instead of JSON, and the only
-one that is called with a `GET` but expects the browser to `POST` a body
-(`appearance_date`, `appearance_time`, `officer_notes`) — the client's form does that
-with `fetch`.
+The only controller in the project that returns a **PDF** instead of JSON. The browser
+`POST`s a body (`appearance_date`, `appearance_time`, `officer_notes`) with `fetch`.
 
 The sequence, and why the order matters:
 
@@ -1255,7 +1253,7 @@ immediately after install.
 | POST | `/api/cases/:id/evidence` | `caseApi.addEvidence` |
 | POST | `/api/cases/:id/suspects` | `caseApi.linkSuspect` |
 | POST | `/api/cases/:id/victims` | `caseApi.linkVictim` |
-| GET | `/api/cases/:id/suspects/:suspectId/letter` | `reportsApi.suspectInvitation` |
+| POST | `/api/cases/:id/suspects/:suspectId/letter` | `reportsApi.suspectInvitation` |
 
 **Evidence** — `auth` + `Investigating Officer / Station Commander / Admin`
 

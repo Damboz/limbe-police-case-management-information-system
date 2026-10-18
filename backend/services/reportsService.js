@@ -6,7 +6,16 @@ const { ROLES, roleIn } = require('../roles');
 
 const INVESTIGATOR_ROLES = [ROLES.POLICE_OFFICER];
 // The letter route is behind denyAdmin, so Admin is deliberately absent here too.
-const LETTER_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER];
+// Invitation letters follow case registration: every role that can
+// register a case can generate an invitation letter for its suspects.
+// That is every role except Admin (the case routes are denyAdmin).
+const LETTER_ROLES = [
+    ROLES.POLICE_OFFICER,
+    ROLES.STATION_OFFICER,
+    ROLES.BRANCH_OFFICER,
+    ROLES.RECORDS_OFFICER,
+    ROLES.PROSECUTOR
+];
 
 
 function buildScope(user) {
