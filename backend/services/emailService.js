@@ -1,5 +1,5 @@
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
-const SENDER_NAME = 'Limbe Police Station CMS';
+const SENDER_NAME = 'Limbe Police Station CMIS';
 const REQUEST_TIMEOUT_MS = 20000;
 
 
