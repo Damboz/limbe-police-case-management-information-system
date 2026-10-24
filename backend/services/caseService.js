@@ -1,7 +1,7 @@
 const db = require('../config/db');
 const { ok, fail } = require('../utils/result');
 const { ROLES, roleIn } = require('../roles');
-const { isAssignedInvestigator } = require('./assignmentService');
+const { isAssignedInvestigator, getAssignedInvestigators } = require('./assignmentService');
 const partyService = require('./partyService');
 
 
