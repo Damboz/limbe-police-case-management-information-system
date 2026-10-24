@@ -178,6 +178,27 @@ export const api = {
     requestCaseStatus: (id, body) => request(`/cases/${id}/request-status`, { method: 'POST', body }),
     addCaseEvidence: (id, body) => request(`/cases/${id}/evidence`, { method: 'POST', body }),
     requestCaseExternalReport: (id, body) => request(`/cases/${id}/external-reports`, { method: 'POST', body }),
+    capturePartyEvidence: (id, partyId, formData) => {
+        const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+        return fetch(`${API_BASE}/api/cases/${id}/parties/${partyId}/evidence`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        }).then(async (res) => {
+            const contentType = res.headers.get('content-type') || '';
+            const payload = contentType.includes('application/json') ? await res.json().catch(() => null) : await res.text();
+            if (!res.ok) {
+                const message = (payload && payload.error) ? payload.error : `Request failed (${res.status}).`;
+                if (res.status === 401) {
+                    window.dispatchEvent(new Event('auth:expired'));
+                }
+                throw new ApiError(message, res.status, payload);
+            }
+            return payload;
+        });
+    },
+    addParty: (id, body) => request(`/cases/${id}/parties`, { method: 'POST', body }),
+    listParties: (id, signal) => request(`/cases/${id}/parties`, { signal }),
     linkSuspect: (id, body) => request(`/cases/${id}/suspects`, { method: 'POST', body }),
     linkVictim: (id, body) => request(`/cases/${id}/victims`, { method: 'POST', body }),
     suspectInvitation: (id, suspectId, body) => requestBlob(
@@ -192,9 +213,12 @@ export const api = {
     ),
 
     evidenceLedger: (params, signal) => request(`/evidence${toQuery(params)}`, { signal }),
-    updateEvidenceStatus: (id, body) => request(`/evidence/${id}/status`, { method: 'POST', body }),
-    transferEvidence: (id, body) => request(`/evidence/${id}/transfer`, { method: 'POST', body }),
-    disposeEvidence: (id, body) => request(`/evidence/${id}/dispose`, { method: 'POST', body }),
+    evidenceDetail: (id, signal) => request(`/evidence/${id}`, { signal }),
+    requestEvidenceTransfer: (id, body) => request(`/evidence/${id}/transfer/request`, { method: 'POST', body }),
+    approveEvidenceTransfer: (transferId, body) => request(`/evidence/transfer/${transferId}/approve`, { method: 'POST', body }),
+    addEvidenceNote: (id, body) => request(`/evidence/${id}/note`, { method: 'POST', body }),
+    verifyEvidenceIntegrity: (id) => request(`/evidence/${id}/verify`, { method: 'POST' }),
+    // removed old update/transfer/dispose methods as per Phase 3/4 cleanup
 
     adminDashboard: (signal) => request('/admin/dashboard', { signal }),
     listUsers: (params, signal) => request(`/admin/users${toQuery(params)}`, { signal }),

@@ -1,4 +1,5 @@
 const caseService = require('../../services/caseService');
+const partyService = require('../../services/partyService');
 const { logAudit } = require('../../utils/audit');
 const { normalizeQuery } = require('../../utils/query');
 
@@ -157,36 +158,33 @@ exports.addEvidence = async (req, res, next) => {
 };
 
 
-exports.linkSuspect = async (req, res, next) => {
+exports.addParty = async (req, res, next) => {
     try {
         const user = req.session.user;
-        const result = await caseService.linkSuspect(req.params.id, user, req.body);
+        const result = await partyService.addParty(req.params.id, user, req.body);
 
         if (!result.ok) {
             return res.status(result.status).json({ success: false, error: result.error });
         }
 
-        await logAudit(req, user.id, 'SUSPECT_LINKED', `Linked suspect "${result.suspectName}" to Case ID ${req.params.id}.`);
+        const party = result.party || {};
+        if (party.party_type === 'Suspect') {
+            await logAudit(req, user.id, 'SUSPECT_LINKED', `Added suspect "${party.full_name}" to Case ID ${req.params.id}.`);
+        } else if (party.party_type === 'Witness') {
+            await logAudit(req, user.id, 'WITNESS_ADDED', `Added Witness No. ${party.witness_number} "${party.full_name}" to Case ID ${req.params.id}.`);
+        }
 
-        res.status(201).json({ success: true, message: 'Suspect linked to case successfully.' });
+        res.status(201).json({ success: true, message: result.message, data: { party } });
     } catch (err) {
         next(err);
     }
 };
 
 
-exports.linkVictim = async (req, res, next) => {
+exports.parties = async (req, res, next) => {
     try {
-        const user = req.session.user;
-        const result = await caseService.linkVictim(req.params.id, user, req.body);
-
-        if (!result.ok) {
-            return res.status(result.status).json({ success: false, error: result.error });
-        }
-
-        await logAudit(req, user.id, 'VICTIM_LINKED', `Linked victim "${result.victimName}" to Case ID ${req.params.id}.`);
-
-        res.status(201).json({ success: true, message: 'Victim information added to case.' });
+        const parties = await partyService.listParties(req.params.id);
+        res.json({ success: true, data: { parties } });
     } catch (err) {
         next(err);
     }

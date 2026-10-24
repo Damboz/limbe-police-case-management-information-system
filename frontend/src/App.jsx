@@ -16,6 +16,7 @@ import CaseRegister from './pages/cases/CaseRegister';
 import CaseSearch from './pages/cases/CaseSearch';
 import CaseDetail from './pages/cases/CaseDetail';
 import EvidenceLedger from './pages/evidence/EvidenceLedger';
+import EvidenceDetail from './pages/evidence/EvidenceDetail';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Users from './pages/admin/Users';
 import UserCreate from './pages/admin/UserCreate';
@@ -92,6 +93,7 @@ export default function App() {
                 <Route path="/cases/:id" element={<ProtectedRoute roles={CASE_ACCESS}><CaseDetail /></ProtectedRoute>} />
 
                 <Route path="/evidence" element={<ProtectedRoute roles={OPS}><EvidenceLedger /></ProtectedRoute>} />
+                <Route path="/evidence/:id" element={<ProtectedRoute roles={OPS}><EvidenceDetail /></ProtectedRoute>} />
 
                 <Route path="/admin/dashboard" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
                 <Route path="/admin/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />

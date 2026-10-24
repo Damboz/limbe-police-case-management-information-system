@@ -1,14 +1,8 @@
 const db = require('../config/db');
-const { isAssignedInvestigator, getAssignedInvestigators } = require('./assignmentService');
-const recordsService = require('./recordsService');
-const { LETTER_ROLES } = require('./reportsService');
 const { ok, fail } = require('../utils/result');
-const { containsPattern } = require('../utils/query');
-const {
-    ROLES,
-    CASE_STATUSES,
-    roleIn
-} = require('../roles');
+const { ROLES, roleIn } = require('../roles');
+const { isAssignedInvestigator } = require('./assignmentService');
+const partyService = require('./partyService');
 
 
 function textOrNull(value) {
@@ -72,17 +66,12 @@ async function listCasesForUser(user) {
             ORDER BY c.created_at DESC
         `;
     } else if (roleIn(user, SUPERVISOR_ROLES) || roleIn(user, RECORDS_ROLES)) {
-        // Station Officers oversee the whole station register; Records Officers
-        // maintain it, so both see every case.
         query = `
             ${baseSelect}
             GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
     } else {
-        // Any other officer (Police Officer) sees the cases assigned
-        // to them plus the cases they recorded. Investigator status
-        // comes from assignment, not the role.
         query = `
             ${baseSelect}
             WHERE c.id IN (SELECT DISTINCT case_id FROM case_investigators WHERE investigator_id = ?)
@@ -99,8 +88,6 @@ async function listCasesForUser(user) {
 
 
 async function getCaseFormOptions() {
-    // Two independent reads: issue them together so the page pays one network
-    // round-trip instead of two.
     const [[categories], [branches]] = await Promise.all([
         db.execute('SELECT id, name, severity_level FROM crime_categories ORDER BY name ASC'),
         db.execute('SELECT id, code, name FROM station_branch ORDER BY name ASC')
@@ -159,92 +146,86 @@ async function createCase(recordingOfficerId, body) {
         return fail(400, 'To add a suspect, please provide both the first name and last name (or leave the suspect section blank).');
     }
 
-    // The OB and criminal numbers are not generated here. A registered case
-    // is left unnumbered (ob_number NULL, status "Registered") and the Records
-    // Officer assigns both numbers through the numbering desk.
-    const [caseResult] = await db.execute(
-        `INSERT INTO cases (
-            complainant_name, complainant_id_number, complainant_phone, complainant_address,
-            complainant_age, complainant_occupation, complainant_ta, complainant_village, complainant_gender,
-            category_id, branch_id, priority, incident_datetime, incident_location, incident_details, recorded_by, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-            complainant_name,
-            complainant_id_number || null,
-            complainant_phone,
-            complainant_address || null,
-            intOrNull(complainant_age),
-            textOrNull(complainant_occupation),
-            textOrNull(complainant_ta),
-            textOrNull(complainant_village),
-            complainant_gender || 'Other',
-            category_id,
-            branch_id,
-            priority || 'Medium',
-            incident_datetime || null,
-            incident_location,
-            incident_details,
-            recordingOfficerId,
-            CASE_STATUSES.REGISTERED
-        ]
-    );
-
-    let suspectName = null;
-    if (suspectSectionUsed) {
-        const [suspectResult] = await db.execute(
-            `INSERT INTO suspects (first_name, last_name, alias, national_id, gender, phone_number, address, age, occupation, ta, village)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                suspectFirstName,
-                suspectLastName,
-                suspect_alias ? String(suspect_alias).trim() || null : null,
-                suspect_national_id ? String(suspect_national_id).trim() || null : null,
-                suspect_gender || 'Other',
-                suspect_phone_number ? String(suspect_phone_number).trim() || null : null,
-                suspect_address ? String(suspect_address).trim() || null : null,
-                intOrNull(suspect_age),
-                textOrNull(suspect_occupation),
-                textOrNull(suspect_ta),
-                textOrNull(suspect_village)
-            ]
-        );
-
-        await db.execute(
-            `INSERT INTO case_suspects (case_id, suspect_id, status) VALUES (?, ?, 'Under Investigation')`,
-            [caseResult.insertId, suspectResult.insertId]
-        );
-
-        suspectName = `${suspectFirstName} ${suspectLastName}`;
-    }
-
     const witnessList = Array.isArray(witnesses) ? witnesses : [];
-    for (const witness of witnessList) {
-        const fullName = witness && witness.full_name ? String(witness.full_name).trim() : '';
-        if (!fullName) continue;
 
-        await db.execute(
-            `INSERT INTO victims (case_id, full_name, phone_number, national_id, address, age, occupation, ta, village, statement)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    const created = await partyService.withTransaction(async (client) => {
+        const caseInsert = await client.query(
+            `INSERT INTO cases (
+                complainant_name, complainant_id_number, complainant_phone, complainant_address,
+                complainant_age, complainant_occupation, complainant_ta, complainant_village, complainant_gender,
+                category_id, branch_id, priority, incident_datetime, incident_location, incident_details, recorded_by, status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            RETURNING *`,
             [
-                caseResult.insertId,
-                fullName,
-                textOrNull(witness.phone_number),
-                textOrNull(witness.national_id),
-                textOrNull(witness.address),
-                intOrNull(witness.age),
-                textOrNull(witness.occupation),
-                textOrNull(witness.ta),
-                textOrNull(witness.village),
-                textOrNull(witness.statement)
+                complainant_name,
+                complainant_id_number || null,
+                complainant_phone,
+                complainant_address || null,
+                intOrNull(complainant_age),
+                textOrNull(complainant_occupation),
+                textOrNull(complainant_ta),
+                textOrNull(complainant_village),
+                complainant_gender || 'Other',
+                category_id,
+                branch_id,
+                priority || 'Medium',
+                incident_datetime || null,
+                incident_location,
+                incident_details,
+                recordingOfficerId,
+                'Registered'
             ]
         );
-    }
 
-    return ok({
-        caseId: caseResult.insertId,
-        suspectName,
-        complainantName: complainant_name
+        const caseItem = caseInsert.rows[0];
+
+        // Ensure complainant is created as party (Witness No. 1) - required
+        await partyService.ensureComplainantParty(client, caseItem, recordingOfficerId);
+
+        const createdParties = [];
+        let suspectName = null;
+
+        if (suspectSectionUsed) {
+            const suspectParty = await partyService.createSuspectParty(client, caseItem.id, {
+                first_name: suspectFirstName,
+                last_name: suspectLastName,
+                alias: suspect_alias,
+                national_id: suspect_national_id,
+                gender: suspect_gender || 'Other',
+                phone_number: suspect_phone_number,
+                address: suspect_address,
+                age: suspect_age,
+                occupation: suspect_occupation,
+                ta: suspect_ta,
+                village: suspect_village
+            }, recordingOfficerId);
+
+            suspectName = suspectParty.full_name;
+            createdParties.push(suspectParty);
+        }
+
+        for (const witness of witnessList) {
+            const fullName = witness && witness.full_name ? String(witness.full_name).trim() : '';
+            if (!fullName) continue;
+
+            const witnessParty = await partyService.createWitnessParty(
+                client,
+                caseItem.id,
+                { ...witness, full_name: fullName },
+                recordingOfficerId
+            );
+            createdParties.push(witnessParty);
+        }
+
+        return {
+            caseId: caseItem.id,
+            suspectName,
+            complainantName: caseItem.complainant_name,
+            createdParties
+        };
     });
+
+    return ok(created);
 }
 
 
@@ -254,7 +235,7 @@ async function searchCases(query, searchType) {
     let results = [];
 
     if (term.length >= 2) {
-        const like = containsPattern(term);
+        const like = `%${term}%`;
         const lookups = [];
 
         if (type === 'all' || type === 'national_id') {
@@ -288,15 +269,15 @@ async function searchCases(query, searchType) {
                 db.execute(`
                     SELECT c.id, c.ob_number, c.complainant_name, c.priority, c.status, c.created_at,
                            cc.name AS crime_category,
-                           CONCAT(s.first_name, ' ', s.last_name) AS suspect_name,
-                           s.national_id AS suspect_national_id
+                           cp.full_name AS suspect_name,
+                           cp.national_id AS suspect_national_id
                     FROM cases c
-                    JOIN case_suspects cs ON c.id = cs.case_id
-                    JOIN suspects s ON cs.suspect_id = s.id
+                    JOIN case_parties cp ON c.id = cp.case_id
                     LEFT JOIN crime_categories cc ON c.category_id = cc.id
-                    WHERE s.first_name ILIKE ? OR s.last_name ILIKE ? OR s.national_id ILIKE ? OR s.alias ILIKE ?
+                    WHERE cp.party_type = 'Suspect'
+                      AND (cp.full_name ILIKE ? OR cp.first_name ILIKE ? OR cp.last_name ILIKE ? OR cp.national_id ILIKE ? OR cp.alias ILIKE ?)
                     ORDER BY c.created_at DESC LIMIT 20
-                `, [like, like, like, like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Suspect Name/ID' })))
+                `, [like, like, like, like, like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Suspect Name/ID' })))
             );
         }
 
@@ -305,18 +286,18 @@ async function searchCases(query, searchType) {
                 db.execute(`
                     SELECT c.id, c.ob_number, c.complainant_name, c.priority, c.status, c.created_at,
                            cc.name AS crime_category,
-                           v.full_name AS victim_name,
-                           v.national_id AS victim_national_id
+                           cp.full_name AS victim_name,
+                           cp.national_id AS victim_national_id
                     FROM cases c
-                    JOIN victims v ON c.id = v.case_id
+                    JOIN case_parties cp ON c.id = cp.case_id
                     LEFT JOIN crime_categories cc ON c.category_id = cc.id
-                    WHERE v.full_name ILIKE ? OR v.national_id ILIKE ?
+                    WHERE cp.party_type = 'Witness'
+                      AND (cp.full_name ILIKE ? OR cp.national_id ILIKE ?)
                     ORDER BY c.created_at DESC LIMIT 20
-                `, [like, like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Victim Name/ID' })))
+                `, [like, like]).then(([rows]) => rows.map(r => ({ ...r, match_type: 'Witness Name/ID' })))
             );
         }
 
-        // All matching sources are searched at once rather than one after another.
         results = (await Promise.all(lookups)).flat();
 
         const seen = new Set();
@@ -333,16 +314,12 @@ async function searchCases(query, searchType) {
 
 
 async function getCaseDetail(caseId, user) {
-    // The case row and all of its child collections are independent reads, so
-    // they are issued together: the detail page pays one round-trip instead of
-    // eight, which dominates the response time on a remote database.
     const [
         [rows],
         investigators,
         [notes],
         [evidenceItems],
-        [suspects],
-        [victims],
+        parties,
         [minutes],
         [custodyLog],
         [externalReports]
@@ -380,20 +357,7 @@ async function getCaseDetail(caseId, user) {
             ORDER BY e.collected_at DESC
         `, [caseId]),
 
-        db.execute(`
-            SELECT s.id, s.first_name, s.last_name, s.alias, s.national_id, s.photo_url,
-                   s.phone_number, s.gender, s.date_of_birth, s.age, s.occupation, s.ta, s.village, s.address,
-                   cs.status AS link_status, cs.arrest_date
-            FROM case_suspects cs
-            JOIN suspects s ON cs.suspect_id = s.id
-            WHERE cs.case_id = ?
-        `, [caseId]),
-
-        db.execute(`
-            SELECT id, full_name, phone_number, email, national_id, address, age, occupation, ta, village, statement
-            FROM victims
-            WHERE case_id = ?
-        `, [caseId]),
+        partyService.listParties(caseId),
 
         db.execute(`
             SELECT m.id, m.minute_type, m.decision, m.comment, m.created_at,
@@ -436,20 +400,21 @@ async function getCaseDetail(caseId, user) {
     const assignedInvestigatorIds = investigators.map(inv => inv.id);
     const assignedInvestigatorNames = investigators.map(inv => `${inv.rank_title} ${inv.first_name} ${inv.last_name}`);
 
-    const isAssignedInvestigator = assignedInvestigatorIds.includes(user.id);
+    const isAssignedInvestigatorFlag = assignedInvestigatorIds.includes(user.id);
     const isSupervisor = roleIn(user, SUPERVISOR_ROLES);
     const isBranchOfficer = roleIn(user, BRANCH_ROLES);
     const isProsecutor = roleIn(user, PROSECUTOR_ROLES);
 
-    const hasPendingCustody = custodyLog.some(entry => entry.status === 'Pending');
+    const hasPendingCustody = (custodyLog || []).some(entry => entry.status === 'Pending');
 
     const permissions = {
-        canAddNote: isAssignedInvestigator,
-        canRequestStatus: isAssignedInvestigator && !caseItem.requested_status && caseItem.status === 'Under Investigation',
-        canAddEvidence: isAssignedInvestigator,
-        canLinkSuspectVictim: isAssignedInvestigator || roleIn(user, LINK_ROLES),
-        canGenerateInvitationLetter: isAssignedInvestigator || roleIn(user, LETTER_ROLES),
-        canRequestExternalReport: isAssignedInvestigator && caseItem.status === 'Under Investigation' && !caseItem.requested_status,
+        canAddNote: isAssignedInvestigatorFlag,
+        canRequestStatus: isAssignedInvestigatorFlag && !caseItem.requested_status && caseItem.status === 'Under Investigation',
+        canAddEvidence: isAssignedInvestigatorFlag,
+        canManageParties: isAssignedInvestigatorFlag || roleIn(user, LINK_ROLES),
+        canLinkSuspectVictim: isAssignedInvestigatorFlag || roleIn(user, LINK_ROLES),
+        canGenerateInvitationLetter: isAssignedInvestigatorFlag || roleIn(user, [ROLES.PROSECUTOR, ROLES.STATION_OFFICER, ROLES.ADMIN]),
+        canRequestExternalReport: isAssignedInvestigatorFlag && caseItem.status === 'Under Investigation' && !caseItem.requested_status,
         canReview: isBranchOfficer && caseItem.branch_review_status === 'Pending Review',
         canAcknowledgeReceipt: isProsecutor && caseItem.status === 'Forwarded to Prosecution' && hasPendingCustody,
         canUpdateFileLocation: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
@@ -466,8 +431,7 @@ async function getCaseDetail(caseId, user) {
         custodyLog,
         externalReports,
         evidenceItems,
-        suspects,
-        victims,
+        parties,
         permissions
     });
 }
@@ -556,94 +520,6 @@ async function logEvidence(caseId, user, data) {
 }
 
 
-async function linkSuspect(caseId, user, data) {
-    const {
-        first_name, last_name, alias, national_id, gender, phone_number, photo_url, notes,
-        address, age, occupation, ta, village
-    } = data;
-
-    if (!first_name || !last_name || !gender) {
-        return fail(400, 'Suspect first name, last name, and gender are required.');
-    }
-
-    if (!await caseExists(caseId)) {
-        return fail(404, 'Case not found.');
-    }
-
-    const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    const allowed = isAssigned || roleIn(user, LINK_ROLES);
-    if (!allowed) {
-        return fail(403, 'You do not have permission to link suspects to this case.');
-    }
-
-    const [suspectResult] = await db.execute(
-        `INSERT INTO suspects (first_name, last_name, alias, national_id, gender, phone_number, address, photo_url, notes, age, occupation, ta, village)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-            first_name,
-            last_name,
-            alias || null,
-            national_id || null,
-            gender,
-            phone_number || null,
-            textOrNull(address),
-            photo_url || null,
-            notes || null,
-            intOrNull(age),
-            textOrNull(occupation),
-            textOrNull(ta),
-            textOrNull(village)
-        ]
-    );
-
-    await db.execute(
-        `INSERT INTO case_suspects (case_id, suspect_id, status) VALUES (?, ?, 'Under Investigation')`,
-        [caseId, suspectResult.insertId]
-    );
-
-    return ok({ caseId, suspectName: `${first_name} ${last_name}` });
-}
-
-
-async function linkVictim(caseId, user, data) {
-    const { full_name, phone_number, email, national_id, address, statement, age, occupation, ta, village } = data;
-
-    if (!full_name) {
-        return fail(400, 'Victim full name is required.');
-    }
-
-    if (!await caseExists(caseId)) {
-        return fail(404, 'Case not found.');
-    }
-
-    const isAssigned = await isAssignedInvestigator(caseId, user.id);
-    const allowed = isAssigned || roleIn(user, LINK_ROLES);
-    if (!allowed) {
-        return fail(403, 'You do not have permission to link victims to this case.');
-    }
-
-    await db.execute(
-        `INSERT INTO victims (case_id, full_name, phone_number, email, national_id, address, statement, age, occupation, ta, village)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-            caseId,
-            full_name,
-            phone_number || null,
-            email || null,
-            national_id || null,
-            textOrNull(address),
-            statement || null,
-            intOrNull(age),
-            textOrNull(occupation),
-            textOrNull(ta),
-            textOrNull(village)
-        ]
-    );
-
-    return ok({ caseId, victimName: full_name });
-}
-
-
 async function requestExternalReport(caseId, user, data) {
     const { report_type, notes } = data;
 
@@ -687,14 +563,11 @@ async function getPersonalDashboard(user) {
         return ok({ variant: 'redirect', role: user.role, target: '/supervisor/dashboard' });
     }
 
-    // The Records Officer works from the numbering desk: registered cases
-    // awaiting an OB and criminal number, plus the numbers assigned recently.
     if (roleIn(user, [ROLES.RECORDS_OFFICER])) {
+        const recordsService = require('./recordsService');
         return recordsService.getRecordsDashboard(user);
     }
 
-    // Police Officer: the cases assigned to them. The KPI totals and the
-    // case list are independent, so they run together.
     const [[[kpi]], [assignedCases]] = await Promise.all([
         db.execute(`
         SELECT
@@ -749,8 +622,6 @@ module.exports = {
     addCaseNote,
     requestStatusChange,
     logEvidence,
-    linkSuspect,
-    linkVictim,
     requestExternalReport,
     getPersonalDashboard
 };
