@@ -281,9 +281,15 @@ async function assignCase(user, caseId, investigatorIds, notes) {
         return fail(400, 'Please select active officers (administrators cannot be assigned as investigators).');
     }
 
-    const [caseRows] = await db.execute('SELECT id, workflow_branch FROM cases WHERE id = ?', [caseId]);
+    const [caseRows] = await db.execute('SELECT id, workflow_branch, ob_number, criminal_number, classification, status FROM cases WHERE id = ?', [caseId]);
     if (caseRows.length === 0) {
         return fail(404, 'Case record not found.');
+    }
+    if (!caseRows[0].ob_number || !caseRows[0].criminal_number) {
+        return fail(400, 'OB and criminal numbers must be assigned by the Records Officer before assignment.');
+    }
+    if (!caseRows[0].classification || !caseRows[0].workflow_branch) {
+        return fail(400, 'The case must be classified and routed to a branch by the Station Officer before assignment.');
     }
 
     // Branch Officers may only assign cases that belong to their own branch;
@@ -307,6 +313,7 @@ async function assignCase(user, caseId, investigatorIds, notes) {
          WHERE id = ?`,
         [caseId]
     );
+    try { await db.execute(`INSERT INTO case_assignments (case_id, assigned_by, assigned_to, notes, assigned_at) VALUES (?, ?, ?, ?, NOW())`, [caseId, user.id, ids[0], notes || null]); } catch (e) {}
 
     const officerNames = inv.map(i => `${i.rank_title} ${i.last_name} (${i.badge_number})`).join(', ');
     const shortNames = inv.map(i => i.last_name).join(', ');

@@ -129,13 +129,13 @@ CREATE INDEX idx_users_email ON users (email);
 -- Other accounts may have different passwords set through the UI.
 -- Demo accounts share the seed default password noted above.
 INSERT INTO users (id, badge_number, rank_title, first_name, last_name, email, phone_number, password_hash, role, role_id, branch_id, branch, is_active) VALUES
-(2,  'LIM-001', 'Station Commander', 'Station',    'Administrator', 'admin@limbe.police.mw',      '+265999000000', '$2b$10$EBMaLazalQcIxcMvkk2Mbe8MV3YhJ59Ursv4W7WSeiJPMAJyu..iW', 'Admin',           1, 1,    NULL,                   1),
-(4,  'LIM-002', 'Station Commander', 'George',     'Dambo',         'dambogeorge992@gmail.com',   '+265996697165', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Station Officer',  9, 1,    NULL,                   1),
-(7,  'Phady',     'Constable',       'Patrick',    'Magule',        'patrick@gmail.com',          '+265996697165', '$2b$10$ft8gJNabUp9Q8HnveDBrEO0Va5NM5vn2xlv3BZnMvYogPSqLFiz76', 'Police Officer',   7, NULL, NULL,                   1),
-(13, 'LIM-003', 'Sergeant',          'Kumbukani',  'Mbewe',         'branch@limbe.police.mw',     '+265888001003', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch Officer',  10, 2,    'Investigation Branch', 1),
-(14, 'LIM-004', 'Inspector',         'Chikondi',   'Nyirenda',      'prosecutor@limbe.police.mw', '+265888001004', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Prosecutor',       6, NULL, NULL,                   1),
-(30, 'LIM-005', 'Sergeant',          'Grace',      'Banda',         'records@limbe.police.mw',    '+265888001005', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Records Officer',  8, NULL, NULL,                   1),
-(32, 'LIM-007', 'Sergeant',          'Thandiwe',   'Mwale',         'cid-chief@limbe.police.mw',  '+265888001007', '$2b$10$e0MYzXyjpJS7Pd0RVvHwHe1152Hz.52v.D77yq42n8v3/W65O.0S6', 'Branch Officer',  10, NULL, 'Criminal Investigation Department', 1);
+(2,  'LIM-001', 'Station Commander', 'Station',    'Administrator', 'admin@limbe.police.mw',      '+265999000000', '$2b$10$/4nrS3UAzJjj7DNAKR9kkOKBaWxtCtaSUV/naRG3VPFNkPqCinZEO', 'Admin',           1, 1,    NULL,                   1),
+(4,  'LIM-002', 'Station Commander', 'George',     'Dambo',         'dambogeorge992@gmail.com',   '+265996697165', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Station Officer',  9, 1,    NULL,                   1),
+(7,  'Phady',     'Constable',       'Patrick',    'Magule',        'patrick@gmail.com',          '+265996697165', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Police Officer',   7, NULL, NULL,                   1),
+(13, 'LIM-003', 'Sergeant',          'Kumbukani',  'Mbewe',         'branch@limbe.police.mw',     '+265888001003', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Branch Officer',  10, 2,    'Investigation Branch', 1),
+(14, 'LIM-004', 'Inspector',         'Chikondi',   'Nyirenda',      'prosecutor@limbe.police.mw', '+265888001004', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Prosecutor',       6, NULL, NULL,                   1),
+(30, 'LIM-005', 'Sergeant',          'Grace',      'Banda',         'records@limbe.police.mw',    '+265888001005', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Records Officer',  8, NULL, NULL,                   1),
+(32, 'LIM-007', 'Sergeant',          'Thandiwe',   'Mwale',         'cid-chief@limbe.police.mw',  '+265888001007', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Branch Officer',  10, NULL, 'Criminal Investigation Department', 1);
 
 SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
 
@@ -521,6 +521,33 @@ CREATE TABLE evidence_custody_events (
 );
 
 CREATE INDEX idx_evidence_events_ledger_id ON evidence_custody_events (ledger_id);
+
+-- Evidence Transfer Requests (chain-of-custody handover: an investigator asks
+-- to move an item and a station officer approves or rejects the movement)
+CREATE TABLE evidence_transfers (
+  id             SERIAL PRIMARY KEY,
+  ledger_id      int NOT NULL,
+  case_id        int NOT NULL,
+  from_user_id   int DEFAULT NULL,
+  to_user_id     int NOT NULL,
+  location       varchar(150) DEFAULT NULL,
+  reason         text,
+  status         varchar(20) NOT NULL DEFAULT 'Requested',
+  approved_by    int DEFAULT NULL,
+  approved_at    timestamptz NULL DEFAULT NULL,
+  requested_at   timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at     timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_transfers_ledger      FOREIGN KEY (ledger_id)    REFERENCES evidence_ledger (id) ON DELETE CASCADE,
+  CONSTRAINT fk_transfers_case        FOREIGN KEY (case_id)      REFERENCES cases (id)           ON DELETE CASCADE,
+  CONSTRAINT fk_transfers_from        FOREIGN KEY (from_user_id) REFERENCES users (id)           ON DELETE SET NULL,
+  CONSTRAINT fk_transfers_to          FOREIGN KEY (to_user_id)   REFERENCES users (id)           ON DELETE RESTRICT,
+  CONSTRAINT fk_transfers_approved_by FOREIGN KEY (approved_by)  REFERENCES users (id)           ON DELETE SET NULL,
+  CONSTRAINT chk_transfers_status CHECK (status IN ('Requested', 'Approved', 'Rejected', 'Cancelled'))
+);
+
+CREATE INDEX idx_evidence_transfers_ledger ON evidence_transfers (ledger_id);
+CREATE INDEX idx_evidence_transfers_case ON evidence_transfers (case_id);
+CREATE INDEX idx_evidence_transfers_status ON evidence_transfers (status);
 
 CREATE OR REPLACE FUNCTION next_evidence_ledger_no() RETURNS varchar AS $$
 DECLARE

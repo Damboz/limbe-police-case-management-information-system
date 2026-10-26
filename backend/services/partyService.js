@@ -229,7 +229,7 @@ async function createSuspectParty(client, caseId, data, createdBy) {
 
 async function listParties(caseId) {
     const pool = await db.ready();
-    const [rows] = await pool.query(
+    const { rows } = await pool.query(
         `SELECT
              cp.*,
              latest_statement.statement_text AS statement,
@@ -290,7 +290,7 @@ async function addParty(caseId, user, data) {
     }
 
     const pool = await db.ready();
-    const [caseRows] = await pool.query('SELECT id FROM cases WHERE id = $1', [caseId]);
+    const { rows: caseRows } = await pool.query('SELECT id FROM cases WHERE id = $1', [caseId]);
     if (caseRows.length === 0) {
         return fail(404, 'Case not found.');
     }

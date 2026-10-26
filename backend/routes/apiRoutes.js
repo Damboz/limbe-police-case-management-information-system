@@ -88,7 +88,7 @@ router.get('/evidence', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, RO
             idx++;
         }
 
-        const [rows] = await pool.query(
+        const { rows } = await pool.query(
             `SELECT el.id, el.ledger_no, el.evidence_type, el.status, el.collected_at, el.sha256, el.file_name,
                     c.id as case_id, c.ob_number,
                     cp.full_name as party_name, cp.party_type,
@@ -113,7 +113,7 @@ router.get('/evidence/:id', isAuthenticated, async (req, res, next) => {
     try {
         const user = req.session.user;
         const pool = await db.ready();
-        const [rows] = await pool.query(
+        const { rows } = await pool.query(
             `SELECT el.*, c.id as case_id, c.ob_number,
                     cp.full_name as party_name, cp.party_type,
                     CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) as collected_by_name
@@ -131,7 +131,7 @@ router.get('/evidence/:id', isAuthenticated, async (req, res, next) => {
         const allowed = isAssigned || [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN, ROLES.PROSECUTOR, ROLES.RECORDS_OFFICER, ROLES.BRANCH_OFFICER].includes(user.role);
         if (!allowed) return res.status(403).json({ success: false, error: 'Not authorized' });
 
-        const [custody] = await pool.query(
+        const { rows: custody } = await pool.query(
             `SELECT ec.*, CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) as recorded_by_name
              FROM evidence_custody_events ec
              LEFT JOIN users u ON u.id = ec.recorded_by
@@ -139,7 +139,7 @@ router.get('/evidence/:id', isAuthenticated, async (req, res, next) => {
              ORDER BY ec.event_at ASC, ec.id ASC`,
             [req.params.id]
         );
-        const [transfers] = await pool.query(
+        const { rows: transfers } = await pool.query(
             `SELECT et.*, 
                     CONCAT(fu.rank_title, ' ', fu.first_name, ' ', fu.last_name) as from_user_name,
                     CONCAT(tu.rank_title, ' ', tu.first_name, ' ', tu.last_name) as to_user_name,
@@ -163,7 +163,7 @@ router.post('/evidence/:id/transfer/request', isAuthenticated, async (req, res, 
     try {
         const user = req.session.user;
         const pool = await db.ready();
-        const [rows] = await pool.query('SELECT el.*, c.id as case_id FROM evidence_ledger el JOIN cases c ON c.id = el.case_id WHERE el.id = $1', [req.params.id]);
+        const { rows } = await pool.query('SELECT el.*, c.id as case_id FROM evidence_ledger el JOIN cases c ON c.id = el.case_id WHERE el.id = $1', [req.params.id]);
         if (rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
         const ev = rows[0];
         const isAssigned = await isAssignedInvestigator(ev.case_id, user.id);
@@ -172,7 +172,7 @@ router.post('/evidence/:id/transfer/request', isAuthenticated, async (req, res, 
         const { to_user_id, location, reason } = req.body;
         if (!to_user_id || !reason) return res.status(400).json({ success: false, error: 'to_user_id and reason required' });
 
-        const [resIns] = await pool.query(
+        const resIns = await pool.query(
             `INSERT INTO evidence_transfers (ledger_id, case_id, from_user_id, to_user_id, location, reason, status)
              VALUES ($1,$2,$3,$4,$5,$6,'Requested') RETURNING id`,
             [req.params.id, ev.case_id, user.id, to_user_id, location || null, reason]
@@ -194,7 +194,7 @@ router.post('/evidence/transfer/:transferId/approve', isAuthenticated, async (re
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
-            const [tRows] = await client.query('SELECT * FROM evidence_transfers WHERE id = $1 FOR UPDATE', [req.params.transferId]);
+            const { rows: tRows } = await client.query('SELECT * FROM evidence_transfers WHERE id = $1 FOR UPDATE', [req.params.transferId]);
             if (tRows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ success: false, error: 'Not found' }); }
             const t = tRows[0];
             if (t.status !== 'Requested') { await client.query('ROLLBACK'); return res.status(400).json({ success: false, error: 'Transfer not in requested state' }); }
@@ -226,7 +226,7 @@ router.post('/evidence/:id/note', isAuthenticated, async (req, res, next) => {
     try {
         const user = req.session.user;
         const pool = await db.ready();
-        const [rows] = await pool.query('SELECT el.*, c.id as case_id FROM evidence_ledger el JOIN cases c ON c.id = el.case_id WHERE el.id = $1', [req.params.id]);
+        const { rows } = await pool.query('SELECT el.*, c.id as case_id FROM evidence_ledger el JOIN cases c ON c.id = el.case_id WHERE el.id = $1', [req.params.id]);
         if (rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
         const ev = rows[0];
         const isAssigned = await isAssignedInvestigator(ev.case_id, user.id);
@@ -252,7 +252,7 @@ router.post('/evidence/:id/verify', isAuthenticated, async (req, res, next) => {
     try {
         const user = req.session.user;
         const pool = await db.ready();
-        const [rows] = await pool.query('SELECT el.*, c.id as case_id FROM evidence_ledger el JOIN cases c ON c.id = el.case_id WHERE el.id = $1', [req.params.id]);
+        const { rows } = await pool.query('SELECT el.*, c.id as case_id FROM evidence_ledger el JOIN cases c ON c.id = el.case_id WHERE el.id = $1', [req.params.id]);
         if (rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
         const ev = rows[0];
 
@@ -306,12 +306,12 @@ router.post(
 
             const pool = await db.ready();
 
-            const [caseRows] = await pool.query('SELECT id FROM cases WHERE id = $1', [caseId]);
+            const { rows: caseRows } = await pool.query('SELECT id FROM cases WHERE id = $1', [caseId]);
             if (caseRows.length === 0) {
                 return res.status(404).json({ success: false, error: 'Case not found.' });
             }
 
-            const [partyRows] = await pool.query('SELECT id, case_id, party_type FROM case_parties WHERE id = $1 AND case_id = $2', [partyId, caseId]);
+            const { rows: partyRows } = await pool.query('SELECT id, case_id, party_type FROM case_parties WHERE id = $1 AND case_id = $2', [partyId, caseId]);
             if (partyRows.length === 0) {
                 return res.status(404).json({ success: false, error: 'Party not found.' });
             }
@@ -454,7 +454,7 @@ router.get('/evidence/:ledgerId/file', isAuthenticated, async (req, res, next) =
         const ledgerId = req.params.ledgerId;
         const pool = await db.ready();
 
-        const [rows] = await pool.query(
+        const { rows } = await pool.query(
             `SELECT el.*, c.id as case_id
              FROM evidence_ledger el
              JOIN cases c ON c.id = el.case_id

@@ -1,4 +1,5 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -37,6 +38,10 @@ const { normalizeSessionRole, enforceSessionTimeout } = require('./middleware/au
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+try {
+  const rl = require('./node_modules/express-rate-limit');
+  app.use('/api', rl({ windowMs: 15 * 60 * 1000, max: 300 }));
+} catch (e) {}
 
 
 // The frontend is deployed on its own domain, so every browser request arrives as a
