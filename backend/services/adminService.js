@@ -325,10 +325,37 @@ async function deleteUser(actingUser, userId) {
 
     const target = users[0];
 
+    const [refs] = await db.execute(`
+        SELECT
+            (SELECT COUNT(*) FROM cases                  WHERE recorded_by = ?)             AS intake_cases,
+            (SELECT COUNT(*) FROM cases                  WHERE investigator_id = ?)          AS assigned_investigator,
+            (SELECT COUNT(*) FROM case_investigators     WHERE investigator_id = ?)          AS case_investigator_assignments,
+            (SELECT COUNT(*) FROM evidence               WHERE collected_by_officer_id = ?)  AS evidence_records,
+            (SELECT COUNT(*) FROM case_notes             WHERE officer_id = ?)               AS case_notes,
+            (SELECT COUNT(*) FROM case_minutes           WHERE author_id = ?)                AS case_minutes,
+            (SELECT COUNT(*) FROM external_reports       WHERE requested_by = ?)             AS external_reports,
+            (SELECT COUNT(*) FROM case_custody_log       WHERE handed_over_by = ?)           AS custody_handovers,
+            (SELECT COUNT(*) FROM case_custody_log       WHERE received_by = ?)              AS custody_receipts,
+            (SELECT COUNT(*) FROM reassignment_proposals WHERE proposed_by = ?)              AS proposed_reassignments,
+            (SELECT COUNT(*) FROM reassignment_proposals WHERE proposed_investigator_id = ?) AS reassignment_targets,
+            (SELECT COUNT(*) FROM case_assignments       WHERE assigned_by = ?)              AS assignments_made,
+            (SELECT COUNT(*) FROM case_assignments       WHERE assigned_to = ?)              AS assignments_received
+        `, [userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId]);
+
+    const r = refs[0] || {};
+    const total = (r.intake_cases||0) + (r.assigned_investigator||0) + (r.case_investigator_assignments||0)
+        + (r.evidence_records||0) + (r.case_notes||0) + (r.case_minutes||0)
+        + (r.external_reports||0) + (r.custody_handovers||0) + (r.custody_receipts||0)
+        + (r.proposed_reassignments||0) + (r.reassignment_targets||0) + (r.assignments_made||0) + (r.assignments_received||0);
+
+    if (total > 0) {
+        return fail(400, `Cannot delete ${target.badge_number} (${target.first_name} ${target.last_name}). This account has assigned work/history linked to it. Deactivate the account instead.`);
+    }
+
     try {
         await db.execute('DELETE FROM users WHERE id = ?', [userId]);
     } catch (e) {
-        return fail(400, `Cannot delete ${target.badge_number}. The account may have linked records. Deactivate the account instead.`);
+        return fail(400, `Cannot delete ${target.badge_number} (${target.first_name} ${target.last_name}). This account has assigned work/history linked to it. Deactivate the account instead.`);
     }
 
     return ok({
