@@ -28,7 +28,6 @@ const EMPTY = {
     complainant_village: '',
     complainant_address: '',
     category_id: '',
-    branch_id: '',
     priority: '',
     incident_datetime: '',
     incident_location: '',
@@ -91,7 +90,6 @@ export default function CaseRegister() {
     if (error) return <Alert variant="danger" message={error} />;
 
     const categories = data?.categories || [];
-    const branches = data?.branches || [];
 
     return (
         <>
@@ -188,16 +186,9 @@ export default function CaseRegister() {
                                             <option key={cat.id} value={cat.id}>{cat.name} ({cat.severity_level})</option>
                                         ))}
                                     </select>
-                                </div>
-
-                                <div className="mb-3">
-                                    <label htmlFor="branch_id" className="form-label">Assigned Branch <span className="text-danger">*</span></label>
-                                    <select className="form-select" id="branch_id" value={form.branch_id} onChange={set('branch_id')} required>
-                                        <option value="">-- Select Branch --</option>
-                                        {branches.map(branch => (
-                                            <option key={branch.id} value={branch.id}>{branch.code} — {branch.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="form-text">
+                                        The case will be routed to the right branch automatically based on the offence type.
+                                    </div>
                                 </div>
 
                                 <div className="mb-0">

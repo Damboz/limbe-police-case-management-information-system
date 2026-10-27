@@ -28,7 +28,6 @@ const EMPTY = {
     complainant_village: '',
     complainant_address: '',
     category_id: '',
-    branch_id: '',
     incident_datetime: '',
     incident_location: '',
     incident_details: '',
@@ -98,7 +97,6 @@ export default function OnlineComplaint() {
     }
 
     const categories = data?.categories || [];
-    const branches = data?.branches || [];
 
     return (
         <div className="auth-wrapper" style={{ alignItems: 'flex-start' }}>
@@ -209,15 +207,9 @@ export default function OnlineComplaint() {
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                                             ))}
                                         </select>
-                                    </div>
-                                    <div className="col-md-6 mb-3">
-                                        <label htmlFor="branch_id" className="form-label">Nearest Police Branch <span className="text-danger">*</span></label>
-                                        <select className="form-select" id="branch_id" value={form.branch_id} onChange={set('branch_id')} required>
-                                            <option value="">-- Select branch --</option>
-                                            {branches.map(branch => (
-                                                <option key={branch.id} value={branch.id}>{branch.code} — {branch.name}</option>
-                                            ))}
-                                        </select>
+                                        <div className="form-text">
+                                            Your complaint will be routed to the right police branch automatically.
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="row">

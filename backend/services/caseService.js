@@ -128,11 +128,35 @@ async function listPendingOnlineComplaints() {
 
 
 async function getCaseFormOptions() {
-    const [[categories], [branches]] = await Promise.all([
-        db.execute('SELECT id, name, severity_level FROM crime_categories ORDER BY name ASC'),
-        db.execute('SELECT id, code, name FROM station_branch ORDER BY name ASC')
-    ]);
-    return { categories, branches };
+    const [categories] = await db.execute('SELECT id, name, severity_level FROM crime_categories ORDER BY name ASC');
+    return { categories };
+}
+
+
+// Complainants cannot be expected to know which branch handles their case, so
+// route it from the offence severity: serious offences go to CID, everything
+// else to the Investigation Branch.
+async function resolveBranchIdForCategory(categoryId) {
+    const [categories] = await db.execute(
+        'SELECT severity_level FROM crime_categories WHERE id = ?',
+        [categoryId]
+    );
+    if (categories.length === 0) {
+        return fail(400, 'Please select a valid offence type.');
+    }
+
+    const severity = categories[0].severity_level;
+    const branchCode = ['Severe', 'Critical'].includes(severity) ? 'CID' : 'INV';
+
+    const [branches] = await db.execute(
+        'SELECT id FROM station_branch WHERE code = ?',
+        [branchCode]
+    );
+    if (branches.length === 0) {
+        return fail(500, 'The receiving branch is not configured. Please contact the station.');
+    }
+
+    return ok({ branchId: branches[0].id });
 }
 
 
@@ -154,7 +178,6 @@ async function submitOnlineComplaint(body) {
         complainant_village,
         complainant_gender,
         category_id,
-        branch_id,
         priority,
         incident_datetime,
         incident_location,
@@ -173,8 +196,13 @@ async function submitOnlineComplaint(body) {
         witnesses
     } = body;
 
-    if (!complainant_name || !complainant_phone || !category_id || !branch_id || !incident_location || !incident_details) {
+    if (!complainant_name || !complainant_phone || !category_id || !incident_location || !incident_details) {
         return fail(400, 'Please complete all required fields before submitting.');
+    }
+
+    const branch = await resolveBranchIdForCategory(category_id);
+    if (!branch.ok) {
+        return branch;
     }
 
     const suspectFirstName = (suspect_first_name || '').trim();
@@ -208,7 +236,7 @@ async function submitOnlineComplaint(body) {
                 textOrNull(complainant_village),
                 complainant_gender || 'Other',
                 category_id,
-                branch_id,
+                branch.branchId,
                 priority || 'Medium',
                 incident_datetime || null,
                 incident_location,
@@ -341,7 +369,6 @@ async function createCase(recordingOfficerId, body) {
         complainant_village,
         complainant_gender,
         category_id,
-        branch_id,
         priority,
         incident_datetime,
         incident_location,
@@ -360,8 +387,13 @@ async function createCase(recordingOfficerId, body) {
         witnesses
     } = body;
 
-    if (!complainant_name || !complainant_phone || !category_id || !branch_id || !incident_location || !incident_details) {
+    if (!complainant_name || !complainant_phone || !category_id || !incident_location || !incident_details) {
         return fail(400, 'Please complete all required fields before submitting.');
+    }
+
+    const branch = await resolveBranchIdForCategory(category_id);
+    if (!branch.ok) {
+        return branch;
     }
 
     const suspectFirstName = (suspect_first_name || '').trim();
@@ -394,7 +426,7 @@ async function createCase(recordingOfficerId, body) {
                 textOrNull(complainant_village),
                 complainant_gender || 'Other',
                 category_id,
-                branch_id,
+                branch.branchId,
                 priority || 'Medium',
                 incident_datetime || null,
                 incident_location,
