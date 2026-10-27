@@ -102,6 +102,205 @@ async function caseExists(caseId) {
 }
 
 
+async function submitOnlineComplaint(body) {
+    const {
+        complainant_name,
+        complainant_id_number,
+        complainant_phone,
+        complainant_address,
+        complainant_age,
+        complainant_occupation,
+        complainant_ta,
+        complainant_village,
+        complainant_gender,
+        category_id,
+        branch_id,
+        priority,
+        incident_datetime,
+        incident_location,
+        incident_details,
+        suspect_first_name,
+        suspect_last_name,
+        suspect_alias,
+        suspect_gender,
+        suspect_national_id,
+        suspect_phone_number,
+        suspect_address,
+        suspect_age,
+        suspect_occupation,
+        suspect_ta,
+        suspect_village,
+        witnesses
+    } = body;
+
+    if (!complainant_name || !complainant_phone || !category_id || !branch_id || !incident_location || !incident_details) {
+        return fail(400, 'Please complete all required fields before submitting.');
+    }
+
+    const suspectFirstName = (suspect_first_name || '').trim();
+    const suspectLastName = (suspect_last_name || '').trim();
+    const suspectSectionUsed = suspectFirstName || suspectLastName || suspect_alias ||
+        suspect_gender || suspect_national_id || suspect_phone_number || suspect_address;
+
+    if (suspectSectionUsed && (!suspectFirstName || !suspectLastName)) {
+        return fail(400, 'To add a suspect, please provide both the first name and last name (or leave the suspect section blank).');
+    }
+
+    const witnessList = Array.isArray(witnesses) ? witnesses : [];
+
+    const created = await partyService.withTransaction(async (client) => {
+        const caseInsert = await client.query(
+            `INSERT INTO cases (
+                complainant_name, complainant_id_number, complainant_phone, complainant_address,
+                complainant_age, complainant_occupation, complainant_ta, complainant_village, complainant_gender,
+                category_id, branch_id, priority, incident_datetime, incident_location, incident_details,
+                recorded_by, status, source, complaint_status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+            RETURNING *`,
+            [
+                complainant_name,
+                complainant_id_number || null,
+                complainant_phone,
+                complainant_address || null,
+                intOrNull(complainant_age),
+                textOrNull(complainant_occupation),
+                textOrNull(complainant_ta),
+                textOrNull(complainant_village),
+                complainant_gender || 'Other',
+                category_id,
+                branch_id,
+                priority || 'Medium',
+                incident_datetime || null,
+                incident_location,
+                incident_details,
+                null,
+                'Registered',
+                'Online',
+                'Pending'
+            ]
+        );
+
+        const caseItem = caseInsert.rows[0];
+
+        await partyService.ensureComplainantParty(client, caseItem, null);
+
+        const createdParties = [];
+        let suspectName = null;
+
+        if (suspectSectionUsed) {
+            const suspectParty = await partyService.createSuspectParty(client, caseItem.id, {
+                first_name: suspectFirstName,
+                last_name: suspectLastName,
+                alias: suspect_alias,
+                national_id: suspect_national_id,
+                gender: suspect_gender || 'Other',
+                phone_number: suspect_phone_number,
+                address: suspect_address,
+                age: suspect_age,
+                occupation: suspect_occupation,
+                ta: suspect_ta,
+                village: suspect_village
+            }, null);
+
+            suspectName = suspectParty.full_name;
+            createdParties.push(suspectParty);
+        }
+
+        for (const witness of witnessList) {
+            const fullName = witness && witness.full_name ? String(witness.full_name).trim() : '';
+            if (!fullName) continue;
+
+            const witnessParty = await partyService.createWitnessParty(
+                client,
+                caseItem.id,
+                { ...witness, full_name: fullName },
+                null
+            );
+            createdParties.push(witnessParty);
+        }
+
+        return {
+            caseId: caseItem.id,
+            suspectName,
+            complainantName: caseItem.complainant_name,
+            createdParties,
+            status: caseItem.status,
+            complaintStatus: caseItem.complaint_status
+        };
+    });
+
+    return ok(created);
+}
+
+
+async function approveOnlineComplaint(user, caseId) {
+    if (!roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN])) {
+        return fail(403, 'Only authorized police officers can approve online complaints.');
+    }
+
+    const [rows] = await db.execute('SELECT id, source, complaint_status, recorded_by FROM cases WHERE id = ?', [caseId]);
+    if (rows.length === 0) {
+        return fail(404, 'Complaint not found.');
+    }
+    const c = rows[0];
+    if ((c.complaint_status || '').toLowerCase() !== 'pending') {
+        return fail(400, 'Only pending online complaints can be approved.');
+    }
+    if (c.source !== 'Online') {
+        return fail(400, 'This case is not an online complaint.');
+    }
+
+    await db.execute(
+        `UPDATE cases SET complaint_status = 'Approved', approved_by = ?, approved_at = NOW(), status = 'Registered', recorded_by = COALESCE(recorded_by, ?), recorded_at = COALESCE(recorded_at, NOW()), updated_at = NOW() WHERE id = ?`,
+        [user.id, user.id, caseId]
+    );
+
+    await auditLog({
+        actorId: user.id,
+        action: 'ONLINE_COMPLAINT_APPROVED',
+        entityType: 'case',
+        entityId: caseId,
+        details: { caseId }
+    });
+
+    return ok({ caseId, message: 'Online complaint approved and entered into the system.' });
+}
+
+
+async function rejectOnlineComplaint(user, caseId, reason) {
+    if (!roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN])) {
+        return fail(403, 'Only authorized police officers can reject online complaints.');
+    }
+
+    const [rows] = await db.execute('SELECT id, source, complaint_status FROM cases WHERE id = ?', [caseId]);
+    if (rows.length === 0) {
+        return fail(404, 'Complaint not found.');
+    }
+    const c = rows[0];
+    if ((c.complaint_status || '').toLowerCase() !== 'pending') {
+        return fail(400, 'Only pending online complaints can be rejected.');
+    }
+    if (c.source !== 'Online') {
+        return fail(400, 'This case is not an online complaint.');
+    }
+
+    await db.execute(
+        `UPDATE cases SET complaint_status = 'Rejected', approved_by = ?, approved_at = NOW(), updated_at = NOW() WHERE id = ?`,
+        [user.id, caseId]
+    );
+
+    await auditLog({
+        actorId: user.id,
+        action: 'ONLINE_COMPLAINT_REJECTED',
+        entityType: 'case',
+        entityId: caseId,
+        details: { caseId, reason: reason || null }
+    });
+
+    return ok({ caseId, message: 'Online complaint rejected.' });
+}
+
+
 async function createCase(recordingOfficerId, body) {
     const {
         complainant_name,
@@ -616,9 +815,13 @@ module.exports = {
     listCasesForUser,
     getCaseFormOptions,
     caseExists,
+    submitOnlineComplaint,
+    approveOnlineComplaint,
+    rejectOnlineComplaint,
     createCase,
-    searchCases,
+    listCases,
     getCaseDetail,
+    getCaseParties,
     addCaseNote,
     requestStatusChange,
     logEvidence,

@@ -20,6 +20,7 @@ const { validateEvidenceFile } = require('../utils/evidenceSecurity');
 const db = require('../config/db');
 const { isAssignedInvestigator } = require('../services/assignmentService');
 const { logAudit } = require('../utils/audit');
+router.post('/public/complaints', caseApi.submitOnline);
 
 
 router.post('/auth/login', require('../controllers/api/authApiController').login);
@@ -34,6 +35,8 @@ router.get('/dashboard', isAuthenticated, generalApi.dashboard);
 router.get('/my-analytics', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER), reportsApi.myAnalytics);
 
 
+router.post('/cases/:id/approve-online', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN), caseApi.approveOnline);
+router.post('/cases/:id/reject-online', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN), caseApi.rejectOnline);
 router.get('/cases', isAuthenticated, denyAdmin, caseApi.list);
 router.get('/cases/new', isAuthenticated, denyAdmin, caseApi.formOptions);
 router.post('/cases', isAuthenticated, denyAdmin, caseApi.create);

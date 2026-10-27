@@ -159,6 +159,10 @@ CREATE TABLE cases (
   incident_datetime      timestamp DEFAULT NULL,
   incident_location      varchar(255) NOT NULL,
   incident_details       text NOT NULL,
+  source                 varchar(20) DEFAULT 'Counter',
+  complaint_status       varchar(20) DEFAULT 'Approved',
+  approved_by            int DEFAULT NULL,
+  approved_at            timestamptz NULL DEFAULT NULL,
   recorded_by            int DEFAULT NULL,
   recorded_at            timestamptz NULL DEFAULT NULL,
   status                 varchar(30) DEFAULT 'Registered',
@@ -199,8 +203,11 @@ CREATE TABLE cases (
   CONSTRAINT fk_case_assigned_by FOREIGN KEY (assigned_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_case_status_requested_by FOREIGN KEY (status_requested_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_case_branch_reviewed_by FOREIGN KEY (branch_reviewed_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_case_approved_by FOREIGN KEY (approved_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_cases_gender CHECK (complainant_gender IN ('Male', 'Female', 'Other')),
   CONSTRAINT chk_cases_priority CHECK (priority IN ('Low', 'Medium', 'High', 'Critical')),
+  CONSTRAINT chk_cases_source CHECK (source IN ('Counter', 'Online')),
+  CONSTRAINT chk_cases_complaint_status CHECK (complaint_status IN ('Pending', 'Approved', 'Rejected')),
   CONSTRAINT chk_cases_status CHECK (status IN ('Registered', 'Numbered', 'Classified', 'Assigned', 'Under Investigation', 'Submitted for Review', 'Court Pending', 'Forwarded to Prosecution', 'Closed', 'Archived')),
   CONSTRAINT chk_cases_requested_status CHECK (requested_status IN ('Closed', 'Court Pending', 'Forwarded to Prosecution')),
   CONSTRAINT chk_cases_branch_review CHECK (branch_review_status IN ('Pending Review', 'Recommended', 'Returned')),
@@ -211,6 +218,8 @@ CREATE TABLE cases (
 
 CREATE INDEX idx_cases_ob_number ON cases (ob_number);
 CREATE INDEX idx_cases_status ON cases (status);
+CREATE INDEX idx_cases_complaint_status ON cases (complaint_status);
+CREATE INDEX idx_cases_source ON cases (source);
 CREATE INDEX idx_cases_requested_status ON cases (requested_status);
 CREATE INDEX idx_cases_status_requested_by ON cases (status_requested_by);
 CREATE INDEX idx_cases_recorded_by ON cases (recorded_by);
@@ -222,8 +231,8 @@ CREATE INDEX idx_cases_assigned_to ON cases (assigned_to);
 -- Station Officer classifies it, Assigned once a Branch Officer assigns an
 -- investigating officer, and Under Investigation once the officer begins
 -- recording diary entries.
-INSERT INTO cases (id, ob_number, complainant_name, complainant_id_number, complainant_phone, complainant_address, complainant_gender, category_id, branch_id, priority, incident_datetime, incident_location, incident_details, recorded_by, recorded_at, status, requested_status, status_request_notes, status_requested_by, status_requested_at, branch_review_status, branch_reviewed_by, branch_reviewed_at, forwarded_at, file_location, court_date, court_outcome, prosecution_query, prosecution_query_at, prosecution_query_resolved_at, criminal_number, numbers_assigned_by, numbers_assigned_at, classification, workflow_branch, classified_by, classified_at, assigned_to, assigned_by, assigned_at, created_at, updated_at) VALUES
-(1, 'OB-20260816-0001', 'George Dambo', NULL, '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 5, 2, 'Medium', '2025-03-21 12:00:00', 'Chichiri', 'mdjmsmskakamd', 7, '2026-08-16 14:30:27', 'Under Investigation', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR-20260819-0001', 30, '2026-08-19 08:55:00', 'Medium', 'Investigation Branch', 4, '2026-08-19 09:00:00', 7, 13, '2026-08-19 09:33:04', '2026-08-16 14:30:27', '2026-08-19 09:33:04'),
+INSERT INTO cases (id, ob_number, complainant_name, complainant_id_number, complainant_phone, complainant_address, complainant_gender, category_id, branch_id, priority, incident_datetime, incident_location, incident_details, source, complaint_status, approved_by, approved_at, recorded_by, recorded_at, status, requested_status, status_request_notes, status_requested_by, status_requested_at, branch_review_status, branch_reviewed_by, branch_reviewed_at, forwarded_at, file_location, court_date, court_outcome, prosecution_query, prosecution_query_at, prosecution_query_resolved_at, criminal_number, numbers_assigned_by, numbers_assigned_at, classification, workflow_branch, classified_by, classified_at, assigned_to, assigned_by, assigned_at, created_at, updated_at) VALUES
+(1, 'OB-20260816-0001', 'George Dambo', NULL, '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 5, 2, 'Medium', '2025-03-21 12:00:00', 'Chichiri', 'mdjmsmskakamd', 'Counter', 'Approved', NULL, NULL, 7, '2026-08-16 14:30:27', 'Under Investigation', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR-20260819-0001', 30, '2026-08-19 08:55:00', 'Medium', 'Investigation Branch', 4, '2026-08-19 09:00:00', 7, 13, '2026-08-19 09:33:04', '2026-08-16 14:30:27', '2026-08-19 09:33:04'),
 (2, 'OB-20260905-0001', 'Patrick Magule', '004939939', '08840399483', 'Lumbadzi, Lilongwe Malawi', 'Male', 6, 1, 'High', '2026-09-05 11:45:00', 'Zingwangwa Market', 'fjjkfkdjsKLKAJGJDKSKFHSJKSKKKSHFHFH', 7, '2026-09-05 09:45:58', 'Numbered', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR-20260916-0001', 30, '2026-09-16 16:02:53', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-09-05 09:45:58', '2026-09-16 16:02:53'),
 (3, 'OB-20260905-0002', 'George Dambo', 'pfoodld', '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 7, 2, 'Medium', '2026-09-03 12:42:00', 'oflsllsld', 'kqalL;;dlszmmdk', 7, '2026-09-05 10:43:05', 'Submitted for Review', 'Closed', 'gdjjs', 7, '2026-09-16 16:40:50', 'Pending Review', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR-20260916-0002', 30, '2026-09-16 15:45:00', 'Medium', 'Investigation Branch', 4, '2026-09-16 16:00:00', 7, 13, '2026-09-16 16:36:55', '2026-09-05 10:43:05', '2026-09-16 16:40:50');
 

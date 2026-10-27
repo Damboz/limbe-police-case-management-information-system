@@ -189,3 +189,66 @@ exports.parties = async (req, res, next) => {
         next(err);
     }
 };
+
+
+exports.submitOnline = async (req, res, next) => {
+    try {
+        const result = await caseService.submitOnlineComplaint(req.body);
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        const { caseId, suspectName, complainantName } = result;
+        if (suspectName) {
+            try {
+                await logAudit(req, null, 'ONLINE_COMPLAINT_SUBMITTED', `Online complaint submitted for Case ID ${caseId} (complainant ${complainantName}), suspect ${suspectName} linked.`);
+            } catch (_) {}
+        } else {
+            try {
+                await logAudit(req, null, 'ONLINE_COMPLAINT_SUBMITTED', `Online complaint submitted for Case ID ${caseId} (complainant ${complainantName}).`);
+            } catch (_) {}
+        }
+
+        const message = suspectName
+            ? `Complaint submitted successfully. It is pending police approval. Suspect "${suspectName}" was added.`
+            : 'Complaint submitted successfully. It is pending police approval.';
+
+        return res.status(201).json({ success: true, message, data: { caseId } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+exports.approveOnline = async (req, res, next) => {
+    try {
+        const user = req.session.user;
+        const result = await caseService.approveOnlineComplaint(user, req.params.id);
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        return res.json({ success: true, message: result.message || 'Online complaint approved and entered into the system.', data: result });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+exports.rejectOnline = async (req, res, next) => {
+    try {
+        const user = req.session.user;
+        const result = await caseService.rejectOnlineComplaint(user, req.params.id, req.body && req.body.reason);
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        return res.json({ success: true, message: result.message || 'Online complaint rejected.', data: result });
+    } catch (err) {
+        next(err);
+    }
+};
+
