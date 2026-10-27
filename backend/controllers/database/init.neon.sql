@@ -149,6 +149,10 @@ CREATE TABLE cases (
   incident_datetime      timestamp DEFAULT NULL,
   incident_location      varchar(255) NOT NULL,
   incident_details       text NOT NULL,
+  source                 varchar(20) DEFAULT 'Counter',
+  complaint_status       varchar(20) DEFAULT 'Approved',
+  approved_by            int DEFAULT NULL,
+  approved_at            timestamptz NULL DEFAULT NULL,
   recorded_by            int DEFAULT NULL,
   recorded_at            timestamptz NULL DEFAULT NULL,
   status                 varchar(30) DEFAULT 'Registered',
@@ -182,6 +186,7 @@ CREATE TABLE cases (
   UNIQUE (criminal_number),
   CONSTRAINT cases_ibfk_1 FOREIGN KEY (category_id) REFERENCES crime_categories (id),
   CONSTRAINT cases_ibfk_2 FOREIGN KEY (branch_id) REFERENCES station_branch (id),
+  CONSTRAINT fk_case_approved_by FOREIGN KEY (approved_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_case_recorded_by FOREIGN KEY (recorded_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_case_numbers_assigned_by FOREIGN KEY (numbers_assigned_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_case_classified_by FOREIGN KEY (classified_by) REFERENCES users (id) ON DELETE SET NULL,
@@ -191,6 +196,8 @@ CREATE TABLE cases (
   CONSTRAINT fk_case_branch_reviewed_by FOREIGN KEY (branch_reviewed_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_cases_gender CHECK (complainant_gender IN ('Male', 'Female', 'Other')),
   CONSTRAINT chk_cases_priority CHECK (priority IN ('Low', 'Medium', 'High', 'Critical')),
+  CONSTRAINT chk_cases_source CHECK (source IN ('Counter', 'Online')),
+  CONSTRAINT chk_cases_complaint_status CHECK (complaint_status IN ('Pending', 'Approved', 'Rejected')),
   CONSTRAINT chk_cases_status CHECK (status IN ('Registered', 'Numbered', 'Classified', 'Assigned', 'Under Investigation', 'Submitted for Review', 'Court Pending', 'Forwarded to Prosecution', 'Closed', 'Archived')),
   CONSTRAINT chk_cases_requested_status CHECK (requested_status IN ('Closed', 'Court Pending', 'Forwarded to Prosecution')),
   CONSTRAINT chk_cases_branch_review CHECK (branch_review_status IN ('Pending Review', 'Recommended', 'Returned')),
@@ -206,6 +213,8 @@ CREATE INDEX idx_cases_status_requested_by ON cases (status_requested_by);
 CREATE INDEX idx_cases_recorded_by ON cases (recorded_by);
 CREATE INDEX idx_cases_workflow_branch ON cases (workflow_branch);
 CREATE INDEX idx_cases_assigned_to ON cases (assigned_to);
+CREATE INDEX idx_cases_complaint_status ON cases (complaint_status);
+CREATE INDEX idx_cases_source ON cases (source);
 
 -- Case lifecycle: a case is Registered when recorded, Numbered once the
 -- Records Officer assigns its OB and criminal numbers, Classified once the

@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { Spinner } from './components/ui';
 
 import Login from './pages/Login';
+import OnlineComplaint from './pages/OnlineComplaint';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import ChangePassword from './pages/ChangePassword';
@@ -15,6 +16,7 @@ import CaseList from './pages/cases/CaseList';
 import CaseRegister from './pages/cases/CaseRegister';
 import CaseSearch from './pages/cases/CaseSearch';
 import CaseDetail from './pages/cases/CaseDetail';
+import PendingComplaints from './pages/cases/PendingComplaints';
 import EvidenceLedger from './pages/evidence/EvidenceLedger';
 import EvidenceDetail from './pages/evidence/EvidenceDetail';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -70,6 +72,7 @@ const CMD = ROUTE_ROLES.SUPERVISOR;
 const CFI = ROUTE_ROLES.MY_ANALYTICS;
 const OPS = ROUTE_ROLES.EVIDENCE;
 const CASE_ACCESS = ROUTE_ROLES.CASES;
+const ONLINE_APPROVAL = ROUTE_ROLES.ONLINE_COMPLAINTS;
 const BRN = ROUTE_ROLES.BRANCH;
 const PRS = ROUTE_ROLES.PROSECUTION;
 
@@ -78,6 +81,7 @@ export default function App() {
     return (
         <Routes>
             <Route path="/" element={<HomeRedirect />} />
+            <Route path="/complaint" element={<OnlineComplaint />} />
             <Route path="/login" element={<LoginRoute />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -88,6 +92,7 @@ export default function App() {
                 <Route path="/my-analytics" element={<ProtectedRoute roles={CFI}><MyAnalytics /></ProtectedRoute>} />
 
                 <Route path="/cases" element={<ProtectedRoute roles={CASE_ACCESS}><CaseList /></ProtectedRoute>} />
+                <Route path="/cases/online" element={<ProtectedRoute roles={ONLINE_APPROVAL}><PendingComplaints /></ProtectedRoute>} />
                 <Route path="/cases/new" element={<ProtectedRoute roles={CASE_ACCESS}><CaseRegister /></ProtectedRoute>} />
                 <Route path="/cases/search" element={<ProtectedRoute roles={CASE_ACCESS}><CaseSearch /></ProtectedRoute>} />
                 <Route path="/cases/:id" element={<ProtectedRoute roles={CASE_ACCESS}><CaseDetail /></ProtectedRoute>} />

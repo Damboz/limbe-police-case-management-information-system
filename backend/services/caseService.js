@@ -29,10 +29,26 @@ const LINK_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN];
 const COMPLETION_STATUSES = ['Closed', 'Court Pending', 'Forwarded to Prosecution'];
 
 
+// Service-level audit writer. Controllers annotate their own requests with IP
+// address through utils/audit; background service actions have no request, so they
+// write the row directly.
+async function writeAudit(userId, action, details) {
+    try {
+        await db.execute(
+            'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
+            [userId || null, action, typeof details === 'string' ? details : JSON.stringify(details), null]
+        );
+    } catch (err) {
+        console.error(`Failed to write audit log "${action}":`, err.message);
+    }
+}
+
+
 async function listCasesForUser(user) {
     const baseSelect = `
             SELECT
                 c.id, c.ob_number, c.complainant_name, c.priority, c.status, c.created_at,
+                c.source, c.complaint_status,
                 cc.name AS crime_category,
                 su.name AS branch_name,
                 CONCAT(recorder.rank_title, ' ', recorder.first_name, ' ', recorder.last_name) AS recorded_by_name,
@@ -50,10 +66,14 @@ async function listCasesForUser(user) {
     let query;
     let params = [];
 
+    // A case only "enters the system" once an officer approves it. Until then it
+    // belongs to the online-complaint queue, not the OB case register.
+    const approvedOnly = "COALESCE(c.complaint_status, 'Approved') = 'Approved'";
+
     if (roleIn(user, BRANCH_ROLES)) {
         query = `
             ${baseSelect}
-            WHERE c.workflow_branch = ?
+            WHERE c.workflow_branch = ? AND ${approvedOnly}
             GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
@@ -61,21 +81,23 @@ async function listCasesForUser(user) {
     } else if (roleIn(user, PROSECUTOR_ROLES)) {
         query = `
             ${baseSelect}
-            WHERE c.status IN ('Forwarded to Prosecution', 'Court Pending', 'Closed')
+            WHERE c.status IN ('Forwarded to Prosecution', 'Court Pending', 'Closed') AND ${approvedOnly}
             GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
     } else if (roleIn(user, SUPERVISOR_ROLES) || roleIn(user, RECORDS_ROLES)) {
         query = `
             ${baseSelect}
+            WHERE ${approvedOnly}
             GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
     } else {
         query = `
             ${baseSelect}
-            WHERE c.id IN (SELECT DISTINCT case_id FROM case_investigators WHERE investigator_id = ?)
-               OR c.recorded_by = ?
+            WHERE (c.id IN (SELECT DISTINCT case_id FROM case_investigators WHERE investigator_id = ?)
+               OR c.recorded_by = ?)
+               AND ${approvedOnly}
             GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
@@ -84,6 +106,24 @@ async function listCasesForUser(user) {
 
     const [cases] = await db.execute(query, params);
     return cases;
+}
+
+
+async function listPendingOnlineComplaints() {
+    const [rows] = await db.execute(`
+        SELECT
+            c.id, c.complainant_name, c.complainant_phone, c.complainant_gender,
+            c.incident_location, c.incident_details, c.priority, c.created_at,
+            c.source, c.complaint_status,
+            cc.name AS crime_category,
+            su.name AS branch_name
+        FROM cases c
+        LEFT JOIN crime_categories cc ON c.category_id = cc.id
+        LEFT JOIN station_branch su ON c.branch_id = su.id
+        WHERE c.source = 'Online' AND c.complaint_status = 'Pending'
+        ORDER BY c.created_at ASC
+    `);
+    return rows;
 }
 
 
@@ -155,7 +195,7 @@ async function submitOnlineComplaint(body) {
                 complainant_age, complainant_occupation, complainant_ta, complainant_village, complainant_gender,
                 category_id, branch_id, priority, incident_datetime, incident_location, incident_details,
                 recorded_by, status, source, complaint_status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
             RETURNING *`,
             [
                 complainant_name,
@@ -255,13 +295,7 @@ async function approveOnlineComplaint(user, caseId) {
         [user.id, user.id, caseId]
     );
 
-    await auditLog({
-        actorId: user.id,
-        action: 'ONLINE_COMPLAINT_APPROVED',
-        entityType: 'case',
-        entityId: caseId,
-        details: { caseId }
-    });
+    await writeAudit(user.id, 'ONLINE_COMPLAINT_APPROVED', { caseId });
 
     return ok({ caseId, message: 'Online complaint approved and entered into the system.' });
 }
@@ -289,13 +323,7 @@ async function rejectOnlineComplaint(user, caseId, reason) {
         [user.id, caseId]
     );
 
-    await auditLog({
-        actorId: user.id,
-        action: 'ONLINE_COMPLAINT_REJECTED',
-        entityType: 'case',
-        entityId: caseId,
-        details: { caseId, reason: reason || null }
-    });
+    await writeAudit(user.id, 'ONLINE_COMPLAINT_REJECTED', { caseId, reason: reason || null });
 
     return ok({ caseId, message: 'Online complaint rejected.' });
 }
@@ -618,7 +646,10 @@ async function getCaseDetail(caseId, user) {
         canAcknowledgeReceipt: isProsecutor && caseItem.status === 'Forwarded to Prosecution' && hasPendingCustody,
         canUpdateFileLocation: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
         canRecordCourt: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
-        canSendQuery: isProsecutor && !caseItem.prosecution_query
+        canSendQuery: isProsecutor && !caseItem.prosecution_query,
+        canApproveOnline: caseItem.source === 'Online'
+            && caseItem.complaint_status === 'Pending'
+            && roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN])
     };
 
     return ok({
@@ -813,15 +844,14 @@ async function getPersonalDashboard(user) {
 module.exports = {
     OVERDUE_DAYS_THRESHOLD,
     listCasesForUser,
+    listPendingOnlineComplaints,
     getCaseFormOptions,
     caseExists,
     submitOnlineComplaint,
     approveOnlineComplaint,
     rejectOnlineComplaint,
     createCase,
-    listCases,
     getCaseDetail,
-    getCaseParties,
     addCaseNote,
     requestStatusChange,
     logEvidence,

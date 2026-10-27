@@ -131,6 +131,16 @@ export default function Login() {
                                 )}
                             </button>
                         </form>
+
+                        <div className="text-center mt-4 pt-3 border-top">
+                            <div className="text-muted small mb-2">Reporting a crime?</div>
+                            <Link
+                                to="/complaint"
+                                className="btn btn-outline-navy btn-sm fw-semibold"
+                            >
+                                <i className="bi bi-file-earmark-text me-1" />Submit a complaint online
+                            </Link>
+                        </div>
                     </div>
                 </div>
 

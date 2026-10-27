@@ -57,6 +57,7 @@ export default function CaseDetail() {
     const report = useSubmitter();
     const tracking = useSubmitter();
     const evidenceCapture = useSubmitter();
+    const approval = useSubmitter();
 
     const [noteText, setNoteText] = useState('');
     const [requestedStatus, setRequestedStatus] = useState('');
@@ -205,6 +206,31 @@ export default function CaseDetail() {
     const suspectsList = parties.filter(p => p.party_type === 'Suspect');
     const canManageParties = permissions?.canManageParties || permissions?.canLinkSuspectVictim || permissions?.canAddNote;
 
+    const approveComplaint = async () => {
+        if (!window.confirm('Approve this online complaint and enter it into the case register?')) return;
+        await approval.run(async () => {
+            const res = await api.approveOnlineComplaint(id);
+            toast.success(res.message || 'Complaint approved.');
+            reload();
+        });
+    };
+
+    const rejectComplaint = async () => {
+        const reason = window.prompt('Reason for rejecting this complaint:');
+        if (reason === null) return;
+        if (!reason.trim()) {
+            approval.setError('A reason is required to reject the complaint.');
+            return;
+        }
+        await approval.run(async () => {
+            const res = await api.rejectOnlineComplaint(id, reason.trim());
+            toast.success(res.message || 'Complaint rejected.');
+            reload();
+        });
+    };
+
+    const isPendingComplaint = caseItem.source === 'Online' && caseItem.complaint_status === 'Pending';
+
     return (
         <>
             <PageHeader
@@ -216,6 +242,30 @@ export default function CaseDetail() {
                     </Link>
                 }
             />
+
+            {isPendingComplaint && (
+                <div className="alert alert-warning border-0 shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div>
+                        <div className="fw-bold">
+                            <i className="bi bi-hourglass-split me-2" />Online complaint awaiting approval
+                        </div>
+                        <div className="small mt-1">
+                            This complaint was submitted by the public. It is not yet part of the case register.
+                        </div>
+                        {approval.error && <div className="small text-danger mt-1">{approval.error}</div>}
+                    </div>
+                    {permissions?.canApproveOnline && (
+                        <div className="d-flex gap-2">
+                            <button type="button" className="btn btn-success btn-sm" disabled={approval.busy} onClick={approveComplaint}>
+                                <i className="bi bi-check-lg me-1" />Approve
+                            </button>
+                            <button type="button" className="btn btn-outline-danger btn-sm" disabled={approval.busy} onClick={rejectComplaint}>
+                                <i className="bi bi-x-lg me-1" />Reject
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="card border-0 shadow-sm mb-4">
                 <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3 flex-wrap gap-2">

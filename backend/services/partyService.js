@@ -81,7 +81,7 @@ async function createComplainantParty(client, caseItem, createdBy) {
         `INSERT INTO case_parties (
              case_id, party_type, witness_number, full_name, national_id,
              phone_number, gender, age, occupation, ta, village, address, created_by
-         ) VALUES ($1, 'Complainant', 1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         ) VALUES ($1, 'Complainant', 1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING id, case_id, party_type, witness_number, full_name, suspect_id`,
         [
             caseItem.id,
@@ -126,7 +126,7 @@ async function createWitnessParty(client, caseId, data, createdBy) {
              case_id, party_type, witness_number, full_name, national_id,
              phone_number, email, gender, age, occupation, ta, village,
              address, created_by
-         ) VALUES ($1, 'Witness', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         ) VALUES ($1, 'Witness', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING id, case_id, party_type, witness_number, full_name, suspect_id`,
         [
             caseId,
@@ -198,7 +198,7 @@ async function createSuspectParty(client, caseId, data, createdBy) {
              created_by
          ) VALUES (
              $1, 'Suspect', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-             $13, $14, $15, $16, $17, $18, 'Under Investigation', $19
+             $13, $14, $15, $16, $17, 'Under Investigation', $18
          )
          RETURNING id, case_id, party_type, witness_number, full_name, suspect_id`,
         [

@@ -1,4 +1,5 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
@@ -20,7 +21,24 @@ const { validateEvidenceFile } = require('../utils/evidenceSecurity');
 const db = require('../config/db');
 const { isAssignedInvestigator } = require('../services/assignmentService');
 const { logAudit } = require('../utils/audit');
-router.post('/public/complaints', caseApi.submitOnline);
+
+
+// The online complaint form is open to the public, so it needs its own tighter
+// limit than the general /api budget to stop one source flooding the intake queue.
+const publicComplaintLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => res.status(429).json({
+        success: false,
+        error: 'Too many complaints submitted from this connection. Please try again later.'
+    })
+});
+
+
+router.get('/public/complaint-options', caseApi.formOptions);
+router.post('/public/complaints', publicComplaintLimiter, caseApi.submitOnline);
 
 
 router.post('/auth/login', require('../controllers/api/authApiController').login);
@@ -41,6 +59,12 @@ router.get('/cases', isAuthenticated, denyAdmin, caseApi.list);
 router.get('/cases/new', isAuthenticated, denyAdmin, caseApi.formOptions);
 router.post('/cases', isAuthenticated, denyAdmin, caseApi.create);
 router.get('/cases/search', isAuthenticated, denyAdmin, caseApi.search);
+router.get(
+    '/cases/online/pending',
+    isAuthenticated,
+    authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN),
+    caseApi.pendingOnline
+);
 router.get('/cases/:id', isAuthenticated, denyAdmin, caseApi.detail);
 router.get('/cases/:id/parties', isAuthenticated, denyAdmin, caseApi.parties);
 router.post('/cases/:id/notes', isAuthenticated, denyAdmin, caseApi.addNote);

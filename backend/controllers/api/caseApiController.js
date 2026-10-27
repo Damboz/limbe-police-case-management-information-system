@@ -24,6 +24,16 @@ exports.formOptions = async (req, res, next) => {
 };
 
 
+exports.pendingOnline = async (req, res, next) => {
+    try {
+        const complaints = await caseService.listPendingOnlineComplaints();
+        res.json({ success: true, data: { complaints } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
 exports.create = async (req, res, next) => {
     try {
         const user = req.session.user;

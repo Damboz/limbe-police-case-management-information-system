@@ -95,6 +95,7 @@ export function homePathFor(user) {
 // straight on the 403 page instead of its dashboard.
 export const ROUTE_ROLES = {
     MY_ANALYTICS: [ROLES.POLICE_OFFICER],
+    ONLINE_COMPLAINTS: [ROLES.POLICE_OFFICER, ROLES.RECORDS_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER],
     CASES: [ROLES.POLICE_OFFICER, ROLES.RECORDS_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.PROSECUTOR],
     EVIDENCE: [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER],
     SUPERVISOR: [ROLES.STATION_OFFICER],
@@ -108,6 +109,7 @@ const OPEN_PATH_PREFIXES = ['/dashboard', '/change-password'];
 
 const GUARDED_PATH_ROLES = [
     { prefix: '/my-analytics', roles: ROUTE_ROLES.MY_ANALYTICS },
+    { prefix: '/cases/online', roles: ROUTE_ROLES.ONLINE_COMPLAINTS },
     { prefix: '/cases', roles: ROUTE_ROLES.CASES },
     { prefix: '/evidence', roles: ROUTE_ROLES.EVIDENCE },
     { prefix: '/supervisor', roles: ROUTE_ROLES.SUPERVISOR },

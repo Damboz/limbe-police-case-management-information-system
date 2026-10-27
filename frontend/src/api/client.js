@@ -169,6 +169,12 @@ export const api = {
     dashboard: (signal) => request('/dashboard', { signal }),
     myAnalytics: (signal) => request('/my-analytics', { signal }),
 
+    complaintFormOptions: (signal) => request('/public/complaint-options', { signal }),
+    submitOnlineComplaint: (body) => request('/public/complaints', { method: 'POST', body }),
+    pendingOnlineComplaints: (signal) => request('/cases/online/pending', { signal }),
+    approveOnlineComplaint: (id) => request(`/cases/${id}/approve-online`, { method: 'POST' }),
+    rejectOnlineComplaint: (id, reason) => request(`/cases/${id}/reject-online`, { method: 'POST', body: { reason } }),
+
     listCases: (signal) => request('/cases', { signal }),
     caseFormOptions: (signal) => request('/cases/new', { signal }),
     createCase: (body) => request('/cases', { method: 'POST', body }),
