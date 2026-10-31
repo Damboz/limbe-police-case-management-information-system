@@ -1177,7 +1177,7 @@ Both create 15 tables in three groups:
 | Lookup | `roles`, `station_branch`, `crime_categories` |
 | People | `users` |
 | Cases | `cases`, `case_investigators`, `case_suspects`, `suspects`, `victims`, `evidence`, `case_notes` |
-| System | `audit_logs`, `sessions` |
+| System | `audit_logs` |
 
 **The constraints carry the business rules**, so the database itself refuses bad data
 even if a code path is missed:

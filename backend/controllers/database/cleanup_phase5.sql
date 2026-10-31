@@ -4,6 +4,9 @@
 
 BEGIN;
 
+-- Sessions live in a signed cookie (cookie-session), so this table was never used.
+DROP TABLE IF EXISTS sessions;
+
 -- Drop old evidence edit/delete related objects if they exist
 DROP TRIGGER IF EXISTS prevent_evidence_update ON evidence;
 DROP TRIGGER IF EXISTS prevent_evidence_delete ON evidence;

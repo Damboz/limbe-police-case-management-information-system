@@ -789,15 +789,6 @@ INSERT INTO audit_logs (id, user_id, action, details, ip_address, created_at) VA
 
 SELECT setval(pg_get_serial_sequence('audit_logs', 'id'), (SELECT MAX(id) FROM audit_logs));
 
--- Session store (kept for compatibility; app uses in-memory sessions by default)
-DROP TABLE IF EXISTS sessions;
-CREATE TABLE sessions (
-  session_id varchar(128) NOT NULL,
-  expires    integer NOT NULL,
-  data       text,
-  PRIMARY KEY (session_id)
-);
-
 -- ============================================================
 -- 3. TRIGGERS (emulate MySQL ON UPDATE CURRENT_TIMESTAMP)
 -- ============================================================
