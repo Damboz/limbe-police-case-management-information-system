@@ -13,6 +13,7 @@ import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
 import MyAnalytics from './pages/MyAnalytics';
 import CaseList from './pages/cases/CaseList';
+import OccurrenceBook from './pages/records/OccurrenceBook';
 import CaseRegister from './pages/cases/CaseRegister';
 import CaseSearch from './pages/cases/CaseSearch';
 import CaseDetail from './pages/cases/CaseDetail';
@@ -73,6 +74,7 @@ const CFI = ROUTE_ROLES.MY_ANALYTICS;
 const OPS = ROUTE_ROLES.EVIDENCE;
 const CASE_ACCESS = ROUTE_ROLES.CASES;
 const ONLINE_APPROVAL = ROUTE_ROLES.ONLINE_COMPLAINTS;
+const OB_ACCESS = ROUTE_ROLES.OCCURRENCE_BOOK;
 const BRN = ROUTE_ROLES.BRANCH;
 const PRS = ROUTE_ROLES.PROSECUTION;
 
@@ -91,6 +93,7 @@ export default function App() {
                 <Route path="/change-password" element={<ChangePassword />} />
                 <Route path="/my-analytics" element={<ProtectedRoute roles={CFI}><MyAnalytics /></ProtectedRoute>} />
 
+                <Route path="/occurrence-book" element={<ProtectedRoute roles={OB_ACCESS}><OccurrenceBook /></ProtectedRoute>} />
                 <Route path="/cases" element={<ProtectedRoute roles={CASE_ACCESS}><CaseList /></ProtectedRoute>} />
                 <Route path="/cases/online" element={<ProtectedRoute roles={ONLINE_APPROVAL}><PendingComplaints /></ProtectedRoute>} />
                 <Route path="/cases/new" element={<ProtectedRoute roles={CASE_ACCESS}><CaseRegister /></ProtectedRoute>} />

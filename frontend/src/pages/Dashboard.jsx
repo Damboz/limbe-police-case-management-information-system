@@ -163,7 +163,14 @@ function RecordsDashboard({ data, reload }) {
             <PageHeader
                 title="Records Desk"
                 subtitle="Assign OB and criminal numbers to registered cases before they are classified."
-                actions={<DashboardSearchBar />}
+                actions={
+                    <>
+                        <Link to="/occurrence-book" className="btn btn-outline-navy btn-sm">
+                            <i className="bi bi-journal-bookmark-fill me-1" />Occurrence Book
+                        </Link>
+                        <DashboardSearchBar />
+                    </>
+                }
             />
 
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />

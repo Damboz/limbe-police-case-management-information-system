@@ -276,6 +276,9 @@ export default function SupervisorDashboard() {
                 subtitle="Station operational oversight, case distribution, and status approvals."
                 actions={
                     <>
+                        <Link to="/occurrence-book" className="btn btn-outline-navy btn-sm">
+                            <i className="bi bi-journal-bookmark-fill me-1" />Occurrence Book
+                        </Link>
                         <Link to="/supervisor/analytics" className="btn btn-outline-navy btn-sm">
                             <i className="bi bi-graph-up-arrow me-1" />Analytics &amp; Hotspots
                         </Link>

@@ -11,6 +11,7 @@ const supervisorApi = require('../controllers/api/supervisorApiController');
 const branchApi = require('../controllers/api/branchApiController');
 const prosecutorApi = require('../controllers/api/prosecutorApiController');
 const recordsApi = require('../controllers/api/recordsApiController');
+const occurrenceBookApi = require('../controllers/api/occurrenceBookApiController');
 const reportsApi = require('../controllers/api/reportsApiController');
 const generalApi = require('../controllers/api/generalApiController');
 
@@ -556,6 +557,8 @@ router.post('/branch/external-reports/:reportId/received', isAuthenticated, auth
 
 router.get('/records/dashboard', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER), recordsApi.dashboard);
 router.post('/records/cases/:id/numbers', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER), recordsApi.assignNumbers);
+
+router.get('/occurrence-book', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER, ROLES.STATION_OFFICER), occurrenceBookApi.list);
 
 
 router.get('/prosecution/dashboard', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.dashboard);

@@ -257,6 +257,14 @@ export const api = {
     recordsDashboard: (signal) => request('/records/dashboard', { signal }),
     assignCaseNumbers: (id, body) => request(`/records/cases/${id}/numbers`, { method: 'POST', body }),
 
+    occurrenceBook: (filters = {}, signal) => {
+        const params = new URLSearchParams();
+        if (filters.q) params.set('q', filters.q);
+        if (filters.status) params.set('status', filters.status);
+        const query = params.toString();
+        return request(`/occurrence-book${query ? `?${query}` : ''}`, { signal });
+    },
+
     prosecutionDashboard: (signal) => request('/prosecution/dashboard', { signal }),
     forwardCaseToCourt: (id, body) => request(`/prosecution/cases/${id}/forward-to-court`, { method: 'POST', body })
 };

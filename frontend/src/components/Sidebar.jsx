@@ -55,6 +55,11 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                 title: 'Core Operations',
                 links: [
                     { to: homePath, icon: 'bi-speedometer2', label: 'Dashboard', end: true },
+                    (isRecordsOfficer || isStationOfficer) && {
+                        to: '/occurrence-book',
+                        icon: 'bi-journal-bookmark-fill',
+                        label: 'Occurrence Book'
+                    },
                     !isAdmin && { to: '/cases', icon: 'bi-folder2-open', label: 'Case Register' },
                     (isPoliceOfficer || isStationOfficer || isBranchOfficer || isRecordsOfficer) && {
                         to: '/cases/online',
