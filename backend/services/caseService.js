@@ -589,12 +589,14 @@ async function getCaseDetail(caseId, user) {
                 cc.name AS crime_category,
                 su.name AS branch_name,
                 CONCAT(recorder.rank_title, ' ', recorder.first_name, ' ', recorder.last_name) AS recorded_by_name,
-                CONCAT(req_user.rank_title, ' ', req_user.first_name, ' ', req_user.last_name) AS status_requested_by_name
+                CONCAT(req_user.rank_title, ' ', req_user.first_name, ' ', req_user.last_name) AS status_requested_by_name,
+                CONCAT(court_officer.rank_title, ' ', court_officer.first_name, ' ', court_officer.last_name) AS court_officer_name
             FROM cases c
             LEFT JOIN crime_categories cc ON c.category_id = cc.id
             LEFT JOIN station_branch su ON c.branch_id = su.id
             LEFT JOIN users recorder ON c.recorded_by = recorder.id
             LEFT JOIN users req_user ON c.status_requested_by = req_user.id
+            LEFT JOIN users court_officer ON c.court_officer_id = court_officer.id
             WHERE c.id = ?
         `, [caseId]),
 
@@ -664,8 +666,6 @@ async function getCaseDetail(caseId, user) {
     const isBranchOfficer = roleIn(user, BRANCH_ROLES);
     const isProsecutor = roleIn(user, PROSECUTOR_ROLES);
 
-    const hasPendingCustody = (custodyLog || []).some(entry => entry.status === 'Pending');
-
     const permissions = {
         canAddNote: isAssignedInvestigatorFlag,
         canRequestStatus: isAssignedInvestigatorFlag && !caseItem.requested_status && caseItem.status === 'Under Investigation',
@@ -675,10 +675,7 @@ async function getCaseDetail(caseId, user) {
         canGenerateInvitationLetter: isAssignedInvestigatorFlag || roleIn(user, [ROLES.PROSECUTOR, ROLES.STATION_OFFICER, ROLES.ADMIN]),
         canRequestExternalReport: isAssignedInvestigatorFlag && caseItem.status === 'Under Investigation' && !caseItem.requested_status,
         canReview: isBranchOfficer && caseItem.branch_review_status === 'Pending Review',
-        canAcknowledgeReceipt: isProsecutor && caseItem.status === 'Forwarded to Prosecution' && hasPendingCustody,
-        canUpdateFileLocation: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
-        canRecordCourt: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
-        canSendQuery: isProsecutor && !caseItem.prosecution_query,
+        canForwardToCourt: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
         canApproveOnline: caseItem.source === 'Online'
             && caseItem.complaint_status === 'Pending'
             && roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN])

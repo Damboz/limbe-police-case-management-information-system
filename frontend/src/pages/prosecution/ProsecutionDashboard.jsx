@@ -26,22 +26,28 @@ function Modal({ title, onClose, children, footer }) {
 }
 
 
+function Stat({ label, value, icon, colorClass }) {
+    return (
+        <div className="col-6 col-md-4">
+            <div className="card border-0 shadow-sm p-3 h-100">
+                <div className="d-flex flex-column align-items-center text-center">
+                    <i className={`bi ${icon} fs-4 mb-1 text-${colorClass}`} />
+                    <h5 className="fw-bold mb-0">{value}</h5>
+                    <span className="text-muted small fw-semibold text-uppercase d-block mt-1">{label}</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
 export default function ProsecutionDashboard() {
     const toast = useToast();
     const { data, error, loading, reload } = useApiData(api.prosecutionDashboard);
     usePageTitle('Prosecution Dashboard');
 
-    const [ackTarget, setAckTarget] = useState(null);
-    const [ackForm, setAckForm] = useState({ file_location: '', notes: '' });
-
-    const [fileTarget, setFileTarget] = useState(null);
-    const [fileLocation, setFileLocation] = useState('');
-
-    const [courtTarget, setCourtTarget] = useState(null);
-    const [courtForm, setCourtForm] = useState({ court_date: '', court_outcome: '' });
-
-    const [queryTarget, setQueryTarget] = useState(null);
-    const [queryText, setQueryText] = useState('');
+    const [forwardTarget, setForwardTarget] = useState(null);
+    const [forwardForm, setForwardForm] = useState({ court_date: '', court_officer_id: '', notes: '' });
 
     const [actionError, setActionError] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -49,68 +55,23 @@ export default function ProsecutionDashboard() {
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
 
-    const { forwardedCases, pendingReceipts, movingFiles } = data;
+    const { forwardedCases, courtCases, courtOfficers, kpi } = data;
 
-    const submitAcknowledge = async (e) => {
-        e.preventDefault();
-        setBusy(true);
+    const openForward = (item) => {
+        setForwardTarget(item);
+        setForwardForm({ court_date: '', court_officer_id: '', notes: '' });
         setActionError(null);
-        try {
-            const res = await api.acknowledgeReceipt(ackTarget.case_id, ackForm);
-            toast.success(res.message || 'Receipt acknowledged.');
-            setAckTarget(null);
-            setAckForm({ file_location: '', notes: '' });
-            reload();
-        } catch (err) {
-            setActionError(err.message);
-        } finally {
-            setBusy(false);
-        }
     };
 
-    const submitFileLocation = async (e) => {
+    const submitForward = async (e) => {
         e.preventDefault();
         setBusy(true);
         setActionError(null);
         try {
-            const res = await api.updateFileLocation(fileTarget.id, { file_location: fileLocation });
-            toast.success(res.message || 'File location updated.');
-            setFileTarget(null);
-            setFileLocation('');
-            reload();
-        } catch (err) {
-            setActionError(err.message);
-        } finally {
-            setBusy(false);
-        }
-    };
-
-    const submitCourt = async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        setActionError(null);
-        try {
-            const res = await api.recordCourtDetails(courtTarget.id, courtForm);
-            toast.success(res.message || 'Court details recorded.');
-            setCourtTarget(null);
-            setCourtForm({ court_date: '', court_outcome: '' });
-            reload();
-        } catch (err) {
-            setActionError(err.message);
-        } finally {
-            setBusy(false);
-        }
-    };
-
-    const submitQuery = async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        setActionError(null);
-        try {
-            const res = await api.sendQuery(queryTarget.id, { query: queryText });
-            toast.success(res.message || 'Query sent to the Station Officer.');
-            setQueryTarget(null);
-            setQueryText('');
+            const res = await api.forwardCaseToCourt(forwardTarget.id, forwardForm);
+            toast.success(res.message || 'Case forwarded to court.');
+            setForwardTarget(null);
+            setForwardForm({ court_date: '', court_officer_id: '', notes: '' });
             reload();
         } catch (err) {
             setActionError(err.message);
@@ -123,65 +84,25 @@ export default function ProsecutionDashboard() {
         <>
             <PageHeader
                 title="Prosecution Dashboard"
-                subtitle="File handover, court scheduling, and prosecution oversight for forwarded cases."
+                subtitle="Forward prosecution cases to court and assign the officer who will stand with each case."
             />
 
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
 
-            <div className="row g-4 mb-4">
-                <div className="col-lg-6">
-                    <div className="card border-0 shadow-sm h-100">
-                        <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
-                            <h6 className="mb-0 fw-bold">
-                                <i className="bi bi-inbox-fill me-2 text-warning" />Pending File Handovers
-                            </h6>
-                            <span className="badge bg-gold text-dark">{pendingReceipts.length} To Receive</span>
-                        </div>
-                        <div className="table-responsive">
-                            <table className="table table-hover align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Case Ref</th>
-                                        <th>Title &amp; Category</th>
-                                        <th>Handed Over By</th>
-                                        <th>Date</th>
-                                        <th className="text-end">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {pendingReceipts.length === 0 ? (
-                                        <tr><td colSpan="5"><EmptyState icon="bi-inbox" message="No files waiting to be received." /></td></tr>
-                                    ) : (
-                                        pendingReceipts.map(item => (
-                                            <tr key={item.custody_id}>
-                                                <td className="fw-bold font-monospace" style={{ color: 'var(--mps-navy)' }}>#{item.case_number}</td>
-                                                <td>
-                                                    <div className="fw-semibold text-dark">{item.title}</div>
-                                                    <small className="text-muted">{item.crime_category}</small>
-                                                </td>
-                                                <td className="small fw-semibold">{item.handed_over_by_name || '—'}</td>
-                                                <td className="small text-muted">{formatDate(item.handed_over_at)}</td>
-                                                <td className="text-end">
-                                                    <button type="button" className="btn btn-sm btn-navy" onClick={() => { setAckTarget(item); setAckForm({ file_location: '', notes: '' }); setActionError(null); }}>
-                                                        <i className="bi bi-box-arrow-in-down me-1" />Acknowledge
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+            <div className="row g-3 mb-4">
+                <Stat label="Awaiting Court Forwarding" value={kpi.forwarded} icon="bi-briefcase-fill" colorClass="warning" />
+                <Stat label="Court Pending" value={kpi.courtPending} icon="bi-bank2" colorClass="primary" />
+                <Stat label="In Court Today" value={kpi.inCourtToday} icon="bi-calendar-check-fill" colorClass="success" />
+            </div>
 
-                <div className="col-lg-6">
-                    <div className="card border-0 shadow-sm h-100">
+            <div className="row g-4 mb-4">
+                <div className="col-12">
+                    <div className="card border-0 shadow-sm">
                         <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
                             <h6 className="mb-0 fw-bold">
-                                <i className="bi bi-briefcase-fill me-2 text-warning" />Forwarded Cases
+                                <i className="bi bi-briefcase-fill me-2 text-warning" />Cases Forwarded to Prosecution
                             </h6>
-                            <span className="badge bg-gold text-dark">{forwardedCases.length} Total</span>
+                            <span className="badge bg-gold text-dark">{forwardedCases.length} Awaiting Court</span>
                         </div>
                         <div className="table-responsive">
                             <table className="table table-hover align-middle mb-0">
@@ -190,13 +111,14 @@ export default function ProsecutionDashboard() {
                                         <th>Case Ref</th>
                                         <th>Title &amp; Category</th>
                                         <th>Priority</th>
-                                        <th>Status</th>
-                                        <th className="text-end">Actions</th>
+                                        <th>Investigator(s)</th>
+                                        <th>Forwarded</th>
+                                        <th className="text-end">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {forwardedCases.length === 0 ? (
-                                        <tr><td colSpan="5"><EmptyState message="No cases have been forwarded to the Prosecution Branch yet." /></td></tr>
+                                        <tr><td colSpan="6"><EmptyState icon="bi-briefcase" message="No cases are awaiting court forwarding." /></td></tr>
                                     ) : (
                                         forwardedCases.map(item => (
                                             <tr key={item.id}>
@@ -206,36 +128,15 @@ export default function ProsecutionDashboard() {
                                                     <small className="text-muted">{item.crime_category}</small>
                                                 </td>
                                                 <td><PriorityBadge priority={item.priority} /></td>
-                                                <td><StatusBadge status={item.status} /></td>
+                                                <td><small className="fw-semibold">{item.investigator_names || '—'}</small></td>
+                                                <td className="small text-muted">{item.forwarded_at ? formatDate(item.forwarded_at) : '—'}</td>
                                                 <td className="text-end text-nowrap">
                                                     <div className="btn-group btn-group-sm">
                                                         <Link to={`/cases/${item.id}`} className="btn btn-outline-navy" title="Open Case">
                                                             <i className="bi bi-folder2-open" />
                                                         </Link>
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-outline-navy"
-                                                            title="Record Court Details"
-                                                            onClick={() => { setCourtTarget(item); setCourtForm({ court_date: '', court_outcome: '' }); setActionError(null); }}
-                                                        >
-                                                            <i className="bi bi-bank2" />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-outline-navy"
-                                                            title="Update File Location"
-                                                            onClick={() => { setFileTarget(item); setFileLocation(item.file_location || ''); setActionError(null); }}
-                                                        >
-                                                            <i className="bi bi-archive" />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-outline-navy"
-                                                            title="Query the Station Officer"
-                                                            disabled={!!item.prosecution_query}
-                                                            onClick={() => { setQueryTarget(item); setQueryText(''); setActionError(null); }}
-                                                        >
-                                                            <i className="bi bi-chat-square-text" />
+                                                        <button type="button" className="btn btn-navy" onClick={() => openForward(item)}>
+                                                            <i className="bi bi-bank2 me-1" />Forward to Court
                                                         </button>
                                                     </div>
                                                 </td>
@@ -264,16 +165,16 @@ export default function ProsecutionDashboard() {
                                         <th>Case Ref</th>
                                         <th>Title &amp; Category</th>
                                         <th>Court Date</th>
+                                        <th>Officer Standing with Case</th>
                                         <th>Outcome</th>
-                                        <th>File Location</th>
-                                        <th>Received By</th>
+                                        <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {movingFiles.length === 0 ? (
-                                        <tr><td colSpan="6"><EmptyState message="No acknowledged file movements yet." /></td></tr>
+                                    {courtCases.length === 0 ? (
+                                        <tr><td colSpan="6"><EmptyState message="No cases have been forwarded to court yet." /></td></tr>
                                     ) : (
-                                        movingFiles.map(item => (
+                                        courtCases.map(item => (
                                             <tr key={item.id}>
                                                 <td className="fw-bold font-monospace" style={{ color: 'var(--mps-navy)' }}>#{item.case_number}</td>
                                                 <td>
@@ -281,9 +182,12 @@ export default function ProsecutionDashboard() {
                                                     <small className="text-muted">{item.crime_category}</small>
                                                 </td>
                                                 <td className="small">{item.court_date ? formatDate(item.court_date) : '—'}</td>
+                                                <td className="small">
+                                                    <div className="fw-semibold">{item.court_officer_name || '—'}</div>
+                                                    {item.court_officer_badge && <span className="text-muted">{item.court_officer_badge}</span>}
+                                                </td>
                                                 <td>{item.court_outcome ? <span className="badge badge-case-closed">{item.court_outcome}</span> : <span className="text-muted small">Pending</span>}</td>
-                                                <td className="small">{item.file_location || '—'}</td>
-                                                <td className="small">{item.received_by_name || '—'}</td>
+                                                <td><StatusBadge status={item.status} /></td>
                                             </tr>
                                         ))
                                     )}
@@ -294,164 +198,62 @@ export default function ProsecutionDashboard() {
                 </div>
             </div>
 
-            {ackTarget && (
+            {forwardTarget && (
                 <Modal
-                    title="Acknowledge File Receipt"
-                    onClose={() => setAckTarget(null)}
+                    title="Forward Case to Court"
+                    onClose={() => setForwardTarget(null)}
                     footer={
                         <>
-                            <button type="button" className="btn btn-outline-navy" onClick={() => setAckTarget(null)}>Cancel</button>
-                            <button type="submit" form="ack-form" className="btn btn-navy" disabled={busy}>
-                                <i className="bi bi-check-lg me-1" />Confirm Receipt
+                            <button type="button" className="btn btn-outline-navy" onClick={() => setForwardTarget(null)}>Cancel</button>
+                            <button type="submit" form="forward-form" className="btn btn-navy" disabled={busy}>
+                                <i className="bi bi-bank2 me-1" />Forward to Court
                             </button>
                         </>
                     }
                 >
-                    <form id="ack-form" onSubmit={submitAcknowledge}>
+                    <form id="forward-form" onSubmit={submitForward}>
                         <div className="modal-body">
                             <div className="mb-3">
                                 <label className="form-label">CASE REFERENCE</label>
-                                <div className="form-control-plaintext fw-bold">#{ackTarget.case_number}</div>
+                                <div className="form-control-plaintext fw-bold">#{forwardTarget.case_number}</div>
                             </div>
                             <div className="mb-3">
-                                <label htmlFor="ack_location" className="form-label">File Location (Physical Shelf)</label>
-                                <input
-                                    id="ack_location"
-                                    className="form-control"
-                                    placeholder="e.g. Prosecution shelf B3"
-                                    value={ackForm.file_location}
-                                    onChange={e => setAckForm(prev => ({ ...prev, file_location: e.target.value }))}
-                                />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="ack_notes" className="form-label">Receipt Notes</label>
-                                <textarea
-                                    id="ack_notes"
-                                    rows="3"
-                                    className="form-control"
-                                    placeholder="Optional observation on the file condition or contents..."
-                                    value={ackForm.notes}
-                                    onChange={e => setAckForm(prev => ({ ...prev, notes: e.target.value }))}
-                                />
-                            </div>
-                        </div>
-                    </form>
-                </Modal>
-            )}
-
-            {fileTarget && (
-                <Modal
-                    title="Update Physical File Location"
-                    onClose={() => setFileTarget(null)}
-                    footer={
-                        <>
-                            <button type="button" className="btn btn-outline-navy" onClick={() => setFileTarget(null)}>Cancel</button>
-                            <button type="submit" form="file-form" className="btn btn-navy" disabled={busy}>
-                                <i className="bi bi-check-lg me-1" />Save Location
-                            </button>
-                        </>
-                    }
-                >
-                    <form id="file-form" onSubmit={submitFileLocation}>
-                        <div className="modal-body">
-                            <div className="mb-3">
-                                <label className="form-label">CASE REFERENCE</label>
-                                <div className="form-control-plaintext fw-bold">#{fileTarget.case_number}</div>
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="file_location" className="form-label">File Location <span className="text-danger">*</span></label>
-                                <input
-                                    id="file_location"
-                                    className="form-control"
-                                    placeholder="e.g. Archives cabinet 2, shelf C"
-                                    value={fileLocation}
-                                    onChange={e => setFileLocation(e.target.value)}
-                                    required
-                                />
-                            </div>
-                        </div>
-                    </form>
-                </Modal>
-            )}
-
-            {courtTarget && (
-                <Modal
-                    title="Record Court Details"
-                    onClose={() => setCourtTarget(null)}
-                    footer={
-                        <>
-                            <button type="button" className="btn btn-outline-navy" onClick={() => setCourtTarget(null)}>Cancel</button>
-                            <button type="submit" form="court-form" className="btn btn-navy" disabled={busy}>
-                                <i className="bi bi-check-lg me-1" />Save Court Details
-                            </button>
-                        </>
-                    }
-                >
-                    <form id="court-form" onSubmit={submitCourt}>
-                        <div className="modal-body">
-                            <div className="mb-3">
-                                <label className="form-label">CASE REFERENCE</label>
-                                <div className="form-control-plaintext fw-bold">#{courtTarget.case_number}</div>
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="court_date" className="form-label">Next / Last Court Date</label>
+                                <label htmlFor="court_date" className="form-label">Court Date <span className="text-danger">*</span></label>
                                 <input
                                     type="date"
                                     id="court_date"
                                     className="form-control"
-                                    value={courtForm.court_date}
-                                    onChange={e => setCourtForm(prev => ({ ...prev, court_date: e.target.value }))}
+                                    value={forwardForm.court_date}
+                                    onChange={e => setForwardForm(prev => ({ ...prev, court_date: e.target.value }))}
+                                    required
                                 />
                             </div>
                             <div className="mb-3">
-                                <label htmlFor="court_outcome" className="form-label">Court Outcome</label>
+                                <label htmlFor="court_officer_id" className="form-label">Officer Standing with the Case <span className="text-danger">*</span></label>
                                 <select
-                                    id="court_outcome"
+                                    id="court_officer_id"
                                     className="form-select"
-                                    value={courtForm.court_outcome}
-                                    onChange={e => setCourtForm(prev => ({ ...prev, court_outcome: e.target.value }))}
+                                    value={forwardForm.court_officer_id}
+                                    onChange={e => setForwardForm(prev => ({ ...prev, court_officer_id: e.target.value }))}
+                                    required
                                 >
-                                    <option value="">— Not finalised —</option>
-                                    <option value="Convicted">Convicted</option>
-                                    <option value="Acquitted">Acquitted</option>
-                                    <option value="Withdrawn">Withdrawn</option>
-                                    <option value="Adjourned">Adjourned</option>
+                                    <option value="">— Select an officer —</option>
+                                    {courtOfficers.map(officer => (
+                                        <option key={officer.id} value={officer.id}>
+                                            {officer.rank_title} {officer.first_name} {officer.last_name} ({officer.badge_number})
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
-                        </div>
-                    </form>
-                </Modal>
-            )}
-
-            {queryTarget && (
-                <Modal
-                    title="Query the Station Officer"
-                    onClose={() => setQueryTarget(null)}
-                    footer={
-                        <>
-                            <button type="button" className="btn btn-outline-navy" onClick={() => setQueryTarget(null)}>Cancel</button>
-                            <button type="submit" form="query-form" className="btn btn-navy" disabled={busy}>
-                                <i className="bi bi-send-fill me-1" />Send Query
-                            </button>
-                        </>
-                    }
-                >
-                    <form id="query-form" onSubmit={submitQuery}>
-                        <div className="modal-body">
                             <div className="mb-3">
-                                <label className="form-label">CASE REFERENCE</label>
-                                <div className="form-control-plaintext fw-bold">#{queryTarget.case_number}</div>
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="query_text" className="form-label">Query Message <span className="text-danger">*</span></label>
+                                <label htmlFor="forward_notes" className="form-label">Notes</label>
                                 <textarea
-                                    id="query_text"
-                                    rows="4"
+                                    id="forward_notes"
+                                    rows="3"
                                     className="form-control"
-                                    placeholder="What does the Prosecution Branch need from the Station Officer?"
-                                    value={queryText}
-                                    onChange={e => setQueryText(e.target.value)}
-                                    required
+                                    placeholder="Optional instructions for the officer standing with the case..."
+                                    value={forwardForm.notes}
+                                    onChange={e => setForwardForm(prev => ({ ...prev, notes: e.target.value }))}
                                 />
                             </div>
                         </div>

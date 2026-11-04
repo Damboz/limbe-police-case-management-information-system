@@ -559,10 +559,7 @@ router.post('/records/cases/:id/numbers', isAuthenticated, authorizeRoles(ROLES.
 
 
 router.get('/prosecution/dashboard', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.dashboard);
-router.post('/prosecution/cases/:id/acknowledge', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.acknowledge);
-router.post('/prosecution/cases/:id/file-location', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.fileLocation);
-router.post('/prosecution/cases/:id/court', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.court);
-router.post('/prosecution/cases/:id/query', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.query);
+router.post('/prosecution/cases/:id/forward-to-court', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.forwardToCourt);
 
 
 module.exports = router;

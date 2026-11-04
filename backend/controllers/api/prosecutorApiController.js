@@ -12,90 +12,26 @@ exports.dashboard = async (req, res, next) => {
 };
 
 
-exports.acknowledge = async (req, res, next) => {
+exports.forwardToCourt = async (req, res, next) => {
     try {
         const user = req.session.user;
-        const result = await prosecutorService.acknowledgeReceipt(
+        const result = await prosecutorService.forwardToCourt(
             user,
             req.params.id,
-            req.body.file_location,
-            req.body.notes
+            {
+                courtDate: req.body.court_date,
+                courtOfficerId: req.body.court_officer_id,
+                notes: req.body.notes
+            }
         );
 
         if (!result.ok) {
             return res.status(result.status).json({ success: false, error: result.error });
         }
 
-        await logAudit(req, user.id, 'FILE_RECEIVED', result.auditDetails);
+        await logAudit(req, user.id, 'CASE_FORWARDED_TO_COURT', result.auditDetails);
 
         res.json({ success: true, message: result.message });
-    } catch (err) {
-        next(err);
-    }
-};
-
-
-exports.fileLocation = async (req, res, next) => {
-    try {
-        const user = req.session.user;
-        const result = await prosecutorService.updateFileLocation(
-            user,
-            req.params.id,
-            req.body.file_location
-        );
-
-        if (!result.ok) {
-            return res.status(result.status).json({ success: false, error: result.error });
-        }
-
-        await logAudit(req, user.id, 'FILE_LOCATION_UPDATED', result.auditDetails);
-
-        res.json({ success: true, message: result.message });
-    } catch (err) {
-        next(err);
-    }
-};
-
-
-exports.court = async (req, res, next) => {
-    try {
-        const user = req.session.user;
-        const result = await prosecutorService.recordCourtDetails(
-            user,
-            req.params.id,
-            req.body.court_date,
-            req.body.court_outcome
-        );
-
-        if (!result.ok) {
-            return res.status(result.status).json({ success: false, error: result.error });
-        }
-
-        await logAudit(req, user.id, 'COURT_DETAILS_RECORDED', result.auditDetails);
-
-        res.json({ success: true, message: result.message });
-    } catch (err) {
-        next(err);
-    }
-};
-
-
-exports.query = async (req, res, next) => {
-    try {
-        const user = req.session.user;
-        const result = await prosecutorService.sendQueryToStation(
-            user,
-            req.params.id,
-            req.body.query
-        );
-
-        if (!result.ok) {
-            return res.status(result.status).json({ success: false, error: result.error });
-        }
-
-        await logAudit(req, user.id, 'PROSECUTION_QUERY_SENT', result.auditDetails);
-
-        res.status(201).json({ success: true, message: result.message });
     } catch (err) {
         next(err);
     }

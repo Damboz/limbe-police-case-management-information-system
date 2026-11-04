@@ -177,6 +177,7 @@ CREATE TABLE cases (
   file_location          varchar(120) DEFAULT NULL,
   court_date             date DEFAULT NULL,
   court_outcome          varchar(30) DEFAULT NULL,
+  court_officer_id       int DEFAULT NULL,
   prosecution_query      text,
   prosecution_query_at   timestamp NULL DEFAULT NULL,
   prosecution_query_resolved_at timestamp NULL DEFAULT NULL,
@@ -203,6 +204,7 @@ CREATE TABLE cases (
   CONSTRAINT fk_case_assigned_by FOREIGN KEY (assigned_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_case_status_requested_by FOREIGN KEY (status_requested_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_case_branch_reviewed_by FOREIGN KEY (branch_reviewed_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_case_court_officer FOREIGN KEY (court_officer_id) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_case_approved_by FOREIGN KEY (approved_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_cases_gender CHECK (complainant_gender IN ('Male', 'Female', 'Other')),
   CONSTRAINT chk_cases_priority CHECK (priority IN ('Low', 'Medium', 'High', 'Critical')),
@@ -225,6 +227,7 @@ CREATE INDEX idx_cases_status_requested_by ON cases (status_requested_by);
 CREATE INDEX idx_cases_recorded_by ON cases (recorded_by);
 CREATE INDEX idx_cases_workflow_branch ON cases (workflow_branch);
 CREATE INDEX idx_cases_assigned_to ON cases (assigned_to);
+CREATE INDEX idx_cases_court_officer ON cases (court_officer_id);
 
 -- Case lifecycle: a case is Registered when recorded, Numbered once the
 -- Records Officer assigns its OB and criminal numbers, Classified once the

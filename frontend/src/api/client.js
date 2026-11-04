@@ -258,10 +258,7 @@ export const api = {
     assignCaseNumbers: (id, body) => request(`/records/cases/${id}/numbers`, { method: 'POST', body }),
 
     prosecutionDashboard: (signal) => request('/prosecution/dashboard', { signal }),
-    acknowledgeReceipt: (id, body) => request(`/prosecution/cases/${id}/acknowledge`, { method: 'POST', body }),
-    updateFileLocation: (id, body) => request(`/prosecution/cases/${id}/file-location`, { method: 'POST', body }),
-    recordCourtDetails: (id, body) => request(`/prosecution/cases/${id}/court`, { method: 'POST', body }),
-    sendQuery: (id, body) => request(`/prosecution/cases/${id}/query`, { method: 'POST', body })
+    forwardCaseToCourt: (id, body) => request(`/prosecution/cases/${id}/forward-to-court`, { method: 'POST', body })
 };
 
 export { ApiError };
