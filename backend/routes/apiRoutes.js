@@ -85,20 +85,12 @@ router.post(
 // Evidence Ledger (new)
 router.get('/evidence', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER), async (req, res, next) => {
     try {
-        const user = req.session.user;
         const pool = await db.ready();
         const { partyId, type, q } = req.query;
 
         let where = '1=1';
         const params = [];
         let idx = 1;
-
-        // scope
-        if (user.role !== ROLES.STATION_OFFICER && user.role !== ROLES.ADMIN) {
-            where += ` AND c.id IN (SELECT ci.case_id FROM case_investigators ci WHERE ci.investigator_id = $${idx})`;
-            params.push(user.id);
-            idx++;
-        }
 
         if (partyId) {
             where += ` AND el.party_id = $${idx}`;
@@ -117,7 +109,7 @@ router.get('/evidence', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, RO
         }
 
         const { rows } = await pool.query(
-            `SELECT el.id, el.ledger_no, el.evidence_type, el.status, el.collected_at, el.sha256, el.file_name,
+            `SELECT el.id, el.ledger_no, el.evidence_type, el.description, el.status, el.collected_at, el.sha256, el.file_name,
                     c.id as case_id, c.ob_number,
                     cp.full_name as party_name, cp.party_type,
                     CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) as collected_by_name
@@ -155,9 +147,26 @@ router.get('/evidence/:id', isAuthenticated, async (req, res, next) => {
         if (rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
         const ev = rows[0];
 
-        const isAssigned = await isAssignedInvestigator(ev.case_id, user.id);
-        const allowed = isAssigned || [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN, ROLES.PROSECUTOR, ROLES.RECORDS_OFFICER, ROLES.BRANCH_OFFICER].includes(user.role);
-        if (!allowed) return res.status(403).json({ success: false, error: 'Not authorized' });
+        if (![ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER].includes(user.role)) {
+            return res.status(403).json({ success: false, error: 'Only police officers can view evidence records.' });
+        }
+
+        let statementText = null;
+        if (!ev.file_path && ev.evidence_type === 'Other') {
+            if (ev.description && ev.description !== 'Statement') {
+                statementText = ev.description;
+            } else {
+                const { rows: stRows } = await pool.query(
+                    `SELECT statement_text
+                     FROM case_statements
+                     WHERE case_id = $1 AND party_id = $2
+                     ORDER BY recorded_at DESC, id DESC
+                     LIMIT 1`,
+                    [ev.case_id, ev.party_id]
+                );
+                statementText = stRows[0] ? stRows[0].statement_text : null;
+            }
+        }
 
         const { rows: custody } = await pool.query(
             `SELECT ec.*, CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) as recorded_by_name
@@ -181,7 +190,7 @@ router.get('/evidence/:id', isAuthenticated, async (req, res, next) => {
             [req.params.id]
         );
 
-        res.json({ success: true, data: { evidence: ev, custody, transfers } });
+        res.json({ success: true, data: { evidence: { ...ev, statement_text: statementText }, custody, transfers } });
     } catch (err) {
         next(err);
     }
@@ -345,9 +354,8 @@ router.post(
             }
 
             const isAssigned = await isAssignedInvestigator(caseId, user.id);
-            const allowed = isAssigned || [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN].includes(user.role);
-            if (!allowed) {
-                return res.status(403).json({ success: false, error: 'Not authorized to capture evidence for this case.' });
+            if (!isAssigned) {
+                return res.status(403).json({ success: false, error: 'Only the investigating officer assigned to this case can add evidence.' });
             }
 
             for (const f of files) {
@@ -375,11 +383,11 @@ router.post(
                     const ledgerNoStmt = ledgerNoResStmt.rows[0].ledger_no;
                     const evStmtRes = await client.query(
                         `INSERT INTO evidence_ledger (
-                             ledger_no, case_id, party_id, evidence_type, description,
+                             ledger_no, case_id, party_id, item_number, evidence_type, description,
                              collected_by_officer_id, collected_at, current_custodian_id, status, created_by
-                         ) VALUES ($1, $2, $3, 'Other', $4, $5, NOW(), $6, 'In Locker', $7)
+                         ) VALUES ($1, $2, $3, 'Statement', 'Other', $4, $5, NOW(), $6, 'In Locker', $7)
                          RETURNING id`,
-                        [ledgerNoStmt, caseId, partyId, 'Statement', user.id, user.id, user.id]
+                        [ledgerNoStmt, caseId, partyId, statement.trim(), user.id, user.id, user.id]
                     );
                     const ledgerStmtId = evStmtRes.rows[0].id;
                     await client.query(
@@ -494,10 +502,8 @@ router.get('/evidence/:ledgerId/file', isAuthenticated, async (req, res, next) =
         }
         const ev = rows[0];
 
-        const isAssigned = await isAssignedInvestigator(ev.case_id, user.id);
-        const allowed = isAssigned || [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN, ROLES.PROSECUTOR, ROLES.RECORDS_OFFICER, ROLES.BRANCH_OFFICER].includes(user.role);
-        if (!allowed) {
-            return res.status(403).json({ success: false, error: 'Not authorized to access this evidence.' });
+        if (![ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER].includes(user.role)) {
+            return res.status(403).json({ success: false, error: 'Only police officers can view evidence records.' });
         }
 
         if (!ev.file_path) {

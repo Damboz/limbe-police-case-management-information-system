@@ -412,9 +412,11 @@ export default function CaseDetail() {
                                     {p.statement && <div className="small fst-italic text-muted">"{p.statement}"</div>}
                                 </div>
                                 <div className="d-flex gap-2">
-                                    <button type="button" className="btn btn-outline-navy btn-sm" onClick={() => openEvidenceModal(p)}>
-                                        <i className="bi bi-file-earmark-plus me-1" />Add Evidence
-                                    </button>
+                                    {permissions?.canAddEvidence && (
+                                        <button type="button" className="btn btn-outline-navy btn-sm" onClick={() => openEvidenceModal(p)}>
+                                            <i className="bi bi-file-earmark-plus me-1" />Add Evidence
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -430,9 +432,11 @@ export default function CaseDetail() {
                                     <div className="small text-muted">{p.phone_number || ''} {p.gender ? ` • ${p.gender}` : ''}</div>
                                     {p.statement && <div className="small fst-italic text-muted">"{p.statement}"</div>}
                                 </div>
-                                <button type="button" className="btn btn-outline-navy btn-sm" onClick={() => openEvidenceModal(p)}>
-                                    <i className="bi bi-file-earmark-plus me-1" />Add Evidence
-                                </button>
+                                {permissions?.canAddEvidence && (
+                                    <button type="button" className="btn btn-outline-navy btn-sm" onClick={() => openEvidenceModal(p)}>
+                                        <i className="bi bi-file-earmark-plus me-1" />Add Evidence
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -452,9 +456,11 @@ export default function CaseDetail() {
                                             <i className="bi bi-envelope-paper me-1" />Invitation Letter
                                         </button>
                                     )}
-                                    <button type="button" className="btn btn-outline-navy btn-sm" onClick={() => openEvidenceModal(p)}>
-                                        <i className="bi bi-file-earmark-plus me-1" />Add Evidence
-                                    </button>
+                                    {permissions?.canAddEvidence && (
+                                        <button type="button" className="btn btn-outline-navy btn-sm" onClick={() => openEvidenceModal(p)}>
+                                            <i className="bi bi-file-earmark-plus me-1" />Add Evidence
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}

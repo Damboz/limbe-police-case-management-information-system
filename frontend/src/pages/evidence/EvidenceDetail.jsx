@@ -136,7 +136,7 @@ export default function EvidenceDetail() {
                 <div className="col-lg-6">
                     <div className="card border-0 shadow-sm h-100">
                         <div className="card-header bg-navy text-white py-3">
-                            <h6 className="mb-0 fw-bold"><i className="bi bi-file-earmark me-2 text-warning" />File Preview</h6>
+                            <h6 className="mb-0 fw-bold"><i className="bi bi-file-earmark me-2 text-warning" />File / Statement Preview</h6>
                         </div>
                         <div className="card-body">
                             {ev?.file_path ? (
@@ -156,6 +156,11 @@ export default function EvidenceDetail() {
                                     {!((ev.mime_type && ev.mime_type.startsWith('image/')) || (ev.mime_type && ev.mime_type.startsWith('video/')) || (ev.mime_type && ev.mime_type.startsWith('audio/')) || ev.mime_type === 'application/pdf') && (
                                         <a href={fileUrl} target="_blank" rel="noreferrer" className="btn btn-navy">Download/View File</a>
                                     )}
+                                </>
+                            ) : ev?.statement_text ? (
+                                <>
+                                    <Label>Statement</Label>
+                                    <div className="small" style={{ whiteSpace: 'pre-wrap' }}>{ev.statement_text}</div>
                                 </>
                             ) : (
                                 <p className="text-muted small">No file attached.</p>
@@ -178,6 +183,7 @@ export default function EvidenceDetail() {
                                 <div className="col-6"><Label>Collected At</Label><div>{ev?.collected_at ? formatDateTime(ev.collected_at) : ''}</div></div>
                                 <div className="col-6"><Label>Status</Label><div>{ev?.status}</div></div>
                                 <div className="col-6"><Label>File Name</Label><div className="small">{ev?.file_name}</div></div>
+                                <div className="col-12"><Label>Description / Statement</Label><div className="small" style={{ whiteSpace: 'pre-wrap' }}>{ev?.statement_text || ev?.description || '-'}</div></div>
                                 <div className="col-12"><Label>SHA-256 (Full)</Label><div className="small font-monospace" style={{ wordBreak: 'break-all' }}>{ev?.sha256}</div></div>
                                 <div className="col-12"><Label>Storage Path</Label><div className="small">{ev?.file_path}</div></div>
                             </div>

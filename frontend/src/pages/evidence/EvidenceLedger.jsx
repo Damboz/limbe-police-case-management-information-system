@@ -106,6 +106,7 @@ export default function EvidenceLedger() {
                                 <th>Ledger No</th>
                                 <th>Case</th>
                                 <th>Type</th>
+                                <th>Description / Statement</th>
                                 <th>Provided By (Party/Role)</th>
                                 <th>Collected By</th>
                                 <th>Date</th>
@@ -116,13 +117,14 @@ export default function EvidenceLedger() {
                         </thead>
                         <tbody>
                             {items.length === 0 ? (
-                                <tr><td colSpan="9"><EmptyState message="No evidence entries found." /></td></tr>
+                                <tr><td colSpan="10"><EmptyState message="No evidence entries found." /></td></tr>
                             ) : (
                                 items.map(item => (
                                     <tr key={item.id}>
                                         <td className="fw-bold font-monospace">{item.ledger_no}</td>
                                         <td><Link to={`/cases/${item.case_id}`}>#{item.ob_number || item.case_id}</Link></td>
                                         <td>{item.evidence_type}</td>
+                                        <td className="small">{item.description ? (item.description.length > 60 ? `${item.description.substring(0, 60)}...` : item.description) : '-'}</td>
                                         <td>{item.party_name || '-'} {item.party_type ? `(${item.party_type})` : ''}</td>
                                         <td className="small">{item.collected_by_name || '-'}</td>
                                         <td className="small">{item.collected_at ? formatDate(item.collected_at) : '-'}</td>
