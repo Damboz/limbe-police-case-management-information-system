@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../api/client';
+import { api, apiUrl } from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import { Alert, PageHeader, Spinner } from '../../components/ui';
 import { formatDate, formatDateTime } from '../../lib/format';
@@ -9,6 +9,11 @@ import usePageTitle from '../../hooks/usePageTitle';
 
 function Label({ children }) {
     return <span className="text-muted small text-uppercase fw-semibold d-block">{children}</span>;
+}
+
+
+function ActionError({ error, onDismiss }) {
+    return <Alert variant="danger" message={error} onDismiss={onDismiss} />;
 }
 
 
@@ -113,7 +118,7 @@ export default function EvidenceDetail() {
     const custody = data?.custody || [];
     const transfers = data?.transfers || [];
 
-    const fileUrl = ev?.id ? `/api/evidence/${ev.id}/file` : null;
+    const fileUrl = ev?.id ? apiUrl(`/api/evidence/${ev.id}/file`) : null;
 
     return (
         <>
@@ -186,7 +191,7 @@ export default function EvidenceDetail() {
                     <h6 className="mb-0 fw-bold"><i className="bi bi-shield-check me-2 text-warning" />Verify Integrity</h6>
                 </div>
                 <div className="card-body">
-                    {overlay(verify)}
+                    <ActionError error={verify.error} onDismiss={() => verify.setError(null)} />
                     <button className="btn btn-navy btn-sm" onClick={doVerify} disabled={verify.busy}>{verify.busy ? 'Verifying...' : 'Verify Integrity'}</button>
                     {verifyResult && (
                         <div className="mt-2">
@@ -205,7 +210,7 @@ export default function EvidenceDetail() {
                     <h6 className="mb-0 fw-bold"><i className="bi bi-arrow-left-right me-2 text-warning" />Record Transfer (Request/Approve)</h6>
                 </div>
                 <div className="card-body">
-                    {overlay(transfer)}
+                    <ActionError error={transfer.error} onDismiss={() => transfer.setError(null)} />
                     <form onSubmit={submitTransferRequest} className="row g-2 mb-3">
                         <div className="col-md-3">
                             <select className="form-select form-select-sm" value={transferForm.to_user_id} onChange={(e) => setTransferForm(p => ({ ...p, to_user_id: e.target.value }))} required>
@@ -244,7 +249,7 @@ export default function EvidenceDetail() {
                     <h6 className="mb-0 fw-bold"><i className="bi bi-journal-text me-2 text-warning" />Add Note / Correction (append only)</h6>
                 </div>
                 <div className="card-body">
-                    {overlay(note)}
+                    <ActionError error={note.error} onDismiss={() => note.setError(null)} />
                     <form onSubmit={submitNote} className="d-flex gap-2 mb-3">
                         <input className="form-control form-control-sm" placeholder="Add note/correction" value={noteText} onChange={(e) => setNoteText(e.target.value)} required />
                         <button className="btn btn-navy btn-sm" disabled={note.busy}>Add</button>
