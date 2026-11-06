@@ -11,6 +11,8 @@ const CASE_STATUSES = [
     'Closed', 'Archived'
 ];
 
+const REOPEN_TARGET_STATUS = 'Under Investigation';
+
 
 // The Occurrence Book is the station's complete register of approved cases. It
 // deliberately includes cases that have not been numbered yet, so the book and
@@ -88,7 +90,69 @@ async function getOccurrenceBook(user, filters = {}) {
 }
 
 
+// Reopening returns a closed case to the investigation pipeline. Any completion
+// request, review decision and court scheduling from the previous cycle is
+// cleared so the case starts the workflow again from a clean slate.
+async function reopenCase(user, caseId, data = {}) {
+    if (!roleIn(user, BOOK_ROLES)) {
+        return fail(403, 'Only Records and Station Officers can reopen a closed case.');
+    }
+
+    const id = Number(caseId);
+    if (!Number.isInteger(id) || id <= 0) {
+        return fail(400, 'A valid case id is required.');
+    }
+
+    const [rows] = await db.execute(
+        'SELECT id, ob_number, status FROM cases WHERE id = ?',
+        [id]
+    );
+
+    if (rows.length === 0) {
+        return fail(404, 'Case record not found.');
+    }
+
+    const currentCase = rows[0];
+    if (currentCase.status !== 'Closed') {
+        return fail(400, 'Only cases with a Closed status can be reopened.');
+    }
+
+    const notes = String(data.notes || '').trim();
+
+    await db.execute(
+        `UPDATE cases
+         SET status = ?,
+             requested_status = NULL,
+             status_request_notes = NULL,
+             status_requested_by = NULL,
+             status_requested_at = NULL,
+             branch_review_status = NULL,
+             branch_reviewed_by = NULL,
+             branch_reviewed_at = NULL,
+             forwarded_at = NULL,
+             court_date = NULL,
+             court_officer_id = NULL,
+             court_outcome = NULL,
+             prosecution_query = NULL,
+             prosecution_query_at = NULL,
+             prosecution_query_resolved_at = NULL,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [REOPEN_TARGET_STATUS, id]
+    );
+
+    return ok({
+        caseId: id,
+        obNumber: currentCase.ob_number,
+        status: REOPEN_TARGET_STATUS,
+        auditDetails: `Reopened closed Case OB ${currentCase.ob_number || id}. Status reset to ${REOPEN_TARGET_STATUS}.${notes ? ' Reason: ' + notes : ''}`,
+        message: `Case OB ${currentCase.ob_number || id} reopened for further investigation.`
+    });
+}
+
+
 module.exports = {
     getOccurrenceBook,
+    reopenCase,
     CASE_STATUSES
 };

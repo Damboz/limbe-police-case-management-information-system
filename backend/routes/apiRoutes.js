@@ -589,6 +589,7 @@ router.get('/records/dashboard', isAuthenticated, authorizeRoles(ROLES.RECORDS_O
 router.post('/records/cases/:id/numbers', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER), recordsApi.assignNumbers);
 
 router.get('/occurrence-book', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER, ROLES.STATION_OFFICER), occurrenceBookApi.list);
+router.post('/occurrence-book/:id/reopen', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER, ROLES.STATION_OFFICER), occurrenceBookApi.reopen);
 
 
 router.get('/prosecution/dashboard', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.dashboard);

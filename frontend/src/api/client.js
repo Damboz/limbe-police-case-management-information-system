@@ -265,6 +265,7 @@ export const api = {
         const query = params.toString();
         return request(`/occurrence-book${query ? `?${query}` : ''}`, { signal });
     },
+    reopenCase: (id, body) => request(`/occurrence-book/${id}/reopen`, { method: 'POST', body }),
 
     prosecutionDashboard: (signal) => request('/prosecution/dashboard', { signal }),
     forwardCaseToCourt: (id, body) => request(`/prosecution/cases/${id}/forward-to-court`, { method: 'POST', body })

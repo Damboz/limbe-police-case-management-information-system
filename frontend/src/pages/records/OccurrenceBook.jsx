@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
+import { useToast } from '../../context/ToastContext';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../../components/ui';
 import { formatDate, formatDateTime } from '../../lib/format';
 import usePageTitle from '../../hooks/usePageTitle';
@@ -14,14 +15,39 @@ const STATUS_OPTIONS = [
 ];
 
 
+function Modal({ title, onClose, children, footer }) {
+    return (
+        <div className="modal fade show d-block" tabIndex="-1" role="dialog" aria-modal="true" style={{ background: 'rgba(15,23,42,0.5)' }}>
+            <div className="modal-dialog modal-dialog-centered">
+                <div className="modal-content border-0 shadow">
+                    <div className="modal-header bg-navy text-white">
+                        <h5 className="modal-title fw-bold">{title}</h5>
+                        <button type="button" className="btn-close btn-close-white" aria-label="Close" onClick={onClose} />
+                    </div>
+                    {children}
+                    {footer && <div className="modal-footer" style={{ backgroundColor: 'var(--mps-bg-subtle)' }}>{footer}</div>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
 export default function OccurrenceBook() {
     usePageTitle('Occurrence Book');
+
+    const toast = useToast();
 
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('');
     const [query, setQuery] = useState({ q: '', status: '' });
 
-    const { data, error, loading } = useApiData(
+    const [reopenTarget, setReopenTarget] = useState(null);
+    const [reopenNotes, setReopenNotes] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [actionError, setActionError] = useState(null);
+
+    const { data, error, loading, reload } = useApiData(
         (signal) => api.occurrenceBook(query, signal),
         [query]
     );
@@ -41,6 +67,32 @@ export default function OccurrenceBook() {
         setSearch('');
         setStatus('');
         setQuery({ q: '', status: '' });
+    };
+
+    const openReopen = (item) => {
+        setReopenTarget(item);
+        setReopenNotes('');
+        setActionError(null);
+    };
+
+    const submitReopen = async (e) => {
+        e.preventDefault();
+        if (!reopenTarget) return;
+
+        setBusy(true);
+        setActionError(null);
+
+        try {
+            const res = await api.reopenCase(reopenTarget.id, { notes: reopenNotes });
+            toast.success(res.message || 'Case reopened for further investigation.');
+            setReopenTarget(null);
+            setReopenNotes('');
+            reload();
+        } catch (err) {
+            setActionError(err.message || 'Unable to reopen the case.');
+        } finally {
+            setBusy(false);
+        }
     };
 
     return (
@@ -159,10 +211,19 @@ export default function OccurrenceBook() {
                                                 ? item.assigned_officer_name
                                                 : <span className="text-muted fst-italic">Unassigned</span>}
                                         </td>
-                                        <td className="text-end">
+                                        <td className="text-end text-nowrap">
                                             <Link to={`/cases/${item.id}`} className="btn btn-sm btn-outline-navy">
                                                 <i className="bi bi-eye-fill me-1" />View
                                             </Link>
+                                            {item.status === 'Closed' && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-warning ms-1"
+                                                    onClick={() => openReopen(item)}
+                                                >
+                                                    <i className="bi bi-arrow-counterclockwise me-1" />Reopen
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
@@ -171,6 +232,54 @@ export default function OccurrenceBook() {
                     </table>
                 </div>
             </div>
+
+            {reopenTarget && (
+                <Modal
+                    title="Reopen Closed Case"
+                    onClose={() => setReopenTarget(null)}
+                    footer={
+                        <>
+                            <button type="button" className="btn btn-outline-navy" onClick={() => setReopenTarget(null)}>
+                                Cancel
+                            </button>
+                            <button type="submit" form="reopen-form" className="btn btn-warning" disabled={busy}>
+                                <i className="bi bi-arrow-counterclockwise me-1" />Reopen Case
+                            </button>
+                        </>
+                    }
+                >
+                    <form id="reopen-form" onSubmit={submitReopen}>
+                        <div className="modal-body">
+                            {actionError && <Alert message={actionError} />}
+                            <p className="text-muted small mb-3">
+                                Reopening returns this case to <strong>Under Investigation</strong> and clears any
+                                completion review, court scheduling and prosecution query from the previous cycle.
+                            </p>
+                            <div className="mb-3">
+                                <label className="form-label">CASE REFERENCE</label>
+                                <div className="form-control-plaintext fw-bold">
+                                    {reopenTarget.ob_number || `Case #${reopenTarget.id}`}
+                                </div>
+                            </div>
+                            <div className="mb-3">
+                                <label className="form-label">COMPLAINANT</label>
+                                <div className="form-control-plaintext text-dark">{reopenTarget.complainant_name}</div>
+                            </div>
+                            <div className="mb-0">
+                                <label htmlFor="reopen_notes" className="form-label">REASON FOR REOPENING</label>
+                                <textarea
+                                    id="reopen_notes"
+                                    className="form-control"
+                                    rows="3"
+                                    placeholder="Why is this case being reopened?"
+                                    value={reopenNotes}
+                                    onChange={(e) => setReopenNotes(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </form>
+                </Modal>
+            )}
         </>
     );
 }
