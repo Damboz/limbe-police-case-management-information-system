@@ -8,6 +8,9 @@ exports.login = async (req, res, next) => {
         const result = await authService.authenticate(req.body.badge_number, req.body.password);
 
         if (!result.ok) {
+            if (result.retryAfterSeconds) {
+                res.set('Retry-After', String(result.retryAfterSeconds));
+            }
             return res.status(result.status).json({ success: false, error: result.error });
         }
 

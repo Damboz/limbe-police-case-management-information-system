@@ -5,11 +5,15 @@ const { TOKEN_TTL_MS, passwordFingerprint, createResetToken, verifyResetToken } 
 const { ok, fail } = require('../utils/result');
 
 const MIN_PASSWORD_LENGTH = 6;
+const MAX_FAILED_LOGIN_ATTEMPTS = 3;
+const LOGIN_LOCK_MINUTES = 5;
+const LOGIN_LOCK_MS = LOGIN_LOCK_MINUTES * 60 * 1000;
 
 
 async function findUserByIdentifier(identifier) {
     const [users] = await db.execute(`
-        SELECT id, badge_number, rank_title, first_name, last_name, email, password_hash, role, role_id, branch_id, branch, is_active 
+        SELECT id, badge_number, rank_title, first_name, last_name, email, password_hash, role, role_id, branch_id, branch, is_active,
+               failed_login_attempts, locked_until
         FROM users 
         WHERE badge_number = ? OR LOWER(email) = ?
     `, [identifier, identifier.toLowerCase()]);
@@ -24,6 +28,12 @@ async function findUserById(id) {
         WHERE id = ?
     `, [id]);
     return users[0] || null;
+}
+
+
+function lockMessage(remainingMs) {
+    const minutes = Math.max(1, Math.ceil(remainingMs / 60000));
+    return `Account temporarily locked after ${MAX_FAILED_LOGIN_ATTEMPTS} failed login attempts. Please try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`;
 }
 
 
@@ -43,9 +53,47 @@ async function authenticate(badgeNumber, password) {
         return fail(403, 'Account deactivated. Please contact your System Administrator.');
     }
 
+    const now = Date.now();
+    const lockedUntil = user.locked_until ? new Date(user.locked_until).getTime() : 0;
+
+    if (lockedUntil > now) {
+        const remainingMs = lockedUntil - now;
+        return {
+            ...fail(423, lockMessage(remainingMs)),
+            retryAfterSeconds: Math.ceil(remainingMs / 1000)
+        };
+    }
+
+    let failedAttempts = lockedUntil ? 0 : (Number(user.failed_login_attempts) || 0);
+
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
+        failedAttempts += 1;
+
+        if (failedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+            const lockExpiresAt = new Date(now + LOGIN_LOCK_MS);
+            await db.execute(
+                'UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?',
+                [failedAttempts, lockExpiresAt, user.id]
+            );
+            return {
+                ...fail(423, lockMessage(LOGIN_LOCK_MS)),
+                retryAfterSeconds: Math.ceil(LOGIN_LOCK_MS / 1000)
+            };
+        }
+
+        await db.execute(
+            'UPDATE users SET failed_login_attempts = ?, locked_until = NULL WHERE id = ?',
+            [failedAttempts, user.id]
+        );
         return fail(401, 'Invalid credentials. Please check your password.');
+    }
+
+    if (failedAttempts > 0 || lockedUntil) {
+        await db.execute(
+            'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?',
+            [user.id]
+        );
     }
 
     return ok({ user: toSessionUser(user) });
@@ -97,7 +145,10 @@ async function changePassword(user, currentPassword, newPassword, confirmPasswor
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashedNewPassword, user.id]);
+    await db.execute(
+        'UPDATE users SET password_hash = ?, failed_login_attempts = 0, locked_until = NULL WHERE id = ?',
+        [hashedNewPassword, user.id]
+    );
 
     return ok({ badgeNumber: record.badge_number });
 }
@@ -173,7 +224,10 @@ async function resetPasswordWithToken(token, newPassword, confirmPassword) {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, users[0].id]);
+    await db.execute(
+        'UPDATE users SET password_hash = ?, failed_login_attempts = 0, locked_until = NULL WHERE id = ?',
+        [hashedPassword, users[0].id]
+    );
 
     return ok({ badgeNumber: users[0].badge_number });
 }

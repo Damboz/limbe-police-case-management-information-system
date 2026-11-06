@@ -95,6 +95,8 @@ CREATE TABLE users (
   branch_id     int DEFAULT NULL,
   branch        varchar(50)  DEFAULT NULL,
   is_active     smallint     NOT NULL DEFAULT 1,
+  failed_login_attempts int  NOT NULL DEFAULT 0,
+  locked_until  timestamptz  NULL,
   created_at    timestamptz  NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    timestamptz  NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (badge_number),
