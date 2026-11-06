@@ -20,10 +20,7 @@ const ALLOWED_ORIGINS = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
     .filter(Boolean);
 
 
-// The frontend and API are on different domains in production, so the browser treats
-// the cookie as a third-party cookie. 'none' is the only SameSite value that survives
-// that trip; it in turn requires Secure, which is why both are relaxed until a real
-// deployment origin is configured.
+
 const CROSS_ORIGIN_DEPLOY = ALLOWED_ORIGINS.some(origin => !/^https?:\/\/(localhost|127\.0\.0\.1)/.test(origin));
 
 
@@ -33,17 +30,11 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const SESSION_COOKIE_NAME = 'limbe.sid';
 
 
-// maxAge makes the cookie persistent, so a sign-in survives a browser restart (and a
-// Render redeploy) without any server-side session store. It is only the ceiling: the
-// session is actually ended far sooner by the idle timeout below.
-const SESSION_MAX_AGE = 1000 * 60 * 60 * 8;
+
+const SESSION_MAX_AGE = 1000 * 60 * 5; // 5 minutes;
 
 
-// How long an officer may go without making a request before their session is dropped.
-// A shared station terminal is the threat here: with only an 8-hour cookie, an officer
-// who walks away (or closes the browser without signing out) leaves a live session that
-// the next person opens straight into, bypassing the login page. Default 30 minutes;
-// override with SESSION_IDLE_MINUTES.
+
 const SESSION_IDLE_TIMEOUT = Math.max(1, Number(process.env.SESSION_IDLE_MINUTES) || 30) * 60 * 1000;
 
 
