@@ -4,6 +4,8 @@ import { api } from '../api/client';
 import { useApiData } from '../hooks/useApiData';
 import { useToast } from '../context/ToastContext';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatCard, StatusBadge } from '../components/ui';
+import AssignedCasesPanel from '../components/AssignedCasesPanel';
+import CaseEvidenceButton from '../components/CaseEvidenceButton';
 import { formatDate } from '../lib/format';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -104,6 +106,7 @@ function InvestigatorDashboard({ data }) {
                                             <Link to={`/cases/${item.id}`} className="btn btn-sm btn-navy">
                                                 <i className="bi bi-folder2-open me-1" />Open Case
                                             </Link>
+                                            <CaseEvidenceButton caseId={item.id} status={item.status} />
                                         </td>
                                     </tr>
                                 ))
@@ -174,6 +177,8 @@ function RecordsDashboard({ data, reload }) {
             />
 
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
+
+            <AssignedCasesPanel />
 
             <div className="row g-3 mb-4">
                 <div className="col-6 col-md-4">

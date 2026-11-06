@@ -66,7 +66,7 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                         icon: 'bi-inbox-fill',
                         label: 'Online Complaints'
                     },
-                    (isPoliceOfficer || isStationOfficer) && { to: '/evidence', icon: 'bi-box-seam', label: 'Evidence Ledger' }
+                    (isPoliceOfficer || isStationOfficer || isBranchOfficer) && { to: '/evidence', icon: 'bi-box-seam', label: 'Evidence Ledger' }
                 ].filter(Boolean)
             },
             {

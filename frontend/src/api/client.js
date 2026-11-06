@@ -167,6 +167,7 @@ export const api = {
     changePassword: (body) => request('/auth/change-password', { method: 'POST', body }),
 
     dashboard: (signal) => request('/dashboard', { signal }),
+    assignedCases: (signal) => request('/dashboard/assigned-cases', { signal }),
     myAnalytics: (signal) => request('/my-analytics', { signal }),
 
     complaintFormOptions: (signal) => request('/public/complaint-options', { signal }),

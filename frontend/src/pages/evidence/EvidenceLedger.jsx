@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import { Alert, EmptyState, PageHeader, Spinner } from '../../components/ui';
@@ -14,6 +14,8 @@ function Label({ children }) {
 
 export default function EvidenceLedger() {
     usePageTitle('Evidence Ledger');
+    const [searchParams] = useSearchParams();
+    const caseId = searchParams.get('caseId') || '';
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -22,7 +24,7 @@ export default function EvidenceLedger() {
     const load = async () => {
         setLoading(true);
         try {
-            const res = await api.evidenceLedger(filters);
+            const res = await api.evidenceLedger({ ...filters, caseId });
             setItems(res.data?.evidenceItems || []);
         } catch (err) {
             setError(err.message);
@@ -33,7 +35,7 @@ export default function EvidenceLedger() {
 
     useEffect(() => {
         load();
-    }, []);
+    }, [caseId]);
 
     const apply = (e) => {
         e.preventDefault();
@@ -60,6 +62,19 @@ export default function EvidenceLedger() {
             />
 
             <Alert variant="danger" message={error} onDismiss={() => setError(null)} />
+
+            {caseId && (
+                <div className="alert alert-info border-0 shadow-sm small d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <span>
+                        <i className="bi bi-funnel-fill me-2" />
+                        Showing evidence for Case #{items[0]?.ob_number || caseId}.
+                    </span>
+                    <div className="d-flex gap-2">
+                        <Link to={`/cases/${caseId}`} className="btn btn-outline-navy btn-sm">Open Case</Link>
+                        <Link to="/evidence" className="btn btn-outline-secondary btn-sm">Show All Evidence</Link>
+                    </div>
+                </div>
+            )}
 
             <div className="card border-0 shadow-sm mb-4">
                 <div className="card-header bg-navy text-white py-3">

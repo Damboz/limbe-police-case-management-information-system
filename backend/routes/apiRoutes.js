@@ -16,7 +16,7 @@ const reportsApi = require('../controllers/api/reportsApiController');
 const generalApi = require('../controllers/api/generalApiController');
 
 const { isAuthenticated, isAdmin, denyAdmin, authorizeRoles } = require('../middleware/authMiddleware');
-const { ROLES } = require('../roles');
+const { ROLES, roleIn } = require('../roles');
 const { upload } = require('../middleware/evidenceUpload');
 const { validateEvidenceFile } = require('../utils/evidenceSecurity');
 const db = require('../config/db');
@@ -51,6 +51,7 @@ router.post('/auth/change-password', isAuthenticated, require('../controllers/ap
 
 
 router.get('/dashboard', isAuthenticated, generalApi.dashboard);
+router.get('/dashboard/assigned-cases', isAuthenticated, generalApi.assignedCases);
 router.get('/my-analytics', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER), reportsApi.myAnalytics);
 
 
@@ -83,14 +84,31 @@ router.post(
 
 
 // Evidence Ledger (new)
-router.get('/evidence', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER), async (req, res, next) => {
+router.get('/evidence', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER), async (req, res, next) => {
     try {
+        const user = req.session.user;
         const pool = await db.ready();
-        const { partyId, type, q } = req.query;
+        const { partyId, type, q, caseId } = req.query;
 
         let where = '1=1';
         const params = [];
         let idx = 1;
+
+        // Branch Officers only see evidence attached to cases routed to their own branch.
+        if (roleIn(user, [ROLES.BRANCH_OFFICER])) {
+            if (!user.branch) {
+                return res.json({ success: true, data: { evidenceItems: [] } });
+            }
+            where += ` AND c.workflow_branch = $${idx}`;
+            params.push(user.branch);
+            idx++;
+        }
+
+        if (caseId) {
+            where += ` AND el.case_id = $${idx}`;
+            params.push(caseId);
+            idx++;
+        }
 
         if (partyId) {
             where += ` AND el.party_id = $${idx}`;
@@ -134,7 +152,7 @@ router.get('/evidence/:id', isAuthenticated, async (req, res, next) => {
         const user = req.session.user;
         const pool = await db.ready();
         const { rows } = await pool.query(
-            `SELECT el.*, c.id as case_id, c.ob_number,
+            `SELECT el.*, c.id as case_id, c.ob_number, c.workflow_branch,
                     cp.full_name as party_name, cp.party_type,
                     CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) as collected_by_name
              FROM evidence_ledger el
@@ -147,8 +165,11 @@ router.get('/evidence/:id', isAuthenticated, async (req, res, next) => {
         if (rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
         const ev = rows[0];
 
-        if (![ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER].includes(user.role)) {
+        if (!roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER])) {
             return res.status(403).json({ success: false, error: 'Only police officers can view evidence records.' });
+        }
+        if (roleIn(user, [ROLES.BRANCH_OFFICER]) && ev.workflow_branch !== user.branch) {
+            return res.status(403).json({ success: false, error: 'You can only view evidence for cases in your own branch.' });
         }
 
         let statementText = null;
@@ -491,7 +512,7 @@ router.get('/evidence/:ledgerId/file', isAuthenticated, async (req, res, next) =
         const pool = await db.ready();
 
         const { rows } = await pool.query(
-            `SELECT el.*, c.id as case_id
+            `SELECT el.*, c.id as case_id, c.workflow_branch
              FROM evidence_ledger el
              JOIN cases c ON c.id = el.case_id
              WHERE el.id = $1`,
@@ -502,8 +523,11 @@ router.get('/evidence/:ledgerId/file', isAuthenticated, async (req, res, next) =
         }
         const ev = rows[0];
 
-        if (![ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER].includes(user.role)) {
+        if (!roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER])) {
             return res.status(403).json({ success: false, error: 'Only police officers can view evidence records.' });
+        }
+        if (roleIn(user, [ROLES.BRANCH_OFFICER]) && ev.workflow_branch !== user.branch) {
+            return res.status(403).json({ success: false, error: 'You can only view evidence for cases in your own branch.' });
         }
 
         if (!ev.file_path) {

@@ -281,6 +281,12 @@ async function assignCase(user, caseId, investigatorIds, notes) {
         return fail(400, 'Please select active officers (administrators cannot be assigned as investigators).');
     }
 
+    // Only persist the officers that passed the active/non-admin check above.
+    const validIds = inv.map(i => i.id);
+    if (validIds.length !== ids.length) {
+        return fail(400, 'One or more selected officers are inactive or cannot be assigned as investigators.');
+    }
+
     const [caseRows] = await db.execute('SELECT id, workflow_branch, ob_number, criminal_number, classification, status FROM cases WHERE id = ?', [caseId]);
     if (caseRows.length === 0) {
         return fail(404, 'Case record not found.');
@@ -305,7 +311,7 @@ async function assignCase(user, caseId, investigatorIds, notes) {
     );
     const hadPrevious = existing[0].cnt > 0;
 
-    await syncCaseInvestigators(caseId, ids, user.id);
+    await syncCaseInvestigators(caseId, validIds, user.id);
 
     await db.execute(
         `UPDATE cases
@@ -313,7 +319,7 @@ async function assignCase(user, caseId, investigatorIds, notes) {
          WHERE id = ?`,
         [caseId]
     );
-    try { await db.execute(`INSERT INTO case_assignments (case_id, assigned_by, assigned_to, notes, assigned_at) VALUES (?, ?, ?, ?, NOW())`, [caseId, user.id, ids[0], notes || null]); } catch (e) {}
+    try { await db.execute(`INSERT INTO case_assignments (case_id, assigned_by, assigned_to, notes, assigned_at) VALUES (?, ?, ?, ?, NOW())`, [caseId, user.id, validIds[0], notes || null]); } catch (e) {}
 
     const officerNames = inv.map(i => `${i.rank_title} ${i.last_name} (${i.badge_number})`).join(', ');
     const shortNames = inv.map(i => i.last_name).join(', ');

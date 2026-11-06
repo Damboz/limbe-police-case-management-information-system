@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
+import CaseEvidenceButton from '../../components/CaseEvidenceButton';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../../components/ui';
 import { formatDate } from '../../lib/format';
 import { objectToParams } from '../../lib/searchParams';
@@ -195,6 +196,7 @@ export default function CaseSearch() {
                                                 <Link to={`/cases/${item.id}`} className="btn btn-sm btn-outline-navy">
                                                     <i className="bi bi-eye-fill me-1" />View
                                                 </Link>
+                                                <CaseEvidenceButton caseId={item.id} status={item.status} />
                                             </td>
                                         </tr>
                                     ))

@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
 import { useToast } from '../../context/ToastContext';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../../components/ui';
+import AssignedCasesPanel from '../../components/AssignedCasesPanel';
 import { formatDate } from '../../lib/format';
 import usePageTitle from '../../hooks/usePageTitle';
 
@@ -88,6 +89,8 @@ export default function ProsecutionDashboard() {
             />
 
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
+
+            <AssignedCasesPanel />
 
             <div className="row g-3 mb-4">
                 <Stat label="Awaiting Court Forwarding" value={kpi.forwarded} icon="bi-briefcase-fill" colorClass="warning" />

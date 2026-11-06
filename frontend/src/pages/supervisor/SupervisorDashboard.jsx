@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
 import { useToast } from '../../context/ToastContext';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../../components/ui';
+import AssignedCasesPanel from '../../components/AssignedCasesPanel';
 import { formatDate } from '../../lib/format';
 import usePageTitle from '../../hooks/usePageTitle';
 import useReportExport from '../../hooks/useReportExport';
@@ -297,6 +298,8 @@ export default function SupervisorDashboard() {
             />
 
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
+
+            <AssignedCasesPanel />
 
             <div className="row mb-4">
                 <div className="col-12">

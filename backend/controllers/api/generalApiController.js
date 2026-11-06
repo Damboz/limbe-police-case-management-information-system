@@ -17,6 +17,16 @@ exports.dashboard = async (req, res, next) => {
 };
 
 
+exports.assignedCases = async (req, res, next) => {
+    try {
+        const data = await caseService.getAssignedCasesForUser(req.session.user.id);
+        res.json({ success: true, data });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
 exports.myAnalytics = async (req, res, next) => {
     try {
         const result = await reportsService.getMyAnalytics(req.session.user);

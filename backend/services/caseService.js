@@ -805,6 +805,53 @@ async function requestExternalReport(caseId, user, data) {
 }
 
 
+// Investigator status comes from assignment, not from the account role, so the
+// same summary is used by the personal dashboard and by every role dashboard
+// (station, branch, records, prosecution). That way an officer who is given an
+// investigation sees those cases on their own dashboard even when their role
+// has its own landing page.
+async function getAssignedCasesForUser(userId) {
+    const [[[kpi]], [assignedCases]] = await Promise.all([
+        db.execute(`
+        SELECT
+            COUNT(DISTINCT c.id) AS total_assigned,
+            SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS active_count,
+            SUM(CASE WHEN c.status = 'Under Investigation' AND CURRENT_DATE - c.created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END) AS overdue_count,
+            SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END) AS closed_count,
+            SUM(CASE WHEN c.requested_status IS NOT NULL THEN 1 ELSE 0 END) AS pending_request_count
+        FROM cases c
+        JOIN case_investigators ci ON c.id = ci.case_id
+        WHERE ci.investigator_id = ?
+    `, [userId]),
+
+        db.execute(`
+        SELECT
+            c.id, c.ob_number, c.incident_details AS title, cc.name AS crime_category,
+            c.priority, c.status, c.requested_status, c.created_at,
+            CURRENT_DATE - c.created_at::date AS days_open
+        FROM cases c
+        JOIN case_investigators ci ON c.id = ci.case_id
+        LEFT JOIN crime_categories cc ON c.category_id = cc.id
+        WHERE ci.investigator_id = ?
+        GROUP BY c.id, cc.name
+        ORDER BY CASE c.priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, c.created_at ASC
+    `, [userId])
+    ]);
+
+    return {
+        overdueDaysThreshold: OVERDUE_DAYS_THRESHOLD,
+        kpi: {
+            totalAssigned: kpi.total_assigned || 0,
+            active: kpi.active_count || 0,
+            overdue: kpi.overdue_count || 0,
+            closed: kpi.closed_count || 0,
+            pendingRequest: kpi.pending_request_count || 0
+        },
+        assignedCases
+    };
+}
+
+
 async function getPersonalDashboard(user) {
     if (roleIn(user, [ROLES.ADMIN])) {
         return ok({ variant: 'redirect', role: user.role, target: '/admin/dashboard' });
@@ -827,45 +874,12 @@ async function getPersonalDashboard(user) {
         return recordsService.getRecordsDashboard(user);
     }
 
-    const [[[kpi]], [assignedCases]] = await Promise.all([
-        db.execute(`
-        SELECT
-            COUNT(DISTINCT c.id) AS total_assigned,
-            SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS active_count,
-            SUM(CASE WHEN c.status = 'Under Investigation' AND CURRENT_DATE - c.created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END) AS overdue_count,
-            SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END) AS closed_count,
-            SUM(CASE WHEN c.requested_status IS NOT NULL THEN 1 ELSE 0 END) AS pending_request_count
-        FROM cases c
-        JOIN case_investigators ci ON c.id = ci.case_id
-        WHERE ci.investigator_id = ?
-    `, [user.id]),
-
-        db.execute(`
-        SELECT
-            c.id, c.ob_number, c.incident_details AS title, cc.name AS crime_category,
-            c.priority, c.status, c.requested_status, c.created_at,
-            CURRENT_DATE - c.created_at::date AS days_open
-        FROM cases c
-        JOIN case_investigators ci ON c.id = ci.case_id
-        LEFT JOIN crime_categories cc ON c.category_id = cc.id
-        WHERE ci.investigator_id = ?
-        GROUP BY c.id, cc.name
-        ORDER BY CASE c.priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, c.created_at ASC
-    `, [user.id])
-    ]);
+    const assigned = await getAssignedCasesForUser(user.id);
 
     return ok({
         variant: 'investigator',
         role: user.role,
-        overdueDaysThreshold: OVERDUE_DAYS_THRESHOLD,
-        kpi: {
-            totalAssigned: kpi.total_assigned || 0,
-            active: kpi.active_count || 0,
-            overdue: kpi.overdue_count || 0,
-            closed: kpi.closed_count || 0,
-            pendingRequest: kpi.pending_request_count || 0
-        },
-        assignedCases
+        ...assigned
     });
 }
 
@@ -885,5 +899,6 @@ module.exports = {
     requestStatusChange,
     logEvidence,
     requestExternalReport,
+    getAssignedCasesForUser,
     getPersonalDashboard
 };

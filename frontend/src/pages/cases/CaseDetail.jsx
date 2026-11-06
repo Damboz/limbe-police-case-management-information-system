@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api/client';
+import CaseEvidenceButton from '../../components/CaseEvidenceButton';
 import { useApiData } from '../../hooks/useApiData';
 import { useToast } from '../../context/ToastContext';
 import { Alert, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../../components/ui';
@@ -322,7 +323,11 @@ export default function CaseDetail() {
                 <div className="card-header bg-navy text-white py-3 d-flex align-items-center justify-content-between">
                     <h6 className="mb-0 fw-bold"><i className="bi bi-people me-2 text-warning" />Parties</h6>
                     <div className="d-flex gap-2">
-                        <Link to="/evidence" className="btn btn-outline-light btn-sm">Evidence Ledger</Link>
+                        <CaseEvidenceButton
+                            caseId={id}
+                            always
+                            className="btn btn-outline-light btn-sm"
+                        />
                     </div>
                 </div>
                 <div className="card-body">

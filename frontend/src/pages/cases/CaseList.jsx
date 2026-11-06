@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
+import CaseEvidenceButton from '../../components/CaseEvidenceButton';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../../components/ui';
 import { formatDate } from '../../lib/format';
 import usePageTitle from '../../hooks/usePageTitle';
@@ -81,6 +82,7 @@ export default function CaseList() {
                                             <Link to={`/cases/${item.id}`} className="btn btn-sm btn-outline-navy">
                                                 <i className="bi bi-eye-fill me-1" />View
                                             </Link>
+                                            <CaseEvidenceButton caseId={item.id} status={item.status} />
                                         </td>
                                     </tr>
                                 ))

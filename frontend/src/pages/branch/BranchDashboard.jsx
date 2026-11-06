@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
 import { useToast } from '../../context/ToastContext';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../../components/ui';
+import AssignedCasesPanel from '../../components/AssignedCasesPanel';
 import { formatDate } from '../../lib/format';
 import usePageTitle from '../../hooks/usePageTitle';
 
@@ -233,6 +234,8 @@ export default function BranchDashboard() {
             </div>
 
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
+
+            <AssignedCasesPanel />
 
             <div className="card border-0 shadow-sm mb-4">
                 <div className="card-header bg-navy text-white py-3">
