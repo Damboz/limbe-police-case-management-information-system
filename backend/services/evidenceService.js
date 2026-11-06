@@ -54,7 +54,7 @@ async function getLedger(user, query) {
     const fullWhere = ['1=1', ...scopeConditions, ...filterConditions].filter(Boolean).join(' AND ');
     const listParams = [...scopeParams, ...filterParams];
 
-    const [[kpi], [statusOptions], [categoryOptions], [evidenceItems]] = await Promise.all([
+    const [[[kpi]], [statusOptions], [categoryOptions], [evidenceItems]] = await Promise.all([
         db.execute(`
         SELECT
             COUNT(*) AS total_items,

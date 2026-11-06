@@ -130,7 +130,7 @@ async function getBranchCasesForReport(user, period) {
     const branch = user.branch || null;
     const window = periodAnd(period, 'c.created_at');
 
-    const [[summary], [statusBreakdown], [cases]] = await Promise.all([
+    const [[[summary]], [statusBreakdown], [cases]] = await Promise.all([
         db.execute(`
             SELECT
                 COUNT(*) AS total_cases,
@@ -176,7 +176,7 @@ async function getBranchCasesForReport(user, period) {
 async function getNumberingRegisterForReport(period) {
     const window = periodAnd(period, 'c.numbers_assigned_at');
 
-    const [[summary], [numbered], [pending]] = await Promise.all([
+    const [[[summary]], [numbered], [pending]] = await Promise.all([
         db.execute(`
             SELECT
                 COUNT(*) FILTER (WHERE c.ob_number IS NULL) AS pending_count,
@@ -222,7 +222,7 @@ async function getProsecutionCasesForReport(period) {
     const window = periodAnd(period, 'c.forwarded_at');
     const base = "(c.status IN ('Forwarded to Prosecution', 'Court Pending', 'Closed') OR c.court_date IS NOT NULL) AND c.forwarded_at IS NOT NULL";
 
-    const [[summary], [cases]] = await Promise.all([
+    const [[[summary]], [cases]] = await Promise.all([
         db.execute(`
             SELECT
                 COUNT(*) AS forwarded_total,
@@ -255,7 +255,7 @@ async function getSystemReport(period) {
     const caseWindow = periodWhere(period, 'created_at');
     const auditWindow = periodWhere(period, 'created_at');
 
-    const [[userStats], [caseStats], [roleBreakdown], [recentActivity]] = await Promise.all([
+    const [[[userStats]], [[caseStats]], [roleBreakdown], [recentActivity]] = await Promise.all([
         db.execute(`
             SELECT
                 COUNT(*) AS total_users,

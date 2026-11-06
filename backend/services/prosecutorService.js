@@ -11,7 +11,7 @@ function isProsecutor(user) {
 
 
 async function getDashboard(user) {
-    const [[kpi], [forwardedCases], [courtCases], [courtOfficers]] = await Promise.all([
+    const [[[kpi]], [forwardedCases], [courtCases], [courtOfficers]] = await Promise.all([
         db.execute(`
         SELECT
             SUM(CASE WHEN c.status = 'Forwarded to Prosecution' THEN 1 ELSE 0 END) AS forwarded_count,
