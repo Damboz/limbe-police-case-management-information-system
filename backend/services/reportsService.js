@@ -75,7 +75,7 @@ async function getMyAnalytics(user) {
         SELECT COUNT(*) AS pending_count
         FROM cases c
         ${whereClause}
-        ${whereClause ? 'AND' : 'WHERE'} requested_status IS NOT NULL
+        ${whereClause ? 'AND' : 'WHERE'} c.status = 'Submitted for Review'
     `, params).then(([rows]) => rows)
     ]);
 

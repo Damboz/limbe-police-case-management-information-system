@@ -166,6 +166,9 @@ UPDATE cases SET status = 'Numbered' WHERE status = 'Reported';
 UPDATE cases SET status = 'Submitted for Review'
 WHERE branch_review_status = 'Pending Review' AND requested_status IS NOT NULL;
 
+UPDATE cases SET status = 'Submitted for Review', branch_review_status = 'Pending Review'
+WHERE branch_review_status = 'Recommended' AND requested_status IS NOT NULL;
+
 -- New cases are created without an OB number; the Records Officer
 -- assigns it later. PostgreSQL UNIQUE allows multiple NULLs.
 ALTER TABLE cases ALTER COLUMN ob_number DROP NOT NULL;

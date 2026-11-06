@@ -27,7 +27,7 @@ exports.reviewCase = async (req, res, next) => {
             return res.status(result.status).json({ success: false, error: result.error });
         }
 
-        await logAudit(req, user.id, 'BRANCH_REVIEW_COMPLETED', result.auditDetails);
+        await logAudit(req, user.id, result.auditAction || 'BRANCH_REVIEW_COMPLETED', result.auditDetails);
 
         res.json({ success: true, message: result.message });
     } catch (err) {

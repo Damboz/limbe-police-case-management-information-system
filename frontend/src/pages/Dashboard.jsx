@@ -86,15 +86,7 @@ function InvestigatorDashboard({ data }) {
                                             <small className="text-muted">{item.crime_category}</small>
                                         </td>
                                         <td><PriorityBadge priority={item.priority} /></td>
-                                        <td>
-                                            {item.requested_status ? (
-                                                <span className="badge bg-light text-dark border">
-                                                    <i className="bi bi-hourglass-split me-1" />Pending: {item.requested_status}
-                                                </span>
-                                            ) : (
-                                                <StatusBadge status={item.status} />
-                                            )}
-                                        </td>
+                                        <td><StatusBadge status={item.status} /></td>
                                         <td>
                                             {item.status === 'Under Investigation' && item.days_open > overdueDaysThreshold ? (
                                                 <span className="badge badge-priority-critical">{item.days_open} days</span>

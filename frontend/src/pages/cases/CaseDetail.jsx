@@ -61,8 +61,7 @@ export default function CaseDetail() {
     const approval = useSubmitter();
 
     const [noteText, setNoteText] = useState('');
-    const [requestedStatus, setRequestedStatus] = useState('');
-    const [statusNotes, setStatusNotes] = useState('');
+    const [completionNotes, setCompletionNotes] = useState('');
     const [partyForm, setPartyForm] = useState({
         party_type: 'Witness',
         full_name: '',
@@ -128,10 +127,9 @@ export default function CaseDetail() {
     const submitStatus = async (e) => {
         e.preventDefault();
         await statusReq.run(async () => {
-            const res = await api.requestCaseStatus(id, { requested_status: requestedStatus, status_request_notes: statusNotes });
+            const res = await api.completeInvestigation(id, { status_request_notes: completionNotes });
             toast.success(res.message);
-            setRequestedStatus('');
-            setStatusNotes('');
+            setCompletionNotes('');
             reload();
         });
     };
@@ -318,6 +316,63 @@ export default function CaseDetail() {
                     </div>
                 </div>
             </div>
+
+            {(permissions?.canSubmitForReview || caseItem.status === 'Submitted for Review') && (
+                <div className="card border-0 shadow-sm mb-4">
+                    <div className="card-header bg-navy text-white py-3">
+                        <h6 className="mb-0 fw-bold">
+                            <i className="bi bi-clipboard-check me-2 text-warning" />Investigation Completion
+                        </h6>
+                    </div>
+                    <div className="card-body">
+                        {caseItem.branch_review_status === 'Returned' && (
+                            <Alert
+                                variant="warning"
+                                message="The Branch In-charge returned this case for further investigation. Record the additional findings before resubmitting."
+                            />
+                        )}
+                        {caseItem.status === 'Submitted for Review' ? (
+                            <>
+                                <p className="text-muted">
+                                    The investigation has been marked complete. The Branch In-charge will decide whether to
+                                    close the case or forward it to the Prosecution Branch for court.
+                                </p>
+                                {caseItem.status_request_notes && (
+                                    <div className="border rounded bg-light p-3 small">
+                                        <div className="fw-semibold mb-1">Findings submitted</div>
+                                        {caseItem.status_request_notes}
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <form onSubmit={submitStatus}>
+                                {overlay(statusReq)}
+                                <p className="text-muted small">
+                                    Record your investigation findings. The Branch In-charge will use them to either close
+                                    the case or forward it to the Prosecution Branch for court.
+                                </p>
+                                <div className="mb-3">
+                                    <label htmlFor="completion_notes" className="form-label">
+                                        Investigation Findings <span className="text-danger">*</span>
+                                    </label>
+                                    <textarea
+                                        id="completion_notes"
+                                        rows="4"
+                                        className="form-control"
+                                        placeholder="Summarise what the investigation established..."
+                                        value={completionNotes}
+                                        onChange={(e) => setCompletionNotes(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <button type="submit" className="btn btn-navy" disabled={statusReq.busy}>
+                                    <i className="bi bi-check2-circle me-1" />Mark Investigations Complete
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <div className="card border-0 shadow-sm mb-4">
                 <div className="card-header bg-navy text-white py-3 d-flex align-items-center justify-content-between">

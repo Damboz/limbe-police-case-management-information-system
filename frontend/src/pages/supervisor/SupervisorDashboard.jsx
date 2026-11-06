@@ -105,10 +105,6 @@ export default function SupervisorDashboard() {
     const [selectedInvestigators, setSelectedInvestigators] = useState([]);
     const [assignNotes, setAssignNotes] = useState('');
 
-    const [approvalTarget, setApprovalTarget] = useState(null);
-    const [decision, setDecision] = useState('APPROVE');
-    const [supervisorNotes, setSupervisorNotes] = useState('');
-
     const [reassignTarget, setReassignTarget] = useState(null);
     const [reassignDecision, setReassignDecision] = useState('APPROVE');
     const [reassignNote, setReassignNote] = useState('');
@@ -127,22 +123,6 @@ export default function SupervisorDashboard() {
 
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
-
-    const targetBadge = (requestedStatus) => {
-        if (requestedStatus === 'Closed') {
-            return <span className="badge badge-case-closed"><i className="bi bi-lock-fill me-1" />Closure</span>;
-        }
-        if (requestedStatus === 'Forwarded to Prosecution') {
-            return <span className="badge badge-case-forwarded"><i className="bi bi-briefcase-fill me-1" />Prosecution</span>;
-        }
-        return <span className="badge badge-case-investigation"><i className="bi bi-bank2 me-1" />Court</span>;
-    };
-
-    const requestedTransitionLabel = (requestedStatus) => {
-        if (requestedStatus === 'Closed') return 'Close Case (CLOSED)';
-        if (requestedStatus === 'Forwarded to Prosecution') return 'Forward to Prosecution (PROSECUTION BRANCH)';
-        return 'Transfer to Court (COURT PENDING)';
-    };
 
     const { overdueDaysThreshold, unassignedCases, pendingApprovals, pendingClassification, pendingReassignments, prosecutionQueries, investigatorWorkload, assignedActiveCases } = data;
 
@@ -170,27 +150,6 @@ export default function SupervisorDashboard() {
             });
             toast.success(res.message || 'Case assignments updated.');
             setAssignTarget(null);
-            reload();
-        } catch (err) {
-            setActionError(err.message);
-        } finally {
-            setBusy(false);
-        }
-    };
-
-    const submitApproval = async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        setActionError(null);
-        try {
-            const res = await api.approveStatus({
-                case_id: approvalTarget.id,
-                decision,
-                supervisor_notes: supervisorNotes
-            });
-            toast.success(res.message || 'Decision recorded.');
-            setApprovalTarget(null);
-            setSupervisorNotes('');
             reload();
         } catch (err) {
             setActionError(err.message);
@@ -274,7 +233,7 @@ export default function SupervisorDashboard() {
         <>
             <PageHeader
                 title="Supervisor Command Dashboard"
-                subtitle="Station operational oversight, case distribution, and status approvals."
+                subtitle="Station operational oversight, case distribution, and investigation monitoring."
                 actions={
                     <>
                         <Link to="/occurrence-book" className="btn btn-outline-navy btn-sm">
@@ -421,17 +380,17 @@ export default function SupervisorDashboard() {
                     <div className="card border-0 shadow-sm h-100">
                         <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
                             <h6 className="mb-0 fw-bold">
-                                <i className="bi bi-list-task me-2 text-warning" />Pending Approvals
+                                <i className="bi bi-hourglass-split me-2 text-warning" />Awaiting Branch Decision
                             </h6>
-                            <span className="badge bg-gold text-dark">{pendingApprovals.length} Action Needed</span>
+                            <span className="badge bg-gold text-dark">{pendingApprovals.length} In Review</span>
                         </div>
                         <div className="table-responsive">
                             <table className="table table-hover align-middle mb-0">
                                 <thead>
                                     <tr>
                                         <th>Case</th>
-                                        <th>Requested Target</th>
                                         <th>Investigator</th>
+                                        <th>Submitted</th>
                                         <th className="text-end">Action</th>
                                     </tr>
                                 </thead>
@@ -439,7 +398,7 @@ export default function SupervisorDashboard() {
                                     {pendingApprovals.length === 0 ? (
                                         <tr>
                                             <td colSpan="4">
-                                                <EmptyState icon="bi-clipboard-check" message="No status change approvals pending review." />
+                                                <EmptyState icon="bi-clipboard-check" message="No completed investigations are awaiting a branch decision." />
                                             </td>
                                         </tr>
                                     ) : (
@@ -449,18 +408,10 @@ export default function SupervisorDashboard() {
                                                     <div className="fw-bold" style={{ color: 'var(--mps-navy)' }}>#{item.case_number}</div>
                                                     <small className="text-muted d-block text-truncate">{item.title}</small>
                                                 </td>
-                                                <td>
-                                                    {targetBadge(item.requested_status)}
-                                                </td>
                                                 <td><small className="fw-semibold">{item.investigator_name}</small></td>
+                                                <td><small className="text-muted">{formatDate(item.status_requested_at)}</small></td>
                                                 <td className="text-end">
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-sm btn-outline-navy"
-                                                        onClick={() => { setApprovalTarget(item); setDecision('APPROVE'); setSupervisorNotes(''); setActionError(null); }}
-                                                    >
-                                                        Review
-                                                    </button>
+                                                    <Link to={`/cases/${item.id}`} className="btn btn-sm btn-outline-navy">View</Link>
                                                 </td>
                                             </tr>
                                         ))
@@ -786,60 +737,6 @@ export default function SupervisorDashboard() {
                                     placeholder="Optional directive notes for the investigation team..."
                                     value={assignNotes}
                                     onChange={e => setAssignNotes(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                    </form>
-                </Modal>
-            )}
-
-            {approvalTarget && (
-                <Modal
-                    title="Review Status Change Request"
-                    onClose={() => setApprovalTarget(null)}
-                    footer={
-                        <>
-                            <button type="button" className="btn btn-outline-navy" onClick={() => setApprovalTarget(null)}>Cancel</button>
-                            <button type="submit" form="approval-form" className="btn btn-navy" disabled={busy}>
-                                <i className="bi bi-send-fill me-1" />Submit Decision
-                            </button>
-                        </>
-                    }
-                >
-                    <form id="approval-form" onSubmit={submitApproval}>
-                        <div className="modal-body">
-                            <div className="mb-3">
-                                <label className="form-label">CASE REFERENCE</label>
-                                <div className="form-control-plaintext fw-bold">#{approvalTarget.case_number}</div>
-                            </div>
-                            <div className="mb-3">
-                                <label className="form-label">REQUESTED TRANSITION</label>
-                                <div className="form-control-plaintext fw-bold text-dark">
-                                    {requestedTransitionLabel(approvalTarget.requested_status)}
-                                </div>
-                            </div>
-                            {approvalTarget.status_request_notes && (
-                                <div className="mb-3">
-                                    <label className="form-label">INVESTIGATOR JUSTIFICATION</label>
-                                    <div className="form-control-plaintext small text-dark">{approvalTarget.status_request_notes}</div>
-                                </div>
-                            )}
-                            <div className="mb-3">
-                                <label htmlFor="decision" className="form-label">Supervisor Decision <span className="text-danger">*</span></label>
-                                <select id="decision" className="form-select" value={decision} onChange={e => setDecision(e.target.value)} required>
-                                    <option value="APPROVE">Approve Request</option>
-                                    <option value="REJECT">Reject Request (Return to Investigation)</option>
-                                </select>
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="supervisor_notes" className="form-label">Supervisor Review Notes</label>
-                                <textarea
-                                    id="supervisor_notes"
-                                    rows="3"
-                                    className="form-control"
-                                    placeholder="Provide reasons or directives regarding this decision..."
-                                    value={supervisorNotes}
-                                    onChange={e => setSupervisorNotes(e.target.value)}
                                 />
                             </div>
                         </div>

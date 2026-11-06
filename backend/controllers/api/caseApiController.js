@@ -109,13 +109,12 @@ exports.addNote = async (req, res, next) => {
 };
 
 
-exports.requestStatus = async (req, res, next) => {
+exports.completeInvestigation = async (req, res, next) => {
     try {
         const user = req.session.user;
-        const result = await caseService.requestStatusChange(
+        const result = await caseService.completeInvestigation(
             req.params.id,
             user,
-            req.body.requested_status,
             req.body.status_request_notes
         );
 
@@ -123,9 +122,12 @@ exports.requestStatus = async (req, res, next) => {
             return res.status(result.status).json({ success: false, error: result.error });
         }
 
-        await logAudit(req, user.id, 'STATUS_CHANGE_REQUESTED', `Requested status change to "${result.requestedStatus}" for Case ID ${req.params.id}.`);
+        await logAudit(req, user.id, 'CASE_SUBMITTED_FOR_REVIEW', result.auditDetails);
 
-        res.json({ success: true, message: 'Status change request submitted for branch review and final approval.' });
+        res.json({
+            success: true,
+            message: 'Investigation marked complete. The Branch In-charge will decide whether to close the case or forward it to the Prosecution Branch.'
+        });
     } catch (err) {
         next(err);
     }

@@ -26,7 +26,6 @@ const BRANCH_ROLES = [ROLES.BRANCH_OFFICER];
 const PROSECUTOR_ROLES = [ROLES.PROSECUTOR];
 const RECORDS_ROLES = [ROLES.RECORDS_OFFICER];
 const LINK_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN];
-const COMPLETION_STATUSES = ['Closed', 'Court Pending', 'Forwarded to Prosecution'];
 
 
 // Service-level audit writer. Controllers annotate their own requests with IP
@@ -668,13 +667,17 @@ async function getCaseDetail(caseId, user) {
 
     const permissions = {
         canAddNote: isAssignedInvestigatorFlag,
-        canRequestStatus: isAssignedInvestigatorFlag && !caseItem.requested_status && caseItem.status === 'Under Investigation',
+        canSubmitForReview: isAssignedInvestigatorFlag
+            && caseItem.status === 'Under Investigation'
+            && caseItem.branch_review_status !== 'Pending Review',
         canAddEvidence: isAssignedInvestigatorFlag,
         canManageParties: isAssignedInvestigatorFlag || roleIn(user, LINK_ROLES),
         canLinkSuspectVictim: isAssignedInvestigatorFlag || roleIn(user, LINK_ROLES),
         canGenerateInvitationLetter: isAssignedInvestigatorFlag || roleIn(user, [ROLES.PROSECUTOR, ROLES.STATION_OFFICER, ROLES.ADMIN]),
         canRequestExternalReport: isAssignedInvestigatorFlag && caseItem.status === 'Under Investigation' && !caseItem.requested_status,
-        canReview: isBranchOfficer && caseItem.branch_review_status === 'Pending Review',
+        canReview: isBranchOfficer
+            && caseItem.status === 'Submitted for Review'
+            && caseItem.branch_review_status === 'Pending Review',
         canForwardToCourt: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
         canApproveOnline: caseItem.source === 'Online'
             && caseItem.complaint_status === 'Pending'
@@ -719,13 +722,17 @@ async function addCaseNote(caseId, user, note) {
 }
 
 
-async function requestStatusChange(caseId, user, requestedStatus, statusRequestNotes) {
-    if (!COMPLETION_STATUSES.includes(requestedStatus)) {
-        return fail(400, 'Invalid status request.');
+// The investigating officer closes out their part of the workflow by recording
+// their findings. The Branch In-charge then decides the outcome: close the case
+// or forward it to the Prosecution Branch for court.
+async function completeInvestigation(caseId, user, findingsNotes) {
+    const findings = String(findingsNotes || '').trim();
+    if (!findings) {
+        return fail(400, 'Please summarise the investigation findings before submitting the case for review.');
     }
 
     const [caseRows] = await db.execute(
-        'SELECT status, requested_status FROM cases WHERE id = ?',
+        'SELECT ob_number, status, branch_review_status FROM cases WHERE id = ?',
         [caseId]
     );
     if (caseRows.length === 0) {
@@ -733,23 +740,38 @@ async function requestStatusChange(caseId, user, requestedStatus, statusRequestN
     }
     const current = caseRows[0];
 
+    if (current.status !== 'Under Investigation') {
+        return fail(400, 'Only cases under investigation can be marked complete.');
+    }
+
     const isAssigned = await isAssignedInvestigator(caseId, user.id);
     if (!isAssigned) {
-        return fail(403, 'Only investigators assigned to this case can request a status change.');
+        return fail(403, 'Only investigators assigned to this case can mark it complete.');
     }
-    if (current.requested_status) {
-        return fail(400, 'A status change request is already pending branch review.');
+    if (current.branch_review_status === 'Pending Review') {
+        return fail(400, 'This case is already awaiting a branch decision.');
     }
 
     await db.execute(
         `UPDATE cases
-         SET requested_status = ?, status_request_notes = ?, status_requested_by = ?, status_requested_at = NOW(),
-             branch_review_status = 'Pending Review', branch_reviewed_by = NULL, branch_reviewed_at = NULL
+         SET status = 'Submitted for Review',
+             requested_status = NULL,
+             status_request_notes = ?,
+             status_requested_by = ?,
+             status_requested_at = NOW(),
+             branch_review_status = 'Pending Review',
+             branch_reviewed_by = NULL,
+             branch_reviewed_at = NULL,
+             updated_at = NOW()
          WHERE id = ?`,
-        [requestedStatus, statusRequestNotes || null, user.id, caseId]
+        [findings, user.id, caseId]
     );
 
-    return ok({ caseId, requestedStatus });
+    return ok({
+        caseId,
+        obNumber: current.ob_number,
+        auditDetails: `Investigator marked the investigation for Case OB ${current.ob_number} complete and submitted findings for Branch review. Findings: ${findings}`
+    });
 }
 
 
@@ -818,7 +840,7 @@ async function getAssignedCasesForUser(userId) {
             SUM(CASE WHEN c.status = 'Under Investigation' THEN 1 ELSE 0 END) AS active_count,
             SUM(CASE WHEN c.status = 'Under Investigation' AND CURRENT_DATE - c.created_at::date > ${OVERDUE_DAYS_THRESHOLD} THEN 1 ELSE 0 END) AS overdue_count,
             SUM(CASE WHEN c.status = 'Closed' THEN 1 ELSE 0 END) AS closed_count,
-            SUM(CASE WHEN c.requested_status IS NOT NULL THEN 1 ELSE 0 END) AS pending_request_count
+            SUM(CASE WHEN c.status = 'Submitted for Review' THEN 1 ELSE 0 END) AS pending_request_count
         FROM cases c
         JOIN case_investigators ci ON c.id = ci.case_id
         WHERE ci.investigator_id = ?
@@ -896,7 +918,7 @@ module.exports = {
     createCase,
     getCaseDetail,
     addCaseNote,
-    requestStatusChange,
+    completeInvestigation,
     logEvidence,
     requestExternalReport,
     getAssignedCasesForUser,

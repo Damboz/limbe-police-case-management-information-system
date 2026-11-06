@@ -70,7 +70,7 @@ router.get(
 router.get('/cases/:id', isAuthenticated, denyAdmin, caseApi.detail);
 router.get('/cases/:id/parties', isAuthenticated, denyAdmin, caseApi.parties);
 router.post('/cases/:id/notes', isAuthenticated, denyAdmin, caseApi.addNote);
-router.post('/cases/:id/request-status', isAuthenticated, denyAdmin, caseApi.requestStatus);
+router.post('/cases/:id/complete-investigation', isAuthenticated, denyAdmin, caseApi.completeInvestigation);
 router.post('/cases/:id/external-reports', isAuthenticated, denyAdmin, caseApi.requestExternalReport);
 router.post('/cases/:id/parties', isAuthenticated, denyAdmin, caseApi.addParty);
 router.post('/cases/:id/suspects', isAuthenticated, denyAdmin, caseApi.addParty);

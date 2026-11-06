@@ -48,7 +48,7 @@ export default function BranchDashboard() {
     usePageTitle('Branch In-charge Dashboard');
 
     const [reviewTarget, setReviewTarget] = useState(null);
-    const [reviewDecision, setReviewDecision] = useState('Recommend');
+    const [reviewDecision, setReviewDecision] = useState('Close');
     const [reviewComment, setReviewComment] = useState('');
 
     const [reassignTarget, setReassignTarget] = useState(null);
@@ -260,7 +260,7 @@ export default function BranchDashboard() {
                     <div className="card border-0 shadow-sm h-100">
                         <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
                             <h6 className="mb-0 fw-bold">
-                                <i className="bi bi-pencil-square me-2 text-warning" />Completion Requests Awaiting Review
+                                <i className="bi bi-pencil-square me-2 text-warning" />Completed Investigations Awaiting Decision
                             </h6>
                             <span className="badge bg-gold text-dark">{pendingReviews.length} Pending</span>
                         </div>
@@ -270,14 +270,14 @@ export default function BranchDashboard() {
                                     <tr>
                                         <th>Case Ref</th>
                                         <th>Title &amp; Category</th>
-                                        <th>Requested</th>
+                                        <th>Submitted</th>
                                         <th>Investigator(s)</th>
                                         <th className="text-end">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {pendingReviews.length === 0 ? (
-                                        <tr><td colSpan="5"><EmptyState icon="bi-clipboard-check" message="No case completion requests awaiting your review." /></td></tr>
+                                        <tr><td colSpan="5"><EmptyState icon="bi-clipboard-check" message="No completed investigations awaiting your decision." /></td></tr>
                                     ) : (
                                         pendingReviews.map(item => (
                                             <tr key={item.id}>
@@ -287,15 +287,13 @@ export default function BranchDashboard() {
                                                     <small className="text-muted">{item.crime_category}</small>
                                                 </td>
                                                 <td>
-                                                    <div className="small fw-semibold">
-                                                        {item.requested_status === 'Forwarded to Prosecution' ? 'Prosecution' : item.requested_status === 'Closed' ? 'Closure' : 'Court Pending'}
-                                                    </div>
+                                                    <div className="small fw-semibold">Investigation complete</div>
                                                     <small className="text-muted d-block">{formatDate(item.status_requested_at)}</small>
                                                 </td>
                                                 <td><small className="fw-semibold">{item.investigator_names || '—'}</small></td>
                                                 <td className="text-end">
-                                                    <button type="button" className="btn btn-sm btn-navy" onClick={() => { setReviewTarget(item); setReviewDecision('Recommend'); setReviewComment(''); setActionError(null); }}>
-                                                        <i className="bi bi-pencil-fill me-1" />Review
+                                                    <button type="button" className="btn btn-sm btn-navy" onClick={() => { setReviewTarget(item); setReviewDecision('Close'); setReviewComment(''); setActionError(null); }}>
+                                                        <i className="bi bi-pencil-fill me-1" />Decide
                                                     </button>
                                                 </td>
                                             </tr>
@@ -505,13 +503,13 @@ export default function BranchDashboard() {
 
             {reviewTarget && (
                 <Modal
-                    title="Review Case Completion Request"
+                    title="Decide Completed Investigation"
                     onClose={() => setReviewTarget(null)}
                     footer={
                         <>
                             <button type="button" className="btn btn-outline-navy" onClick={() => setReviewTarget(null)}>Cancel</button>
                             <button type="submit" form="review-form" className="btn btn-navy" disabled={busy}>
-                                <i className="bi bi-check-lg me-1" />Submit Minute
+                                <i className="bi bi-check-lg me-1" />Submit Decision
                             </button>
                         </>
                     }
@@ -523,23 +521,20 @@ export default function BranchDashboard() {
                                 <div className="form-control-plaintext fw-bold">#{reviewTarget.case_number}</div>
                             </div>
                             <div className="mb-3">
-                                <label className="form-label">REQUESTED TRANSITION</label>
-                                <div className="form-control-plaintext fw-bold text-dark">
-                                    {reviewTarget.requested_status === 'Forwarded to Prosecution'
-                                        ? 'Forward to Prosecution (PROSECUTION BRANCH)'
-                                        : reviewTarget.requested_status === 'Closed' ? 'Close Case (CLOSED)' : 'Transfer to Court (COURT PENDING)'}
-                                </div>
+                                <label className="form-label">CASE TITLE</label>
+                                <div className="form-control-plaintext text-dark">{reviewTarget.title}</div>
                             </div>
                             {reviewTarget.status_request_notes && (
                                 <div className="mb-3">
-                                    <label className="form-label">INVESTIGATOR JUSTIFICATION</label>
+                                    <label className="form-label">INVESTIGATOR FINDINGS</label>
                                     <div className="form-control-plaintext small text-dark">{reviewTarget.status_request_notes}</div>
                                 </div>
                             )}
                             <div className="mb-3">
-                                <label htmlFor="review_decision" className="form-label">Branch Review Decision <span className="text-danger">*</span></label>
+                                <label htmlFor="review_decision" className="form-label">Branch Decision <span className="text-danger">*</span></label>
                                 <select id="review_decision" className="form-select" value={reviewDecision} onChange={e => setReviewDecision(e.target.value)} required>
-                                    <option value="Recommend">Recommend to Station Officer</option>
+                                    <option value="Close">Close the Case</option>
+                                    <option value="Forward">Forward to the Prosecution Branch for Court</option>
                                     <option value="Return">Return for Further Investigation</option>
                                 </select>
                             </div>
@@ -549,7 +544,7 @@ export default function BranchDashboard() {
                                     id="review_comment"
                                     rows="3"
                                     className="form-control"
-                                    placeholder="Record your substantive recommendation as the Branch In-charge..."
+                                    placeholder="Record the reasons for your decision as the Branch In-charge..."
                                     value={reviewComment}
                                     onChange={e => setReviewComment(e.target.value)}
                                     required

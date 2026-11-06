@@ -27,7 +27,7 @@ async function getDashboard() {
                 WHERE NOT EXISTS (SELECT 1 FROM case_investigators ci WHERE ci.case_id = c.id)
                   AND c.status != 'Closed')                                       AS unassigned_count,
             (SELECT COUNT(*) FROM cases
-                WHERE requested_status IS NOT NULL AND branch_review_status = 'Recommended') AS pending_approvals_count,
+                WHERE status = 'Submitted for Review' AND branch_review_status = 'Pending Review') AS pending_approvals_count,
             (SELECT COUNT(*) FROM cases WHERE status = 'Under Investigation')      AS active_cases_count,
             (SELECT COUNT(*) FROM cases
                 WHERE status = 'Under Investigation'
@@ -62,19 +62,14 @@ async function getDashboard() {
             c.id,
             c.ob_number AS case_number,
             c.incident_details AS title,
-            c.requested_status,
-            c.requested_status AS requested_target,
             c.status_request_notes,
             c.status_requested_at,
-            c.branch_reviewed_at,
-            CONCAT(branch.rank_title, ' ', branch.last_name) AS branch_reviewer_name,
             CONCAT(inv.rank_title, ' ', inv.last_name) AS investigator_name
         FROM cases c
         LEFT JOIN case_investigators cil ON c.id = cil.case_id AND cil.is_lead = 1
         LEFT JOIN users inv ON cil.investigator_id = inv.id
-        LEFT JOIN users branch ON c.branch_reviewed_by = branch.id
-        WHERE c.requested_status IS NOT NULL AND c.branch_review_status = 'Recommended'
-        ORDER BY c.branch_reviewed_at ASC
+        WHERE c.status = 'Submitted for Review' AND c.branch_review_status = 'Pending Review'
+        ORDER BY c.status_requested_at ASC
     `),
 
         db.execute(`

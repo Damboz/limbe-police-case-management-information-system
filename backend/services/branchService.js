@@ -53,7 +53,7 @@ async function getDashboard(user) {
             c.id,
             c.ob_number AS case_number,
             c.incident_details AS title,
-            c.requested_status,
+            c.status,
             c.status_request_notes,
             c.status_requested_at,
             cc.name AS crime_category,
@@ -63,7 +63,7 @@ async function getDashboard(user) {
         LEFT JOIN crime_categories cc ON c.category_id = cc.id
         LEFT JOIN case_investigators ci ON c.id = ci.case_id
         LEFT JOIN users inv ON ci.investigator_id = inv.id
-        WHERE c.workflow_branch = ? AND c.branch_review_status = 'Pending Review' AND c.requested_status IS NOT NULL
+        WHERE c.workflow_branch = ? AND c.status = 'Submitted for Review' AND c.branch_review_status = 'Pending Review'
         GROUP BY c.id, cc.name
         ORDER BY c.status_requested_at ASC
     `, [workflowBranch]),
@@ -201,13 +201,16 @@ async function getDashboard(user) {
 }
 
 
+// The Branch In-charge acts on the investigator's findings. They may close the
+// case, forward it to the Prosecution Branch for court, or send it back for
+// further investigation. No further Station Officer approval is required.
 async function reviewCase(user, caseId, decision, comment) {
     if (!isBranchOfficer(user)) {
         return fail(403, 'Only Branch Officers can review case files.');
     }
 
-    if (!['Recommend', 'Return'].includes(decision)) {
-        return fail(400, 'Review decision must be Recommend or Return.');
+    if (!['Close', 'Forward', 'Return'].includes(decision)) {
+        return fail(400, 'Review decision must be Close, Forward or Return.');
     }
 
     if (!comment || !comment.trim()) {
@@ -215,7 +218,7 @@ async function reviewCase(user, caseId, decision, comment) {
     }
 
     const [caseRows] = await db.execute(`
-        SELECT id, ob_number, workflow_branch, requested_status, branch_review_status
+        SELECT id, ob_number, workflow_branch, status, branch_review_status
         FROM cases WHERE id = ?
     `, [caseId]);
 
@@ -227,26 +230,56 @@ async function reviewCase(user, caseId, decision, comment) {
     if (!user.branch || current.workflow_branch !== user.branch) {
         return fail(403, 'This case does not belong to your branch.');
     }
-    if (current.branch_review_status !== 'Pending Review' || !current.requested_status) {
-        return fail(400, 'There is no completion request awaiting your review for this case.');
+    if (current.status !== 'Submitted for Review' || current.branch_review_status !== 'Pending Review') {
+        return fail(400, 'There is no completed investigation awaiting your decision for this case.');
     }
 
-    const decisionValue = decision === 'Recommend' ? 'Recommended' : 'Returned';
+    let targetStatus;
+    let decisionValue;
+    let auditAction;
+    let auditVerb;
+    let message;
+
+    if (decision === 'Close') {
+        targetStatus = 'Closed';
+        decisionValue = 'Approved';
+        auditAction = 'CASE_CLOSED';
+        auditVerb = 'closed';
+        message = `Case OB ${current.ob_number} closed on the Branch In-charge's decision.`;
+    } else if (decision === 'Forward') {
+        targetStatus = 'Forwarded to Prosecution';
+        decisionValue = 'Forwarded';
+        auditAction = 'CASE_FORWARDED_TO_PROSECUTION';
+        auditVerb = 'forwarded to the Prosecution Branch';
+        message = `Case OB ${current.ob_number} forwarded to the Prosecution Branch for court preparation.`;
+    } else {
+        targetStatus = 'Under Investigation';
+        decisionValue = 'Returned';
+        auditAction = 'CASE_RETURNED_FOR_INVESTIGATION';
+        auditVerb = 'returned for further investigation';
+        message = `Case OB ${current.ob_number} returned to the investigator: ${comment.trim()}`;
+    }
+
+    const reviewStatus = decision === 'Return' ? 'Returned' : null;
 
     await db.execute(
         `UPDATE cases
-         SET branch_review_status = ?, branch_reviewed_by = ?, branch_reviewed_at = NOW()
+         SET status = ?,
+             requested_status = NULL,
+             branch_review_status = ?,
+             branch_reviewed_by = ?,
+             branch_reviewed_at = NOW(),
+             forwarded_at = CASE WHEN ? THEN NOW() ELSE forwarded_at END,
+             updated_at = NOW()
          WHERE id = ?`,
-        [decisionValue, user.id, caseId]
+        [targetStatus, reviewStatus, user.id, decision === 'Forward', caseId]
     );
 
-    if (decision === 'Return') {
+    if (decision === 'Forward') {
         await db.execute(
-            `UPDATE cases
-             SET requested_status = NULL, status_request_notes = NULL,
-                 status_requested_by = NULL, status_requested_at = NULL
-             WHERE id = ?`,
-            [caseId]
+            `INSERT INTO case_custody_log (case_id, handed_over_by, status, notes)
+             VALUES (?, ?, 'Pending', ?)`,
+            [caseId, user.id, comment.trim()]
         );
     }
 
@@ -256,15 +289,13 @@ async function reviewCase(user, caseId, decision, comment) {
         [caseId, user.id, decisionValue, comment.trim()]
     );
 
-    const message = decision === 'Recommend'
-        ? `Reviewed and recommended Case OB ${current.ob_number} for Station Officer approval.`
-        : `Case OB ${current.ob_number} returned to the investigator: ${comment.trim()}`;
-
     return ok({
         caseId,
         obNumber: current.ob_number,
         decision: decisionValue,
-        auditDetails: `Branch Officer ${decisionValue} completion request for Case OB ${current.ob_number}. ${comment.trim()}`,
+        targetStatus,
+        auditAction,
+        auditDetails: `Branch Officer ${auditVerb} Case OB ${current.ob_number}. ${comment.trim()}`,
         message
     });
 }
