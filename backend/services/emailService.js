@@ -1,5 +1,5 @@
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
-const SENDER_NAME = 'Limbe Police Station CMIS';
+const SENDER_NAME = 'Limbe Police PCMIS';
 const REQUEST_TIMEOUT_MS = 20000;
 
 
@@ -30,7 +30,7 @@ function renderLayout(bodyHtml) {
                 <tr>
                     <td style="background:#0b3d6b;padding:20px 28px;">
                         <h1 style="margin:0;color:#ffffff;font-size:18px;">Limbe Police Station</h1>
-                        <p style="margin:4px 0 0;color:#c9dcf0;font-size:13px;">Case Management Information System</p>
+                        <p style="margin:4px 0 0;color:#c9dcf0;font-size:13px;">Police Case Management Information System</p>
                     </td>
                 </tr>
                 <tr>
@@ -41,7 +41,7 @@ ${bodyHtml}
                 <tr>
                     <td style="background:#f7f9fc;padding:16px 28px;border-top:1px solid #dfe4ea;">
                         <p style="margin:0;font-size:12px;color:#8899aa;">
-                            This is an automated message from the Limbe Police Station Case Management Information System. Please do not reply to this email.
+                            This is an automated message from the Police Case Management Information System, Limbe Police Station. Please do not reply to this email.
                         </p>
                     </td>
                 </tr>
@@ -75,8 +75,8 @@ function buildAccountSetupEmail({ firstName, lastName, badgeNumber, email, token
     const setupUrl = `${getLoginUrl()}/reset-password?token=${encodeURIComponent(token)}`;
 
     const intro = isReset
-        ? `A password reset was requested for your Limbe Police Station Case Management Information System account. Click the button below to choose a new password.`
-        : `Your account on the Limbe Police Station Case Management Information System has been created. Click the button below to set the password you will use to sign in.`;
+        ? `A password reset was requested for your Police Case Management Information System account at Limbe Police Station. Click the button below to choose a new password.`
+        : `Your account on the Police Case Management Information System at Limbe Police Station has been created. Click the button below to set the password you will use to sign in.`;
 
     const closing = isReset
         ? `If you did not request a password reset, you can safely ignore this email — your password will not change.`
@@ -106,8 +106,8 @@ function buildAccountSetupEmail({ firstName, lastName, badgeNumber, email, token
 
     return {
         subject: isReset
-            ? 'Reset your Limbe Police Station CMS password'
-            : 'Set your Limbe Police Station CMS password',
+            ? 'Reset your Police Case Management Information System password'
+            : 'Set your Police Case Management Information System password',
         htmlContent: renderLayout(bodyHtml)
     };
 }

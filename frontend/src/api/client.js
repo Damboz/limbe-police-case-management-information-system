@@ -146,7 +146,6 @@ const PDF_REPORTS = {
     crimeStatistics: { path: '/supervisor/reports/crime-statistics', fileName: 'Crime_Statistics_Report.pdf' },
     officerProductivity: { path: '/supervisor/reports/officer-productivity', fileName: 'Officer_Productivity_Report.pdf' },
     branchCases: { path: '/branch/reports/cases', fileName: 'Branch_Case_Report.pdf' },
-    recordsRegister: { path: '/records/reports/numbering', fileName: 'Records_Numbering_Register.pdf' },
     prosecutionReport: { path: '/prosecution/reports/cases', fileName: 'Prosecution_Report.pdf' },
     systemReport: { path: '/admin/reports/system', fileName: 'System_Report.pdf' }
 };
@@ -181,6 +180,8 @@ export const api = {
     createCase: (body) => request('/cases', { method: 'POST', body }),
     searchCases: (params, signal) => request(`/cases/search${toQuery(params)}`, { signal }),
     caseDetail: (id, signal) => request(`/cases/${id}`, { signal }),
+    caseSmsNotifications: (id, signal) => request(`/cases/${id}/sms-notifications`, { signal }),
+    resendCaseSms: (id, notificationId) => request(`/cases/${id}/sms-notifications/${notificationId}/resend`, { method: 'POST' }),
     addCaseNote: (id, note) => request(`/cases/${id}/notes`, { method: 'POST', body: { note } }),
     completeInvestigation: (id, body) => request(`/cases/${id}/complete-investigation`, { method: 'POST', body }),
     addCaseEvidence: (id, body) => request(`/cases/${id}/evidence`, { method: 'POST', body }),
@@ -239,7 +240,6 @@ export const api = {
     clearAuditLogs: () => request('/admin/audit-logs', { method: 'DELETE' }),
 
     supervisorDashboard: (signal) => request('/supervisor/dashboard', { signal }),
-    classifyCase: (id, body) => request(`/supervisor/cases/${id}/classify`, { method: 'POST', body }),
     assignCase: (body) => request('/supervisor/cases/assign', { method: 'POST', body }),
     approveStatus: (body) => request('/supervisor/cases/approve-status', { method: 'POST', body }),
     resolveQuery: (id, resolution) => request(`/supervisor/cases/${id}/resolve-query`, { method: 'POST', body: { resolution } }),
@@ -254,9 +254,6 @@ export const api = {
     proposeReassignment: (id, body) => request(`/branch/cases/${id}/reassign-proposal`, { method: 'POST', body }),
     requestExternalReport: (id, body) => request(`/branch/cases/${id}/external-reports`, { method: 'POST', body }),
     markReportReceived: (reportId, body) => request(`/branch/external-reports/${reportId}/received`, { method: 'POST', body }),
-
-    recordsDashboard: (signal) => request('/records/dashboard', { signal }),
-    assignCaseNumbers: (id, body) => request(`/records/cases/${id}/numbers`, { method: 'POST', body }),
 
     occurrenceBook: (filters = {}, signal) => {
         const params = new URLSearchParams();

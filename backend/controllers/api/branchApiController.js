@@ -1,6 +1,25 @@
 const branchService = require('../../services/branchService');
 const supervisorService = require('../../services/supervisorService');
+const smsService = require('../../services/smsService');
 const { logAudit } = require('../../utils/audit');
+
+
+// SMS is a courtesy side effect: never await it in the request path and never
+// let a provider failure turn a successful assignment into an error response.
+function notifyAssignmentSms(caseId, investigatorIds, courtOfficerId) {
+    const rawIds = Array.isArray(investigatorIds) ? investigatorIds : [investigatorIds];
+    const officerIds = [...new Set(rawIds.filter(Boolean).map(String))];
+
+    for (const officerId of officerIds) {
+        smsService.notifyAssignment({ officerId, caseId, role: 'Investigator' })
+            .catch(err => console.error('Investigator SMS notification failed:', err.message));
+    }
+
+    if (courtOfficerId) {
+        smsService.notifyAssignment({ officerId: courtOfficerId, caseId, role: 'Court Standing Officer' })
+            .catch(err => console.error('Court officer SMS notification failed:', err.message));
+    }
+}
 
 
 exports.dashboard = async (req, res, next) => {
@@ -43,7 +62,8 @@ exports.assignCase = async (req, res, next) => {
             user,
             req.body.case_id,
             req.body.investigator_ids,
-            req.body.notes
+            req.body.notes,
+            req.body.court_standing_officer_id
         );
 
         if (!result.ok) {
@@ -51,6 +71,8 @@ exports.assignCase = async (req, res, next) => {
         }
 
         await logAudit(req, user.id, result.auditAction, result.auditDetails);
+
+        notifyAssignmentSms(result.caseId, req.body.investigator_ids, req.body.court_standing_officer_id);
 
         res.status(201).json({ success: true, message: result.message });
     } catch (err) {

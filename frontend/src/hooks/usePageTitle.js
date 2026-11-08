@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 
-const SUFFIX = 'Limbe Police CMS';
+const SUFFIX = 'Police Case Management Information System';
 
 
 export default function usePageTitle(title) {

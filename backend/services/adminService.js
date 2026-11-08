@@ -6,6 +6,7 @@ const { TOKEN_TTL_MS, createResetToken } = require('../utils/resetToken');
 const { ok, fail } = require('../utils/result');
 const { containsPattern } = require('../utils/query');
 const { ROLES, ROLE_IDS, WORKFLOW_BRANCHES } = require('../roles');
+const { normalisePhone } = require('./smsService');
 
 const WORKFLOW_BRANCH_NAMES = Object.values(WORKFLOW_BRANCHES);
 
@@ -24,7 +25,9 @@ function getRoleMapping(roleInput) {
         case 'investigating officer':
             return { role: ROLES.POLICE_OFFICER, role_id: ROLE_IDS.POLICE_OFFICER };
         case 'records officer':
-            return { role: ROLES.RECORDS_OFFICER, role_id: ROLE_IDS.RECORDS_OFFICER };
+            // Records Officer was retired; numbering now happens at
+            // registration, so legacy accounts become Police Officers.
+            return { role: ROLES.POLICE_OFFICER, role_id: ROLE_IDS.POLICE_OFFICER };
         case 'station officer':
         case 'station officers':
         case 'station commander':
@@ -164,8 +167,13 @@ async function getUserToEdit(userId) {
 async function createUser(body) {
     const { badge_number, rank_title, first_name, last_name, email, phone_number, role, branch } = body;
 
-    if (!badge_number || !first_name || !last_name || !email || !role) {
-        return fail(400, 'Please complete all required fields.');
+    if (!badge_number || !first_name || !last_name || !email || !phone_number || !role) {
+        return fail(400, 'Please complete all required fields, including a mobile phone number.');
+    }
+
+    const phone = normalisePhone(phone_number);
+    if (!phone) {
+        return fail(400, 'Please provide a valid Malawi mobile number, e.g. +265888123456 or 0888123456.');
     }
 
     const [existing] = await db.execute(
@@ -201,7 +209,7 @@ async function createUser(body) {
         first_name.trim(),
         last_name.trim(),
         normalizedEmail,
-        phone_number ? phone_number.trim() : null,
+        phone,
         roleMap.role,
         roleMap.role_id,
         workflowBranch,
@@ -241,8 +249,13 @@ async function createUser(body) {
 async function updateUser(userId, body) {
     const { rank_title, first_name, last_name, email, phone_number, role, branch } = body;
 
-    if (!first_name || !last_name || !email || !role) {
-        return fail(400, 'First Name, Last Name, Email, and Role are required fields.');
+    if (!first_name || !last_name || !email || !phone_number || !role) {
+        return fail(400, 'First Name, Last Name, Email, Phone Number, and Role are required fields.');
+    }
+
+    const phone = normalisePhone(phone_number);
+    if (!phone) {
+        return fail(400, 'Please provide a valid Malawi mobile number, e.g. +265888123456 or 0888123456.');
     }
 
     const [existing] = await db.execute(
@@ -271,7 +284,7 @@ async function updateUser(userId, body) {
         first_name.trim(),
         last_name.trim(),
         email.trim().toLowerCase(),
-        phone_number ? phone_number.trim() : null,
+        phone,
         roleMap.role,
         roleMap.role_id,
         workflowBranch,

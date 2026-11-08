@@ -43,7 +43,7 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
     const { user, logout, homePath } = useAuth();
     const navigate = useNavigate();
     const { pathname } = useLocation();
-    const { isPoliceOfficer, isStationOfficer, isAdmin, isRecordsOfficer, isBranchOfficer, isProsecutor } = roleFlags(user);
+    const { isPoliceOfficer, isStationOfficer, isAdmin, isBranchOfficer, isProsecutor } = roleFlags(user);
 
     const sections = useMemo(() => {
         const supervisorAnalytics = isStationOfficer && !isAdmin;
@@ -55,13 +55,13 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                 title: 'Core Operations',
                 links: [
                     { to: homePath, icon: 'bi-speedometer2', label: 'Dashboard', end: true },
-                    (isRecordsOfficer || isStationOfficer) && {
+                    (isPoliceOfficer || isStationOfficer) && {
                         to: '/occurrence-book',
                         icon: 'bi-journal-bookmark-fill',
                         label: 'Occurrence Book'
                     },
                     !isAdmin && { to: '/cases', icon: 'bi-folder2-open', label: 'Case Register' },
-                    (isPoliceOfficer || isStationOfficer || isBranchOfficer || isRecordsOfficer) && {
+                    (isPoliceOfficer || isStationOfficer || isBranchOfficer) && {
                         to: '/cases/online',
                         icon: 'bi-inbox-fill',
                         label: 'Online Complaints'
@@ -77,7 +77,6 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                     isPoliceOfficer && { to: '/my-analytics', icon: 'bi-graph-up-arrow', label: 'My Analytics' },
                     isPoliceOfficer && { report: 'myCases', icon: 'bi-file-earmark-person', label: 'My Case Report' },
                     isBranchOfficer && { report: 'branchCases', icon: 'bi-diagram-3', label: 'Branch Case Report' },
-                    isRecordsOfficer && { report: 'recordsRegister', icon: 'bi-journal-check', label: 'Numbering Register' },
                     isProsecutor && { report: 'prosecutionReport', icon: 'bi-bank', label: 'Prosecution Report' },
                     stationReports && { report: 'stationPerformance', icon: 'bi-file-earmark-bar-graph', label: 'Station Performance PDF' },
                     stationReports && { report: 'crimeStatistics', icon: 'bi-file-earmark-text', label: 'Crime Statistics PDF' },
@@ -102,7 +101,7 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                 ]
             }
         ].filter(section => section.links.length > 0);
-    }, [homePath, isPoliceOfficer, isStationOfficer, isAdmin, isRecordsOfficer, isBranchOfficer, isProsecutor]);
+    }, [homePath, isPoliceOfficer, isStationOfficer, isAdmin, isBranchOfficer, isProsecutor]);
 
     const currentSectionId = useMemo(() => {
         const match = sections.find(section => section.links.some(link => matchesPath(link.to, pathname, link.end)));
@@ -147,7 +146,7 @@ export default function Sidebar({ open = false, onClose = () => {}, onDownloadRe
                     </div>
                     <div className="lh-sm">
                         <div className="fw-bold text-white fs-6">Limbe Police Station</div>
-                        <small className="text-white-50 d-block" style={{ fontSize: '0.7rem' }}>Case Management Information System</small>
+                        <small className="text-white-50 d-block" style={{ fontSize: '0.7rem' }}>Police Case Management Information System</small>
                     </div>
                 </div>
 

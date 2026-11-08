@@ -15,7 +15,6 @@
 const ROLES = {
     ADMIN: 'Admin',
     POLICE_OFFICER: 'Police Officer',
-    RECORDS_OFFICER: 'Records Officer',
     STATION_OFFICER: 'Station Officer',
     BRANCH_OFFICER: 'Branch Officer',
     PROSECUTOR: 'Prosecutor'
@@ -26,7 +25,6 @@ const ROLE_IDS = {
     ADMIN: 1,
     PROSECUTOR: 6,
     POLICE_OFFICER: 7,
-    RECORDS_OFFICER: 8,
     STATION_OFFICER: 9,
     BRANCH_OFFICER: 10
 };
@@ -56,16 +54,21 @@ const LEGACY_ROLE_ALIASES = {
     'Investigation Branch Officer': ROLES.BRANCH_OFFICER,
     'investigation branch officer': ROLES.BRANCH_OFFICER,
     'Prosecution Officer': ROLES.PROSECUTOR,
-    'prosecution officer': ROLES.PROSECUTOR
+    'prosecution officer': ROLES.PROSECUTOR,
+    'Records Officer': ROLES.POLICE_OFFICER,
+    'records officer': ROLES.POLICE_OFFICER
 };
 
 
 // Legacy role ids map to the new role ids for the same reason.
+// Records Officer (8) was retired and its duties now belong to
+// Police Officers, so existing rows log in as Police Officers.
 const LEGACY_ROLE_ID_MAP = {
     2: ROLE_IDS.STATION_OFFICER,
     3: ROLE_IDS.POLICE_OFFICER,
     4: ROLE_IDS.POLICE_OFFICER,
-    5: ROLE_IDS.BRANCH_OFFICER
+    5: ROLE_IDS.BRANCH_OFFICER,
+    8: ROLE_IDS.POLICE_OFFICER
 };
 
 
@@ -95,14 +98,101 @@ const CLASSIFICATION_BRANCHES = {
 };
 
 
-// Case lifecycle. A case is Registered when saved, Numbered once
-// the Records Officer assigns its OB and criminal numbers,
-// Classified once the Station Officer classifies it, Assigned once
-// a Branch Officer assigns an investigating officer, and moves to
-// Under Investigation when the officer starts recording diary
-// entries. Submitted for Review, Closed and Forwarded to
-// Prosecution follow. Court Pending and Archived are retained for
-// historical cases.
+// Severity is captured when the case is registered, at the same
+// time as the offence type. It is the input that decides the
+// classification and the workflow branch, so the officer no longer
+// classifies the case in a separate step.
+const SEVERITY_LEVELS = {
+    MINOR: 'Minor',
+    MODERATE: 'Moderate',
+    SEVERE: 'Severe',
+    CRITICAL: 'Critical'
+};
+
+
+// Severity -> classification. Registration stores the resulting
+// classification directly on the case.
+const SEVERITY_CLASSIFICATIONS = {
+    Minor: CASE_CLASSIFICATIONS.MINOR,
+    Moderate: CASE_CLASSIFICATIONS.MEDIUM,
+    Severe: CASE_CLASSIFICATIONS.HIGH,
+    Critical: CASE_CLASSIFICATIONS.CRITICAL
+};
+
+
+// Severity -> workflow branch. Moderate cases stay with the
+// Investigation Branch; Severe and Critical cases go to CID.
+const SEVERITY_BRANCHES = {
+    Minor: WORKFLOW_BRANCHES.INVESTIGATION,
+    Moderate: WORKFLOW_BRANCHES.INVESTIGATION,
+    Severe: WORKFLOW_BRANCHES.CID,
+    Critical: WORKFLOW_BRANCHES.CID
+};
+
+
+// Severity -> priority. Priority mirrors the severity so the
+// register can sort the most serious cases first.
+const SEVERITY_PRIORITIES = {
+    Minor: 'Low',
+    Moderate: 'Medium',
+    Severe: 'High',
+    Critical: 'Critical'
+};
+
+
+// Assignment role types. Every case can carry one Investigator
+// (the lead) plus one Court Standing Officer.
+const ASSIGNMENT_ROLE_TYPES = {
+    INVESTIGATOR: 'Investigator',
+    COURT_STANDING_OFFICER: 'Court Standing Officer'
+};
+
+
+const ASSIGNMENT_STATUSES = {
+    ACTIVE: 'Active',
+    REASSIGNED: 'Reassigned',
+    REMOVED: 'Removed'
+};
+
+
+// Normalise a free-text severity value to a canonical level.
+// Returns null when the value is unknown so callers can decide
+// whether to default or reject.
+function severityLevel(rawSeverity) {
+    const value = String(rawSeverity || '').trim().toLowerCase();
+    if (!value) return null;
+    return Object.values(SEVERITY_LEVELS).find(level => level.toLowerCase() === value) || null;
+}
+
+
+// Derive the classification for a severity level.
+function classificationForSeverity(rawSeverity) {
+    const level = severityLevel(rawSeverity);
+    return level ? SEVERITY_CLASSIFICATIONS[level] : null;
+}
+
+
+// Derive the workflow branch for a severity level.
+function branchForSeverity(rawSeverity) {
+    const level = severityLevel(rawSeverity);
+    return level ? SEVERITY_BRANCHES[level] : null;
+}
+
+
+// Derive the priority for a severity level.
+function priorityForSeverity(rawSeverity) {
+    const level = severityLevel(rawSeverity);
+    return level ? SEVERITY_PRIORITIES[level] : null;
+}
+
+
+// Case lifecycle. A case is Registered when saved, with its OB,
+// criminal number, classification and workflow branch generated
+// automatically. It becomes Assigned once a Branch Officer assigns
+// an investigating officer, and moves to Under Investigation when
+// the officer starts recording diary entries. Submitted for Review,
+// Closed and Forwarded to Prosecution follow. Court Pending and
+// Archived are retained for historical cases.
 const CASE_STATUSES = {
     REGISTERED: 'Registered',
     NUMBERED: 'Numbered',
@@ -165,7 +255,17 @@ module.exports = {
     WORKFLOW_BRANCHES,
     CASE_CLASSIFICATIONS,
     CLASSIFICATION_BRANCHES,
+    SEVERITY_LEVELS,
+    SEVERITY_CLASSIFICATIONS,
+    SEVERITY_BRANCHES,
+    SEVERITY_PRIORITIES,
+    ASSIGNMENT_ROLE_TYPES,
+    ASSIGNMENT_STATUSES,
     CASE_STATUSES,
+    severityLevel,
+    classificationForSeverity,
+    branchForSeverity,
+    priorityForSeverity,
     canonicalRole,
     canonicalRoleId,
     roleIn,

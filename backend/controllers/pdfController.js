@@ -10,6 +10,10 @@ function drawReportHeader(doc, reportTitle, period) {
         .fontSize(18)
         .text('Limbe Police Station', { align: 'center' });
 
+    doc.fillColor('#64748B')
+        .fontSize(9)
+        .text('Police Case Management Information System', { align: 'center' });
+
     doc.fillColor('#1E293B')
         .fontSize(13)
         .text(reportTitle, { align: 'center' });

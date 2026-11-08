@@ -1,8 +1,9 @@
 const db = require('../config/db');
-const { syncCaseInvestigators } = require('./assignmentService');
+const { syncCaseInvestigators, syncCaseInvestigatorsWithClient } = require('./assignmentService');
 const { OVERDUE_DAYS_THRESHOLD } = require('./caseService');
 const { ok, fail } = require('../utils/result');
-const { ROLES, roleIn, CASE_CLASSIFICATIONS, CLASSIFICATION_BRANCHES, WORKFLOW_BRANCHES, CASE_STATUSES } = require('../roles');
+const { ROLES, roleIn, ASSIGNMENT_ROLE_TYPES, ASSIGNMENT_STATUSES } = require('../roles');
+const partyService = require('./partyService');
 
 const COMMANDER_ROLES = [ROLES.STATION_OFFICER];
 const ASSIGN_ROLES = [ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER];
@@ -192,67 +193,10 @@ async function getDashboard() {
 }
 
 
-// The Station Officer classifies a numbered case. The
-// classification routes the case to its workflow branch:
-// Minor/Medium -> Investigation Branch, High/Critical ->
-// Criminal Investigation Department (CLASSIFICATION_BRANCHES).
-async function classifyCase(user, caseId, classification, workflowBranch) {
-    if (!roleIn(user, COMMANDER_ROLES)) {
-        return fail(403, 'Only Station Officers can classify cases.');
-    }
-
-    const normalized = (classification || '').toString().trim();
-    if (!Object.values(CASE_CLASSIFICATIONS).includes(normalized)) {
-        return fail(400, 'Classification must be one of: Minor, Medium, High, Critical.');
-    }
-
-    const branchValues = Object.values(WORKFLOW_BRANCHES);
-    const requestedBranch = (workflowBranch || '').toString().trim();
-    if (requestedBranch && !branchValues.includes(requestedBranch)) {
-        return fail(400, 'Workflow branch must be either the Investigation Branch or the Criminal Investigation Department.');
-    }
-
-    const [caseRows] = await db.execute(
-        `SELECT id, ob_number, status, classification
-         FROM cases WHERE id = ?`,
-        [caseId]
-    );
-
-    if (caseRows.length === 0) {
-        return fail(404, 'Case record not found.');
-    }
-
-    const current = caseRows[0];
-    if (current.classification) {
-        return fail(400, `Case OB ${current.ob_number} is already classified as ${current.classification}.`);
-    }
-    if (current.status !== CASE_STATUSES.REGISTERED && current.status !== CASE_STATUSES.NUMBERED) {
-        return fail(400, `Case OB ${current.ob_number} cannot be classified from its current status (${current.status}). Only registered or numbered cases can be classified.`);
-    }
-
-    // The Station Officer may determine the workflow branch directly.
-    // When they do not, it is derived from the classification.
-    const resolvedBranch = requestedBranch || CLASSIFICATION_BRANCHES[normalized];
-
-    await db.execute(
-        `UPDATE cases
-         SET classification = ?, workflow_branch = ?, status = 'Classified',
-             classified_by = ?, classified_at = NOW(), updated_at = NOW()
-         WHERE id = ?`,
-        [normalized, resolvedBranch, user.id, caseId]
-    );
-
-    return ok({
-        caseId,
-        classification: normalized,
-        workflowBranch: resolvedBranch,
-        auditDetails: `Station Officer classified Case OB ${current.ob_number} as ${normalized}; routed to the ${resolvedBranch}.`,
-        message: `Case OB ${current.ob_number} classified as ${normalized} and routed to the ${resolvedBranch}.`
-    });
-}
-
-
-async function assignCase(user, caseId, investigatorIds, notes) {
+// The Branch Officer (or Station Officer) assigns the investigating team and
+// optionally a Court Standing Officer to a case. Both assignments are recorded
+// in case_assignments and the officers are notified by SMS.
+async function assignCase(user, caseId, investigatorIds, notes, courtStandingOfficerId) {
     if (!roleIn(user, ASSIGN_ROLES)) {
         return fail(403, 'Only Station Officers or Branch Officers can assign cases to investigators.');
     }
@@ -266,7 +210,7 @@ async function assignCase(user, caseId, investigatorIds, notes) {
 
     const placeholders = ids.map(() => '?').join(',');
     const [inv] = await db.execute(
-        `SELECT id, badge_number, rank_title, first_name, last_name
+        `SELECT id, badge_number, rank_title, first_name, last_name, phone_number
          FROM users
          WHERE id IN (${placeholders}) AND is_active = 1 AND role NOT IN ('${ROLES.ADMIN}', 'admin')`,
         ids
@@ -282,15 +226,30 @@ async function assignCase(user, caseId, investigatorIds, notes) {
         return fail(400, 'One or more selected officers are inactive or cannot be assigned as investigators.');
     }
 
+    let courtOfficer = null;
+    const courtId = courtStandingOfficerId ? String(courtStandingOfficerId) : '';
+    if (courtId) {
+        const [courtRows] = await db.execute(
+            `SELECT id, badge_number, rank_title, first_name, last_name, phone_number
+             FROM users
+             WHERE id = ? AND is_active = 1 AND role NOT IN ('${ROLES.ADMIN}', 'admin')`,
+            [courtId]
+        );
+        if (courtRows.length === 0) {
+            return fail(400, 'The selected Court Standing Officer is inactive or cannot be assigned.');
+        }
+        courtOfficer = courtRows[0];
+    }
+
     const [caseRows] = await db.execute('SELECT id, workflow_branch, ob_number, criminal_number, classification, status FROM cases WHERE id = ?', [caseId]);
     if (caseRows.length === 0) {
         return fail(404, 'Case record not found.');
     }
     if (!caseRows[0].ob_number || !caseRows[0].criminal_number) {
-        return fail(400, 'OB and criminal numbers must be assigned by the Records Officer before assignment.');
+        return fail(400, 'This case has not been registered yet, so it has no OB and criminal numbers. Approve it first.');
     }
     if (!caseRows[0].classification || !caseRows[0].workflow_branch) {
-        return fail(400, 'The case must be classified and routed to a branch by the Station Officer before assignment.');
+        return fail(400, 'This case has no classification or workflow branch. Please re-register it.');
     }
 
     // Branch Officers may only assign cases that belong to their own branch;
@@ -306,15 +265,69 @@ async function assignCase(user, caseId, investigatorIds, notes) {
     );
     const hadPrevious = existing[0].cnt > 0;
 
-    await syncCaseInvestigators(caseId, validIds, user.id);
+    // The case status, investigator list and assignment history must move
+    // together: a failure part-way through would otherwise leave a case marked
+    // Under Investigation without the officers it says are working on it.
+    await partyService.withTransaction(async (client) => {
+        await syncCaseInvestigatorsWithClient(client, caseId, validIds, user.id);
 
-    await db.execute(
-        `UPDATE cases
-         SET status = 'Under Investigation', updated_at = NOW()
-         WHERE id = ?`,
-        [caseId]
-    );
-    try { await db.execute(`INSERT INTO case_assignments (case_id, assigned_by, assigned_to, notes, assigned_at) VALUES (?, ?, ?, ?, NOW())`, [caseId, user.id, validIds[0], notes || null]); } catch (e) {}
+        await client.query(
+            `UPDATE cases
+             SET status = 'Under Investigation',
+                 court_officer_id = COALESCE($1::int, court_officer_id),
+                 updated_at = NOW()
+             WHERE id = $2`,
+            [courtOfficer ? courtOfficer.id : null, caseId]
+        );
+
+        // Record the assignment history. The active investigator rows are closed
+        // out first so the history always shows the current team only as Active.
+        await client.query(
+            `UPDATE case_assignments
+             SET status = $1
+             WHERE case_id = $2 AND role_type = $3 AND status = $4`,
+            [ASSIGNMENT_STATUSES.REASSIGNED, caseId, ASSIGNMENT_ROLE_TYPES.INVESTIGATOR, ASSIGNMENT_STATUSES.ACTIVE]
+        );
+        for (const officer of inv) {
+            await client.query(
+                `INSERT INTO case_assignments
+                    (case_id, assigned_to, assigned_by, reason, role_type, status, notes, assigned_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+                [
+                    caseId,
+                    officer.id,
+                    user.id,
+                    hadPrevious ? (notes || null) : null,
+                    ASSIGNMENT_ROLE_TYPES.INVESTIGATOR,
+                    ASSIGNMENT_STATUSES.ACTIVE,
+                    notes || null
+                ]
+            );
+        }
+
+        if (courtOfficer) {
+            await client.query(
+                `UPDATE case_assignments
+                 SET status = $1
+                 WHERE case_id = $2 AND role_type = $3 AND status = $4`,
+                [ASSIGNMENT_STATUSES.REASSIGNED, caseId, ASSIGNMENT_ROLE_TYPES.COURT_STANDING_OFFICER, ASSIGNMENT_STATUSES.ACTIVE]
+            );
+            await client.query(
+                `INSERT INTO case_assignments
+                    (case_id, assigned_to, assigned_by, reason, role_type, status, notes, assigned_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+                [
+                    caseId,
+                    courtOfficer.id,
+                    user.id,
+                    null,
+                    ASSIGNMENT_ROLE_TYPES.COURT_STANDING_OFFICER,
+                    ASSIGNMENT_STATUSES.ACTIVE,
+                    notes || null
+                ]
+            );
+        }
+    });
 
     const officerNames = inv.map(i => `${i.rank_title} ${i.last_name} (${i.badge_number})`).join(', ');
     const shortNames = inv.map(i => i.last_name).join(', ');
@@ -323,8 +336,8 @@ async function assignCase(user, caseId, investigatorIds, notes) {
         caseId,
         hadPrevious,
         auditAction: hadPrevious ? 'CASE_REASSIGNED' : 'CASE_ASSIGNED',
-        auditDetails: `${hadPrevious ? 'Updated investigators for' : 'Assigned'} Case ID ${caseId} to Investigator(s): ${officerNames}. ${notes ? 'Note: ' + notes : ''}`,
-        message: `Case assigned successfully to Officer(s): ${shortNames}.`
+        auditDetails: `${hadPrevious ? 'Updated investigators for' : 'Assigned'} Case ID ${caseId} to Investigator(s): ${officerNames}.${courtOfficer ? ` Court Standing Officer: ${courtOfficer.rank_title} ${courtOfficer.first_name} ${courtOfficer.last_name} (${courtOfficer.badge_number}).` : ''} ${notes ? 'Note: ' + notes : ''}`,
+        message: `Case assigned successfully to Officer(s): ${shortNames}.${courtOfficer ? ` Court Standing Officer: ${courtOfficer.last_name}.` : ''}`
     });
 }
 
@@ -456,6 +469,7 @@ async function decideReassignment(user, proposalId, decision, decisionNote) {
         caseId: proposal.case_id,
         obNumber: proposal.ob_number,
         decision,
+        reassignedOfficerId: decision === 'APPROVE' ? proposal.proposed_investigator_id : null,
         auditDetails: `Station Officer ${decision === 'APPROVE' ? 'APPROVED' : 'REJECTED'} reassignment proposal ${proposalId} for Case OB ${proposal.ob_number}. ${decisionNote ? 'Note: ' + decisionNote : ''}`,
         message: decision === 'APPROVE'
             ? `Reassignment approved and Case OB ${proposal.ob_number} re-assigned.`
@@ -619,7 +633,6 @@ async function getCategoryBreakdownDetail() {
 
 module.exports = {
     getDashboard,
-    classifyCase,
     assignCase,
     processStatusApproval,
     decideReassignment,

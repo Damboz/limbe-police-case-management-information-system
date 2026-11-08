@@ -119,7 +119,7 @@ app.use(enforceSessionTimeout);
 
 
 app.get('/api/health', (req, res) => {
-    res.status(200).json({ status: 'UP', system: 'Limbe Police Station CMS' });
+    res.status(200).json({ status: 'UP', system: 'Police Case Management Information System' });
 });
 
 

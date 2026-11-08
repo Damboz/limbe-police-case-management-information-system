@@ -10,7 +10,6 @@ const adminApi = require('../controllers/api/adminApiController');
 const supervisorApi = require('../controllers/api/supervisorApiController');
 const branchApi = require('../controllers/api/branchApiController');
 const prosecutorApi = require('../controllers/api/prosecutorApiController');
-const recordsApi = require('../controllers/api/recordsApiController');
 const occurrenceBookApi = require('../controllers/api/occurrenceBookApiController');
 const reportsApi = require('../controllers/api/reportsApiController');
 const generalApi = require('../controllers/api/generalApiController');
@@ -55,8 +54,8 @@ router.get('/dashboard/assigned-cases', isAuthenticated, generalApi.assignedCase
 router.get('/my-analytics', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER), reportsApi.myAnalytics);
 
 
-router.post('/cases/:id/approve-online', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN), caseApi.approveOnline);
-router.post('/cases/:id/reject-online', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN), caseApi.rejectOnline);
+router.post('/cases/:id/approve-online', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.ADMIN), caseApi.approveOnline);
+router.post('/cases/:id/reject-online', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.ADMIN), caseApi.rejectOnline);
 router.get('/cases', isAuthenticated, denyAdmin, caseApi.list);
 router.get('/cases/new', isAuthenticated, denyAdmin, caseApi.formOptions);
 router.post('/cases', isAuthenticated, denyAdmin, caseApi.create);
@@ -64,11 +63,13 @@ router.get('/cases/search', isAuthenticated, denyAdmin, caseApi.search);
 router.get(
     '/cases/online/pending',
     isAuthenticated,
-    authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN),
+    authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.ADMIN),
     caseApi.pendingOnline
 );
 router.get('/cases/:id', isAuthenticated, denyAdmin, caseApi.detail);
 router.get('/cases/:id/parties', isAuthenticated, denyAdmin, caseApi.parties);
+router.get('/cases/:id/sms-notifications', isAuthenticated, denyAdmin, caseApi.smsNotifications);
+router.post('/cases/:id/sms-notifications/:notificationId/resend', isAuthenticated, denyAdmin, caseApi.resendSmsNotification);
 router.post('/cases/:id/notes', isAuthenticated, denyAdmin, caseApi.addNote);
 router.post('/cases/:id/complete-investigation', isAuthenticated, denyAdmin, caseApi.completeInvestigation);
 router.post('/cases/:id/external-reports', isAuthenticated, denyAdmin, caseApi.requestExternalReport);
@@ -567,7 +568,6 @@ router.delete('/admin/audit-logs', isAuthenticated, isAdmin, adminApi.clearAudit
 
 
 router.get('/supervisor/dashboard', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), supervisorApi.dashboard);
-router.post('/supervisor/cases/:id/classify', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), supervisorApi.classifyCase);
 router.post('/supervisor/cases/assign', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), supervisorApi.assignCase);
 router.post('/supervisor/cases/approve-status', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), supervisorApi.approveStatus);
 router.post('/supervisor/cases/:id/resolve-query', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), supervisorApi.resolveQuery);
@@ -585,11 +585,8 @@ router.post('/branch/cases/:id/external-reports', isAuthenticated, authorizeRole
 router.post('/branch/external-reports/:reportId/received', isAuthenticated, authorizeRoles(ROLES.BRANCH_OFFICER), branchApi.markReportReceived);
 
 
-router.get('/records/dashboard', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER), recordsApi.dashboard);
-router.post('/records/cases/:id/numbers', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER), recordsApi.assignNumbers);
-
-router.get('/occurrence-book', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER, ROLES.STATION_OFFICER), occurrenceBookApi.list);
-router.post('/occurrence-book/:id/reopen', isAuthenticated, authorizeRoles(ROLES.RECORDS_OFFICER, ROLES.STATION_OFFICER), occurrenceBookApi.reopen);
+router.get('/occurrence-book', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER), occurrenceBookApi.list);
+router.post('/occurrence-book/:id/reopen', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER), occurrenceBookApi.reopen);
 
 
 router.get('/prosecution/dashboard', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.dashboard);

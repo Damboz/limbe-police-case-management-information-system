@@ -3,7 +3,7 @@ const { ok, fail } = require('../utils/result');
 const { ROLES, roleIn } = require('../roles');
 
 
-const BOOK_ROLES = [ROLES.RECORDS_OFFICER, ROLES.STATION_OFFICER];
+const BOOK_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER];
 
 const CASE_STATUSES = [
     'Registered', 'Numbered', 'Classified', 'Assigned', 'Under Investigation',
@@ -19,7 +19,7 @@ const REOPEN_TARGET_STATUS = 'Under Investigation';
 // the physical OB follow the same chronological record.
 async function getOccurrenceBook(user, filters = {}) {
     if (!roleIn(user, BOOK_ROLES)) {
-        return fail(403, 'Only Records and Station Officers can access the Occurrence Book.');
+        return fail(403, 'Only Police and Station Officers can access the Occurrence Book.');
     }
 
     const search = String(filters.q || '').trim();

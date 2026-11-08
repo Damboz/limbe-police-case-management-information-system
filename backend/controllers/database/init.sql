@@ -1,5 +1,5 @@
 -- ============================================================
--- Limbe Police CMS - PostgreSQL Database Initialization Script
+-- Police Case Management Information System - PostgreSQL Database Initialization Script
 -- Server: PostgreSQL 12+
 -- Usage:
 --   psql -U postgres -f database/init.sql
@@ -38,10 +38,9 @@ CREATE TABLE roles (
 INSERT INTO roles (id, name, description) VALUES
 (1,  'Admin',           'System Administration & User Access Management'),
 (6,  'Prosecutor',      'Receives Forwarded Files, Court Preparation, and Physical File Custody'),
-(7,  'Police Officer',  'Records and registers cases; investigates assigned cases'),
-(8,  'Records Officer', 'Assigns OB and criminal numbers to registered cases'),
-(9,  'Station Officer', 'Classifies cases, reviews files, approves closure, forwards to prosecution'),
-(10, 'Branch Officer',  'Assigns investigating officers within a workflow branch');
+(7,  'Police Officer',  'Registers cases; investigates and numbers assigned cases'),
+(9,  'Station Officer', 'Reviews files, approves closure, forwards to prosecution'),
+(10, 'Branch Officer',  'Assigns investigating officers and Court Standing Officers within a workflow branch');
 
 SELECT setval(pg_get_serial_sequence('roles', 'id'), (SELECT MAX(id) FROM roles));
 
@@ -116,7 +115,6 @@ CREATE TABLE users (
   CONSTRAINT chk_users_role CHECK (role IN (
       'Admin', 'admin',
       'Police Officer', 'police officer',
-      'Records Officer', 'records officer',
       'Station Officer', 'station officer',
       'Branch Officer', 'branch officer',
       'Prosecutor', 'prosecutor'
@@ -136,7 +134,7 @@ INSERT INTO users (id, badge_number, rank_title, first_name, last_name, email, p
 (7,  'Phady',     'Constable',       'Patrick',    'Magule',        'patrick@gmail.com',          '+265996697165', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Police Officer',   7, NULL, NULL,                   1),
 (13, 'LIM-003', 'Sergeant',          'Kumbukani',  'Mbewe',         'branch@limbe.police.mw',     '+265888001003', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Branch Officer',  10, 2,    'Investigation Branch', 1),
 (14, 'LIM-004', 'Inspector',         'Chikondi',   'Nyirenda',      'prosecutor@limbe.police.mw', '+265888001004', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Prosecutor',       6, NULL, NULL,                   1),
-(30, 'LIM-005', 'Sergeant',          'Grace',      'Banda',         'records@limbe.police.mw',    '+265888001005', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Records Officer',  8, NULL, NULL,                   1),
+(30, 'LIM-005', 'Sergeant',          'Grace',      'Banda',         'records@limbe.police.mw',    '+265888001005', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Police Officer',   7, NULL, NULL,                   1),
 (32, 'LIM-007', 'Sergeant',          'Thandiwe',   'Mwale',         'cid-chief@limbe.police.mw',  '+265888001007', '$2b$10$9O2FFvFfnbcC3kyfsMG2F.qgyQ7u1g.rDx3LjzwYvq4FEDnBxMB0m', 'Branch Officer',  10, NULL, 'Criminal Investigation Department', 1);
 
 SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
@@ -231,15 +229,15 @@ CREATE INDEX idx_cases_workflow_branch ON cases (workflow_branch);
 CREATE INDEX idx_cases_assigned_to ON cases (assigned_to);
 CREATE INDEX idx_cases_court_officer ON cases (court_officer_id);
 
--- Case lifecycle: a case is Registered when recorded, Numbered once the
--- Records Officer assigns its OB and criminal numbers, Classified once the
--- Station Officer classifies it, Assigned once a Branch Officer assigns an
--- investigating officer, and Under Investigation once the officer begins
--- recording diary entries.
+-- Case lifecycle: a case is Registered when recorded, with its OB and criminal
+-- numbers, classification and workflow branch generated automatically.
+-- It becomes Assigned once a Branch Officer assigns an investigating officer
+-- (and optionally a Court Standing Officer), and Under Investigation once the
+-- officer begins recording diary entries.
 INSERT INTO cases (id, ob_number, complainant_name, complainant_id_number, complainant_phone, complainant_address, complainant_gender, category_id, branch_id, priority, incident_datetime, incident_location, incident_details, source, complaint_status, approved_by, approved_at, recorded_by, recorded_at, status, requested_status, status_request_notes, status_requested_by, status_requested_at, branch_review_status, branch_reviewed_by, branch_reviewed_at, forwarded_at, file_location, court_date, court_outcome, prosecution_query, prosecution_query_at, prosecution_query_resolved_at, criminal_number, numbers_assigned_by, numbers_assigned_at, classification, workflow_branch, classified_by, classified_at, assigned_to, assigned_by, assigned_at, created_at, updated_at) VALUES
-(1, 'OB-20260816-0001', 'George Dambo', NULL, '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 5, 2, 'Medium', '2025-03-21 12:00:00', 'Chichiri', 'mdjmsmskakamd', 'Counter', 'Approved', NULL, NULL, 7, '2026-08-16 14:30:27', 'Under Investigation', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR-20260819-0001', 30, '2026-08-19 08:55:00', 'Medium', 'Investigation Branch', 4, '2026-08-19 09:00:00', 7, 13, '2026-08-19 09:33:04', '2026-08-16 14:30:27', '2026-08-19 09:33:04'),
-(2, 'OB-20260905-0001', 'Patrick Magule', '004939939', '08840399483', 'Lumbadzi, Lilongwe Malawi', 'Male', 6, 1, 'High', '2026-09-05 11:45:00', 'Zingwangwa Market', 'fjjkfkdjsKLKAJGJDKSKFHSJKSKKKSHFHFH', 7, '2026-09-05 09:45:58', 'Numbered', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR-20260916-0001', 30, '2026-09-16 16:02:53', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-09-05 09:45:58', '2026-09-16 16:02:53'),
-(3, 'OB-20260905-0002', 'George Dambo', 'pfoodld', '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 7, 2, 'Medium', '2026-09-03 12:42:00', 'oflsllsld', 'kqalL;;dlszmmdk', 7, '2026-09-05 10:43:05', 'Submitted for Review', 'Closed', 'gdjjs', 7, '2026-09-16 16:40:50', 'Pending Review', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR-20260916-0002', 30, '2026-09-16 15:45:00', 'Medium', 'Investigation Branch', 4, '2026-09-16 16:00:00', 7, 13, '2026-09-16 16:36:55', '2026-09-05 10:43:05', '2026-09-16 16:40:50');
+(1, 'OB/0001/2026', 'George Dambo', NULL, '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 5, 2, 'Medium', '2025-03-21 12:00:00', 'Chichiri', 'mdjmsmskakamd', 'Counter', 'Approved', NULL, NULL, 7, '2026-08-16 14:30:27', 'Under Investigation', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR/LIMBE/2026/0001', 30, '2026-08-19 08:55:00', 'Medium', 'Investigation Branch', 4, '2026-08-19 09:00:00', 7, 13, '2026-08-19 09:33:04', '2026-08-16 14:30:27', '2026-08-19 09:33:04'),
+(2, 'OB/0002/2026', 'Patrick Magule', '004939939', '08840399483', 'Lumbadzi, Lilongwe Malawi', 'Male', 6, 1, 'High', '2026-09-05 11:45:00', 'Zingwangwa Market', 'fjjkfkdjsKLKAJGJDKSKFHSJKSKKKSHFHFH', 7, '2026-09-05 09:45:58', 'Numbered', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR/LIMBE/2026/0002', 30, '2026-09-16 16:02:53', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-09-05 09:45:58', '2026-09-16 16:02:53'),
+(3, 'OB/0003/2026', 'George Dambo', 'pfoodld', '0996697165', 'Lumbadzi, Lilongwe Malawi', 'Male', 7, 2, 'Medium', '2026-09-03 12:42:00', 'oflsllsld', 'kqalL;;dlszmmdk', 7, '2026-09-05 10:43:05', 'Submitted for Review', 'Closed', 'gdjjs', 7, '2026-09-16 16:40:50', 'Pending Review', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CR/LIMBE/2026/0003', 30, '2026-09-16 15:45:00', 'Medium', 'Investigation Branch', 4, '2026-09-16 16:00:00', 7, 13, '2026-09-16 16:36:55', '2026-09-05 10:43:05', '2026-09-16 16:40:50');
 
 SELECT setval(pg_get_serial_sequence('cases', 'id'), (SELECT MAX(id) FROM cases));
 -- Case <> Investigators (many-to-many)
@@ -263,30 +261,58 @@ INSERT INTO case_investigators (id, case_id, investigator_id, assigned_by, assig
 
 SELECT setval(pg_get_serial_sequence('case_investigators', 'id'), (SELECT MAX(id) FROM case_investigators));
 
--- Case Assignment History (every assignment and reassignment;
--- a reason is required on reassignment)
+-- Case Assignment History (every investigator and Court Standing Officer
+-- assignment; a reason is required on reassignment)
 DROP TABLE IF EXISTS case_assignments CASCADE;
 CREATE TABLE case_assignments (
   id          SERIAL PRIMARY KEY,
   case_id     int NOT NULL,
   assigned_to int NOT NULL,
   assigned_by int DEFAULT NULL,
+  role_type   varchar(40) NOT NULL DEFAULT 'Investigator',
+  status      varchar(20) NOT NULL DEFAULT 'Active',
   reason      text,
+  notes       text,
+  assigned_at timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
   created_at  timestamptz NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_assignments_case   FOREIGN KEY (case_id)     REFERENCES cases (id)  ON DELETE CASCADE,
   CONSTRAINT fk_assignments_target FOREIGN KEY (assigned_to) REFERENCES users (id)  ON DELETE RESTRICT,
-  CONSTRAINT fk_assignments_by     FOREIGN KEY (assigned_by) REFERENCES users (id)  ON DELETE SET NULL
+  CONSTRAINT fk_assignments_by     FOREIGN KEY (assigned_by) REFERENCES users (id)  ON DELETE SET NULL,
+  CONSTRAINT chk_case_assignments_role_type CHECK (role_type IN ('Investigator', 'Court Standing Officer'))
 );
 
 CREATE INDEX idx_case_assignments_case   ON case_assignments (case_id);
 CREATE INDEX idx_case_assignments_target ON case_assignments (assigned_to);
+CREATE INDEX idx_case_assignments_role   ON case_assignments (case_id, role_type, status);
 
 -- Seed the history from the assignment table above.
-INSERT INTO case_assignments (case_id, assigned_to, assigned_by, reason, created_at) VALUES
-(1, 7, 13, NULL, '2026-08-19 09:33:04'),
-(3, 7, 13, NULL, '2026-09-16 16:36:55');
+INSERT INTO case_assignments (case_id, assigned_to, assigned_by, role_type, status, reason, created_at, assigned_at) VALUES
+(1, 7, 13, 'Investigator', 'Active', NULL, '2026-08-19 09:33:04', '2026-08-19 09:33:04'),
+(3, 7, 13, 'Investigator', 'Active', NULL, '2026-09-16 16:36:55', '2026-09-16 16:36:55');
 
 SELECT setval(pg_get_serial_sequence('case_assignments', 'id'), (SELECT MAX(id) FROM case_assignments));
+
+-- SMS notifications (one row per assignment notification attempt)
+DROP TABLE IF EXISTS sms_notifications CASCADE;
+CREATE TABLE sms_notifications (
+  id         SERIAL PRIMARY KEY,
+  case_id    int NOT NULL,
+  officer_id int NOT NULL,
+  role       varchar(40) NOT NULL,
+  phone      varchar(30) DEFAULT NULL,
+  message    text,
+  status     varchar(10) NOT NULL DEFAULT 'PENDING',
+  error      text,
+  created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  sent_at    timestamptz DEFAULT NULL,
+  CONSTRAINT fk_sms_notifications_case FOREIGN KEY (case_id) REFERENCES cases (id) ON DELETE CASCADE,
+  CONSTRAINT fk_sms_notifications_officer FOREIGN KEY (officer_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT chk_sms_notifications_status CHECK (status IN ('PENDING', 'SENT', 'FAILED'))
+);
+
+CREATE INDEX idx_sms_notifications_case ON sms_notifications (case_id);
+CREATE INDEX idx_sms_notifications_officer ON sms_notifications (officer_id);
+CREATE INDEX idx_sms_notifications_created ON sms_notifications (created_at);
 
 -- Case File Movements (physical file handover log)
 DROP TABLE IF EXISTS case_file_movements CASCADE;
@@ -305,7 +331,7 @@ CREATE TABLE case_file_movements (
 CREATE INDEX idx_case_file_movements_case ON case_file_movements (case_id);
 
 -- OB / Criminal Number Sequences (yearly counters drawn on by
--- the Records Officer when numbering a registered case)
+-- registration as cases are entered)
 DROP TABLE IF EXISTS number_sequences CASCADE;
 CREATE TABLE number_sequences (
   year        int NOT NULL,
@@ -318,8 +344,8 @@ CREATE TABLE number_sequences (
 
 -- Seed the yearly counters past the existing seed numbers.
 INSERT INTO number_sequences (year, type, last_number, updated_at) VALUES
-(2026, 'OB', 2, '2026-09-16 16:02:53'),
-(2026, 'CR', 2, '2026-09-16 16:02:53');
+(2026, 'OB', 3, '2026-09-16 16:02:53'),
+(2026, 'CR', 3, '2026-09-16 16:02:53');
 
 -- Suspects
 DROP TABLE IF EXISTS suspects CASCADE;
@@ -786,19 +812,19 @@ INSERT INTO audit_logs (id, user_id, action, details, ip_address, created_at) VA
 (3,  2,  'USER_CREATED',            'Created user Phady (Patrick Magule) with role Police Officer (Role ID: 7)',                      NULL, '2026-08-15 09:41:07'),
 (4,  2,  'USER_CREATED',            'Created user LIM-003 (Kumbukani Mbewe) with role Branch Officer (Role ID: 10), workflow branch: Investigation Branch', NULL, '2026-08-15 09:41:11'),
 (5,  2,  'USER_CREATED',            'Created user LIM-004 (Chikondi Nyirenda) with role Prosecutor (Role ID: 6)',                    NULL, '2026-08-15 09:41:13'),
-(6,  2,  'USER_CREATED',            'Created user LIM-005 (Grace Banda) with role Records Officer (Role ID: 8)',                     NULL, '2026-08-15 09:41:33'),
+(6,  2,  'USER_CREATED',            'Created user LIM-005 (Grace Banda) with role Police Officer (Role ID: 7)',                     NULL, '2026-08-15 09:41:33'),
 (7,  2,  'USER_CREATED',            'Created user LIM-007 (Thandiwe Mwale) with role Branch Officer (Role ID: 10), workflow branch: Criminal Investigation Department', NULL, '2026-08-15 09:41:44'),
 (8,  7,  'USER_LOGIN',              'Officer Phady logged in successfully.',                                                       NULL, '2026-08-16 14:27:39'),
-(9,  7,  'CASE_REGISTERED',         'Registered new Case OB OB-20260816-0001 for complainant George Dambo.',                       NULL, '2026-08-16 14:30:27'),
-(10, 30, 'NUMBERS_ASSIGNED',        'Assigned OB number OB-20260816-0001 and criminal number CR-20260819-0001 to Case ID 1.',      NULL, '2026-08-19 08:55:00'),
+(9,  7,  'CASE_REGISTERED',         'Registered new Case OB OB/0001/2026 for complainant George Dambo.',                       NULL, '2026-08-16 14:30:27'),
+(10, 30, 'NUMBERS_ASSIGNED',        'Assigned OB number OB/0001/2026 and criminal number CR/LIMBE/2026/0001 to Case ID 1.',      NULL, '2026-08-19 08:55:00'),
 (11, 4,  'CASE_CLASSIFIED',         'Classified Case ID 1 as Medium; routed to Investigation Branch.',                             NULL, '2026-08-19 09:00:00'),
 (12, 13, 'CASE_ASSIGNED',           'Assigned Case ID 1 to Police Officer Patrick Magule.',                                        NULL, '2026-08-19 09:33:04'),
 (13, 7,  'CASE_NOTE_ADDED',         'Added investigation note to Case ID 1.',                                                      NULL, '2026-08-21 17:43:07'),
-(14, 7,  'CASE_REGISTERED',         'Registered new Case OB OB-20260905-0001 for complainant Patrick Magule.',                     NULL, '2026-09-05 09:45:58'),
-(15, 7,  'CASE_REGISTERED',         'Registered new Case OB OB-20260905-0002 for complainant George Dambo.',                       NULL, '2026-09-05 10:43:05'),
-(16, 30, 'NUMBERS_ASSIGNED',        'Assigned OB number OB-20260905-0002 and criminal number CR-20260916-0002 to Case ID 3.',      NULL, '2026-09-16 15:45:00'),
+(14, 7,  'CASE_REGISTERED',         'Registered new Case OB OB/0002/2026 for complainant Patrick Magule.',                     NULL, '2026-09-05 09:45:58'),
+(15, 7,  'CASE_REGISTERED',         'Registered new Case OB OB/0003/2026 for complainant George Dambo.',                       NULL, '2026-09-05 10:43:05'),
+(16, 30, 'NUMBERS_ASSIGNED',        'Assigned OB number OB/0003/2026 and criminal number CR/LIMBE/2026/0003 to Case ID 3.',      NULL, '2026-09-16 15:45:00'),
 (17, 4,  'CASE_CLASSIFIED',         'Classified Case ID 3 as Medium; routed to Investigation Branch.',                             NULL, '2026-09-16 16:00:00'),
-(18, 30, 'NUMBERS_ASSIGNED',        'Assigned OB number OB-20260905-0001 and criminal number CR-20260916-0001 to Case ID 2.',      NULL, '2026-09-16 16:02:53'),
+(18, 30, 'NUMBERS_ASSIGNED',        'Assigned OB number OB/0002/2026 and criminal number CR/LIMBE/2026/0002 to Case ID 2.',      NULL, '2026-09-16 16:02:53'),
 (19, 13, 'CASE_ASSIGNED',           'Assigned Case ID 3 to Police Officer Patrick Magule. Note: do this within a month',            NULL, '2026-09-16 16:36:55'),
 (20, 7,  'STATUS_CHANGE_REQUESTED', 'Requested status change to "Closed" for Case ID 3.',                                          '::1', '2026-09-16 16:40:50');
 

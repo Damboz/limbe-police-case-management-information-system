@@ -40,8 +40,28 @@ async function syncCaseInvestigators(caseId, investigatorIds, assignedBy) {
     return ids.length;
 }
 
+
+// Transaction-aware variant used by assignment flows that must not leave the
+// case, its investigator list and its history out of sync on a partial failure.
+async function syncCaseInvestigatorsWithClient(client, caseId, investigatorIds, assignedBy) {
+    await client.query('DELETE FROM case_investigators WHERE case_id = $1', [caseId]);
+
+    const ids = [...new Set((Array.isArray(investigatorIds) ? investigatorIds : [investigatorIds]).map(v => String(v)))].filter(Boolean);
+
+    for (let i = 0; i < ids.length; i++) {
+        await client.query(
+            `INSERT INTO case_investigators (case_id, investigator_id, assigned_by, is_lead)
+             VALUES ($1, $2, $3, $4)`,
+            [caseId, ids[i], assignedBy || null, i === 0 ? 1 : 0]
+        );
+    }
+
+    return ids.length;
+}
+
 module.exports = {
     isAssignedInvestigator,
     getAssignedInvestigators,
-    syncCaseInvestigators
+    syncCaseInvestigators,
+    syncCaseInvestigatorsWithClient
 };

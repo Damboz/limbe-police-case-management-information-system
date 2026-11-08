@@ -59,6 +59,8 @@ export default function CaseDetail() {
     const tracking = useSubmitter();
     const evidenceCapture = useSubmitter();
     const approval = useSubmitter();
+    const smsResend = useSubmitter();
+    const sms = useApiData((signal) => api.caseSmsNotifications(id, signal), [id]);
 
     const [noteText, setNoteText] = useState('');
     const [completionNotes, setCompletionNotes] = useState('');
@@ -228,6 +230,15 @@ export default function CaseDetail() {
         });
     };
 
+    const resendSms = async (notification) => {
+        await smsResend.run(async () => {
+            const res = await api.resendCaseSms(id, notification.id);
+            toast.success(res.message || 'SMS resent successfully.');
+            sms.reload();
+            reload();
+        });
+    };
+
     const isPendingComplaint = caseItem.source === 'Online' && caseItem.complaint_status === 'Pending';
 
     return (
@@ -314,6 +325,64 @@ export default function CaseDetail() {
                             )}
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div className="card border-0 shadow-sm mb-4">
+                <div className="card-header bg-navy text-white py-3 d-flex align-items-center justify-content-between">
+                    <h6 className="mb-0 fw-bold"><i className="bi bi-chat-dots me-2 text-warning" />SMS Notifications</h6>
+                    <span className="small text-white-50">Assignment messages sent through TextBee</span>
+                </div>
+                <div className="card-body">
+                    {overlay(smsResend)}
+                    {sms.loading ? (
+                        <Spinner label="Loading SMS history…" />
+                    ) : sms.error ? (
+                        <Alert variant="warning" message={sms.error} />
+                    ) : (sms.data?.notifications || []).length === 0 ? (
+                        <p className="text-muted small mb-0">No assignment SMS has been sent for this case yet.</p>
+                    ) : (
+                        <div className="table-responsive">
+                            <table className="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Officer</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Time</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sms.data.notifications.map((n) => (
+                                        <tr key={n.id}>
+                                            <td className="small">{n.officer_name || n.badge_number || '—'}</td>
+                                            <td className="small">{n.role}</td>
+                                            <td>
+                                                <span className={`badge ${n.status === 'SENT' ? 'bg-success' : n.status === 'FAILED' ? 'bg-danger' : 'bg-secondary'}`}>
+                                                    {n.status}
+                                                </span>
+                                                {n.error && <div className="small text-danger mt-1">{n.error}</div>}
+                                            </td>
+                                            <td className="small text-muted">{formatDateTime(n.sent_at || n.created_at)}</td>
+                                            <td className="text-end">
+                                                {n.status === 'FAILED' && sms.data.canResend && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline-navy btn-sm"
+                                                        disabled={smsResend.busy}
+                                                        onClick={() => resendSms(n)}
+                                                    >
+                                                        <i className="bi bi-arrow-clockwise me-1" />Resend
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             </div>
 

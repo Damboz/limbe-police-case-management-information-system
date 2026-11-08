@@ -10,18 +10,6 @@ import usePageTitle from '../../hooks/usePageTitle';
 import useReportExport from '../../hooks/useReportExport';
 
 
-const WORKFLOW_BRANCHES = {
-    INVESTIGATION: 'Investigation Branch',
-    CID: 'Criminal Investigation Department'
-};
-
-
-const deriveWorkflowBranch = (classification) =>
-    (classification === 'Minor' || classification === 'Medium')
-        ? WORKFLOW_BRANCHES.INVESTIGATION
-        : WORKFLOW_BRANCHES.CID;
-
-
 function ExportMenu({ label, icon, items, onSelectReport }) {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
@@ -103,6 +91,7 @@ export default function SupervisorDashboard() {
     const [assignTarget, setAssignTarget] = useState(null);
     const [assignMode, setAssignMode] = useState('assign');
     const [selectedInvestigators, setSelectedInvestigators] = useState([]);
+    const [courtStandingOfficerId, setCourtStandingOfficerId] = useState('');
     const [assignNotes, setAssignNotes] = useState('');
 
     const [reassignTarget, setReassignTarget] = useState(null);
@@ -112,10 +101,6 @@ export default function SupervisorDashboard() {
     const [queryTarget, setQueryTarget] = useState(null);
     const [queryResolution, setQueryResolution] = useState('');
 
-    const [classifyTarget, setClassifyTarget] = useState(null);
-    const [classification, setClassification] = useState('Medium');
-    const [workflowBranch, setWorkflowBranch] = useState(WORKFLOW_BRANCHES.INVESTIGATION);
-
     const [actionError, setActionError] = useState(null);
     const [busy, setBusy] = useState(false);
 
@@ -124,7 +109,7 @@ export default function SupervisorDashboard() {
     if (loading) return <Spinner />;
     if (error) return <Alert variant="danger" message={error} />;
 
-    const { overdueDaysThreshold, unassignedCases, pendingApprovals, pendingClassification, pendingReassignments, prosecutionQueries, investigatorWorkload, assignedActiveCases } = data;
+    const { overdueDaysThreshold, unassignedCases, pendingApprovals, pendingReassignments, prosecutionQueries, investigatorWorkload, assignedActiveCases } = data;
 
     const openAssign = (item, mode) => {
         setAssignTarget(item);
@@ -134,6 +119,7 @@ export default function SupervisorDashboard() {
                 ? String(item.investigator_ids || '').split(',').map(s => s.trim()).filter(Boolean)
                 : []
         );
+        setCourtStandingOfficerId('');
         setAssignNotes('');
         setActionError(null);
     };
@@ -146,6 +132,7 @@ export default function SupervisorDashboard() {
             const res = await api.assignCase({
                 case_id: assignTarget.id,
                 investigator_ids: selectedInvestigators,
+                court_standing_officer_id: courtStandingOfficerId || null,
                 notes: assignNotes
             });
             toast.success(res.message || 'Case assignments updated.');
@@ -195,40 +182,6 @@ export default function SupervisorDashboard() {
         }
     };
 
-    const openClassify = (item) => {
-        setClassifyTarget(item);
-        const initial = item.priority && ['Minor', 'Medium', 'High', 'Critical'].includes(item.priority)
-            ? item.priority
-            : 'Medium';
-        setClassification(initial);
-        setWorkflowBranch(deriveWorkflowBranch(initial));
-        setActionError(null);
-    };
-
-    const onClassificationChange = (value) => {
-        setClassification(value);
-        setWorkflowBranch(deriveWorkflowBranch(value));
-    };
-
-    const submitClassify = async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        setActionError(null);
-        try {
-            const res = await api.classifyCase(classifyTarget.id, {
-                classification,
-                workflow_branch: workflowBranch
-            });
-            toast.success(res.message || 'Case classified.');
-            setClassifyTarget(null);
-            reload();
-        } catch (err) {
-            setActionError(err.message);
-        } finally {
-            setBusy(false);
-        }
-    };
-
     return (
         <>
             <PageHeader
@@ -259,68 +212,6 @@ export default function SupervisorDashboard() {
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
 
             <AssignedCasesPanel />
-
-            <div className="row mb-4">
-                <div className="col-12">
-                    <div className="card border-0 shadow-sm">
-                        <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">
-                            <h6 className="mb-0 fw-bold">
-                                <i className="bi bi-tags-fill me-2 text-warning" />Pending Classification
-                            </h6>
-                            <span className="badge bg-gold text-dark">{pendingClassification.length} Awaiting Classification</span>
-                        </div>
-                        <div className="table-responsive">
-                            <table className="table table-hover align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Case Ref</th>
-                                        <th>Title &amp; Category</th>
-                                        <th>Priority</th>
-                                        <th>Status</th>
-                                        <th>Station Branch</th>
-                                        <th>Reg. Date</th>
-                                        <th className="text-end">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {pendingClassification.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="7">
-                                                <EmptyState
-                                                    icon="bi-tags-fill"
-                                                    message="No cases awaiting classification."
-                                                />
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        pendingClassification.map(item => (
-                                            <tr key={item.id}>
-                                                <td className="fw-bold font-monospace" style={{ color: 'var(--mps-navy)' }}>#{item.case_number}</td>
-                                                <td>
-                                                    <div className="fw-semibold text-dark">{item.title}</div>
-                                                    <small className="text-muted">{item.crime_category}</small>
-                                                </td>
-                                                <td><PriorityBadge priority={item.priority} /></td>
-                                                <td><StatusBadge status={item.status} /></td>
-                                                <td className="small">{item.station_branch_name || '—'}</td>
-                                                <td className="small text-muted">{formatDate(item.created_at)}</td>
-                                                <td className="text-end">
-                                                    <button type="button" className="btn btn-sm btn-navy" onClick={() => openClassify(item)}>
-                                                        <i className="bi bi-tags me-1" />Classify
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="card-footer text-muted small">
-                                <i className="bi bi-info-circle me-1" />Classifying a case lets you set its workflow branch: Minor / Medium default to the Investigation Branch; High / Critical default to the Criminal Investigation Department. You can override the branch.
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <div className="row g-4 mb-4">
                 <div className="col-lg-7">
@@ -627,58 +518,6 @@ export default function SupervisorDashboard() {
                 </div>
             </div>
 
-            {classifyTarget && (
-                <Modal
-                    title="Classify Case"
-                    onClose={() => setClassifyTarget(null)}
-                    footer={
-                        <>
-                            <button type="button" className="btn btn-outline-navy" onClick={() => setClassifyTarget(null)}>Cancel</button>
-                            <button type="submit" form="classify-form" className="btn btn-navy" disabled={busy}>
-                                <i className="bi bi-tags-fill me-1" />Classify &amp; Route Case
-                            </button>
-                        </>
-                    }
-                >
-                    <form id="classify-form" onSubmit={submitClassify}>
-                        <div className="modal-body">
-                            <div className="mb-3">
-                                <label className="form-label">CASE REFERENCE</label>
-                                <div className="form-control-plaintext fw-bold">#{classifyTarget.case_number}</div>
-                            </div>
-                            <div className="mb-3">
-                                <label className="form-label">CASE TITLE</label>
-                                <div className="form-control-plaintext text-dark">{classifyTarget.title}</div>
-                            </div>
-                            <div className="mb-3">
-                                <label className="form-label">CATEGORY / PRIORITY</label>
-                                <div className="form-control-plaintext text-dark">
-                                    {classifyTarget.crime_category} · <PriorityBadge priority={classifyTarget.priority} />
-                                </div>
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="classification" className="form-label">Classification <span className="text-danger">*</span></label>
-                                <select id="classification" className="form-select" value={classification} onChange={e => onClassificationChange(e.target.value)} required>
-                                    <option value="Minor">Minor</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="High">High</option>
-                                    <option value="Critical">Critical</option>
-                                </select>
-                                <div className="form-text">Minor / Medium cases default to the Investigation Branch; High / Critical cases default to the Criminal Investigation Department.</div>
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="workflow_branch" className="form-label">Workflow Branch <span className="text-danger">*</span></label>
-                                <select id="workflow_branch" className="form-select" value={workflowBranch} onChange={e => setWorkflowBranch(e.target.value)} required>
-                                    <option value={WORKFLOW_BRANCHES.INVESTIGATION}>{WORKFLOW_BRANCHES.INVESTIGATION}</option>
-                                    <option value={WORKFLOW_BRANCHES.CID}>{WORKFLOW_BRANCHES.CID}</option>
-                                </select>
-                                <div className="form-text">The Station Officer decides whether the case belongs to the Investigation Branch or the Criminal Investigation Department.</div>
-                            </div>
-                        </div>
-                    </form>
-                </Modal>
-            )}
-
             {assignTarget && (
                 <Modal
                     title={assignMode === 'manage' ? 'Manage Investigators for Case' : 'Assign Case to Investigator(s)'}
@@ -727,6 +566,23 @@ export default function SupervisorDashboard() {
                                     ))}
                                 </div>
                                 <div className="form-text">Tick one or more investigators. The first selected is treated as the lead detective.</div>
+                            </div>
+                            <div className="mb-3">
+                                <label htmlFor="court_standing_officer" className="form-label">Court Standing Officer</label>
+                                <select
+                                    id="court_standing_officer"
+                                    className="form-select"
+                                    value={courtStandingOfficerId}
+                                    onChange={e => setCourtStandingOfficerId(e.target.value)}
+                                >
+                                    <option value="">No Court Standing Officer</option>
+                                    {investigatorWorkload.map(officer => (
+                                        <option key={officer.id} value={officer.id}>
+                                            {officer.rank_title} {officer.first_name} {officer.last_name} ({officer.badge_number})
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="form-text">Optional. This officer represents the case in court and is notified together with the investigators.</div>
                             </div>
                             <div className="mb-3">
                                 <label htmlFor="assign_notes" className="form-label">Assignment Instructions / Notes</label>

@@ -194,18 +194,20 @@ export default function UserEdit() {
                                         />
                                     </div>
                                     <div className="col-md-6">
-                                        <label htmlFor="phone_number" className="form-label small fw-semibold text-muted">Phone Number</label>
+                                        <label htmlFor="phone_number" className="form-label small fw-semibold text-muted">Phone Number *</label>
                                         <input
                                             type="tel"
                                             className="form-control"
                                             id="phone_number"
-                                            placeholder="e.g. +265888123456"
+                                            placeholder="e.g. 0888123456 or +265888123456"
                                             inputMode="tel"
-                                            pattern="\+?[0-9]*"
-                                            title="May start with + followed by digits, e.g. +265888123456"
+                                            pattern="(\+?265|0)?[89][0-9]{8}"
+                                            title="Enter a Malawi mobile number, e.g. 0888123456 or +265888123456"
                                             value={form.phone_number}
                                             onChange={setPhone('phone_number')}
+                                            required
                                         />
+                                        <div className="form-text">Required for assignment SMS notifications.</div>
                                     </div>
                                 </div>
 

@@ -43,19 +43,19 @@ exports.create = async (req, res, next) => {
             return res.status(result.status).json({ success: false, error: result.error });
         }
 
-        const { caseId, suspectName, complainantName } = result;
+        const { caseId, obNumber, criminalNumber, suspectName, complainantName } = result;
 
         if (suspectName) {
             await logAudit(req, user.id, 'SUSPECT_LINKED', `Linked suspect "${suspectName}" to Case ID ${caseId} during intake.`);
         }
 
-        await logAudit(req, user.id, 'CASE_REGISTERED', `Registered new Case ID ${caseId} for complainant ${complainantName}. Awaiting OB and criminal numbers.`);
+        await logAudit(req, user.id, 'CASE_REGISTERED', `Registered new Case ID ${caseId} as OB ${obNumber} / ${criminalNumber} for complainant ${complainantName}.`);
 
         const message = suspectName
-            ? `Case registered successfully. The Records Officer will assign its OB and criminal numbers. Suspect "${suspectName}" was added — you can now generate an invitation letter for him/her.`
-            : 'Case registered successfully. The Records Officer will assign its OB and criminal numbers.';
+            ? `Case registered successfully as ${obNumber} (${criminalNumber}). Suspect "${suspectName}" was added — you can now generate an invitation letter for him/her.`
+            : `Case registered successfully as ${obNumber} (${criminalNumber}).`;
 
-        return res.status(201).json({ success: true, message, data: { caseId } });
+        return res.status(201).json({ success: true, message, data: { caseId, obNumber, criminalNumber } });
     } catch (err) {
         next(err);
     }
@@ -91,8 +91,49 @@ exports.detail = async (req, res, next) => {
 };
 
 
-exports.addNote = async (req, res, next) => {
+exports.smsNotifications = async (req, res, next) => {
     try {
+        const result = await caseService.listSmsNotifications(req.params.id, req.session.user);
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        res.json({ success: true, data: result });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+exports.resendSmsNotification = async (req, res, next) => {
+    try {
+        const user = req.session.user;
+        const result = await caseService.resendSmsNotification(
+            req.params.id,
+            req.params.notificationId,
+            user
+        );
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        await logAudit(
+            req,
+            user.id,
+            'SMS_NOTIFICATION_RESENT',
+            `Resent assignment SMS notification ${req.params.notificationId} for Case ID ${req.params.id}.`
+        );
+
+        res.json({ success: true, message: result.message, data: result.result });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+exports.addNote = async (req, res, next) => {    try {
         const user = req.session.user;
         const result = await caseService.addCaseNote(req.params.id, user, req.body.note);
 

@@ -10,7 +10,7 @@ export default function Footer() {
                         &copy; {new Date().getFullYear()} Malawi Police Service
                     </span>
                     <span className="text-muted">•</span>
-                    <span>Limbe Station Case Management System</span>
+                    <span>Police Case Management Information System</span>
                 </div>
 
                 <div className="d-flex align-items-center gap-2">

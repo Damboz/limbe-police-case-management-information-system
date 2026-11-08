@@ -52,7 +52,7 @@ export default function Login() {
                             className="text-uppercase font-monospace text-warning small fw-bold"
                             style={{ letterSpacing: '0.08em', fontSize: '0.75rem' }}
                         >
-                            Case Management Information System
+                            Police Case Management Information System
                         </div>
                     </div>
 

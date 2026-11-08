@@ -1,8 +1,19 @@
 const db = require('../config/db');
 const { ok, fail } = require('../utils/result');
-const { ROLES, roleIn } = require('../roles');
+const {
+    ROLES,
+    roleIn,
+    WORKFLOW_BRANCHES,
+    CASE_STATUSES,
+    severityLevel,
+    classificationForSeverity,
+    branchForSeverity,
+    priorityForSeverity
+} = require('../roles');
 const { isAssignedInvestigator, getAssignedInvestigators } = require('./assignmentService');
+const numberService = require('./numberService');
 const partyService = require('./partyService');
+const smsService = require('./smsService');
 
 
 function textOrNull(value) {
@@ -24,7 +35,6 @@ const OVERDUE_DAYS_THRESHOLD = 14;
 const SUPERVISOR_ROLES = [ROLES.STATION_OFFICER, ROLES.ADMIN];
 const BRANCH_ROLES = [ROLES.BRANCH_OFFICER];
 const PROSECUTOR_ROLES = [ROLES.PROSECUTOR];
-const RECORDS_ROLES = [ROLES.RECORDS_OFFICER];
 const LINK_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.ADMIN];
 
 
@@ -84,7 +94,7 @@ async function listCasesForUser(user) {
             GROUP BY c.id, cc.name, su.name, recorder.rank_title, recorder.first_name, recorder.last_name
             ORDER BY c.created_at DESC
         `;
-    } else if (roleIn(user, SUPERVISOR_ROLES) || roleIn(user, RECORDS_ROLES)) {
+    } else if (roleIn(user, SUPERVISOR_ROLES)) {
         query = `
             ${baseSelect}
             WHERE ${approvedOnly}
@@ -133,9 +143,10 @@ async function getCaseFormOptions() {
 
 
 // Complainants cannot be expected to know which branch handles their case, so
-// route it from the offence severity: serious offences go to CID, everything
-// else to the Investigation Branch.
-async function resolveBranchIdForCategory(categoryId) {
+// the offence type's severity decides both the classification and the workflow
+// branch when the case is registered: Minor/Moderate -> Investigation Branch,
+// Severe/Critical -> CID.
+async function resolveCategoryRouting(categoryId) {
     const [categories] = await db.execute(
         'SELECT severity_level FROM crime_categories WHERE id = ?',
         [categoryId]
@@ -144,8 +155,14 @@ async function resolveBranchIdForCategory(categoryId) {
         return fail(400, 'Please select a valid offence type.');
     }
 
-    const severity = categories[0].severity_level;
-    const branchCode = ['Severe', 'Critical'].includes(severity) ? 'CID' : 'INV';
+    const severity = severityLevel(categories[0].severity_level);
+    if (!severity) {
+        return fail(400, 'The selected offence type has no valid severity level configured.');
+    }
+
+    const classification = classificationForSeverity(severity);
+    const workflowBranch = branchForSeverity(severity);
+    const branchCode = workflowBranch === WORKFLOW_BRANCHES.CID ? 'CID' : 'INV';
 
     const [branches] = await db.execute(
         'SELECT id FROM station_branch WHERE code = ?',
@@ -155,7 +172,13 @@ async function resolveBranchIdForCategory(categoryId) {
         return fail(500, 'The receiving branch is not configured. Please contact the station.');
     }
 
-    return ok({ branchId: branches[0].id });
+    return ok({
+        branchId: branches[0].id,
+        severity,
+        classification,
+        workflowBranch,
+        priority: priorityForSeverity(severity)
+    });
 }
 
 
@@ -199,7 +222,7 @@ async function submitOnlineComplaint(body) {
         return fail(400, 'Please complete all required fields before submitting.');
     }
 
-    const branch = await resolveBranchIdForCategory(category_id);
+    const branch = await resolveCategoryRouting(category_id);
     if (!branch.ok) {
         return branch;
     }
@@ -221,8 +244,8 @@ async function submitOnlineComplaint(body) {
                 complainant_name, complainant_id_number, complainant_phone, complainant_address,
                 complainant_age, complainant_occupation, complainant_ta, complainant_village, complainant_gender,
                 category_id, branch_id, priority, incident_datetime, incident_location, incident_details,
-                recorded_by, status, source, complaint_status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+                recorded_by, status, source, complaint_status, classification, workflow_branch
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
             RETURNING *`,
             [
                 complainant_name,
@@ -236,14 +259,16 @@ async function submitOnlineComplaint(body) {
                 complainant_gender || 'Other',
                 category_id,
                 branch.branchId,
-                priority || 'Medium',
+                branch.priority,
                 incident_datetime || null,
                 incident_location,
                 incident_details,
                 null,
-                'Registered',
+                CASE_STATUSES.REGISTERED,
                 'Online',
-                'Pending'
+                'Pending',
+                branch.classification,
+                branch.workflowBranch
             ]
         );
 
@@ -301,35 +326,63 @@ async function submitOnlineComplaint(body) {
 
 
 async function approveOnlineComplaint(user, caseId) {
-    if (!roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN])) {
+    if (!roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.ADMIN])) {
         return fail(403, 'Only authorized police officers can approve online complaints.');
     }
 
-    const [rows] = await db.execute('SELECT id, source, complaint_status, recorded_by FROM cases WHERE id = ?', [caseId]);
-    if (rows.length === 0) {
-        return fail(404, 'Complaint not found.');
-    }
-    const c = rows[0];
-    if ((c.complaint_status || '').toLowerCase() !== 'pending') {
-        return fail(400, 'Only pending online complaints can be approved.');
-    }
-    if (c.source !== 'Online') {
-        return fail(400, 'This case is not an online complaint.');
-    }
+    const approved = await partyService.withTransaction(async (client) => {
+        const { rows } = await client.query(
+            'SELECT id, source, complaint_status, recorded_by, ob_number, criminal_number, classification, workflow_branch FROM cases WHERE id = $1 FOR UPDATE',
+            [caseId]
+        );
+        if (rows.length === 0) {
+            return fail(404, 'Complaint not found.');
+        }
+        const c = rows[0];
+        if ((c.complaint_status || '').toLowerCase() !== 'pending') {
+            return fail(400, 'Only pending online complaints can be approved.');
+        }
+        if (c.source !== 'Online') {
+            return fail(400, 'This case is not an online complaint.');
+        }
 
-    await db.execute(
-        `UPDATE cases SET complaint_status = 'Approved', approved_by = ?, approved_at = NOW(), status = 'Registered', recorded_by = COALESCE(recorded_by, ?), recorded_at = COALESCE(recorded_at, NOW()), updated_at = NOW() WHERE id = ?`,
-        [user.id, user.id, caseId]
-    );
+        const year = new Date().getFullYear();
+        const obNumber = c.ob_number || await numberService.generateObNumber(client, year);
+        const criminalNumber = c.criminal_number || await numberService.generateCriminalNumber(client, year);
+
+        await client.query(
+            `UPDATE cases
+             SET complaint_status = 'Approved', approved_by = $1, approved_at = NOW(),
+                 status = $2, recorded_by = COALESCE(recorded_by, $1),
+                 recorded_at = COALESCE(recorded_at, NOW()),
+                 ob_number = $3, criminal_number = $4,
+                 numbers_assigned_by = COALESCE(numbers_assigned_by, $1),
+                 numbers_assigned_at = COALESCE(numbers_assigned_at, NOW()),
+                 updated_at = NOW()
+             WHERE id = $5`,
+            [user.id, CASE_STATUSES.CLASSIFIED, obNumber, criminalNumber, caseId]
+        );
+
+        return ok({ caseId, obNumber, criminalNumber });
+    });
+
+    if (!approved.ok) {
+        return approved;
+    }
 
     await writeAudit(user.id, 'ONLINE_COMPLAINT_APPROVED', { caseId });
 
-    return ok({ caseId, message: 'Online complaint approved and entered into the system.' });
+    return ok({
+        caseId,
+        obNumber: approved.obNumber,
+        criminalNumber: approved.criminalNumber,
+        message: 'Online complaint approved and entered into the system.'
+    });
 }
 
 
 async function rejectOnlineComplaint(user, caseId, reason) {
-    if (!roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN])) {
+    if (!roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.ADMIN])) {
         return fail(403, 'Only authorized police officers can reject online complaints.');
     }
 
@@ -390,7 +443,7 @@ async function createCase(recordingOfficerId, body) {
         return fail(400, 'Please complete all required fields before submitting.');
     }
 
-    const branch = await resolveBranchIdForCategory(category_id);
+    const branch = await resolveCategoryRouting(category_id);
     if (!branch.ok) {
         return branch;
     }
@@ -407,12 +460,18 @@ async function createCase(recordingOfficerId, body) {
     const witnessList = Array.isArray(witnesses) ? witnesses : [];
 
     const created = await partyService.withTransaction(async (client) => {
+        const year = new Date().getFullYear();
+        const obNumber = await numberService.generateObNumber(client, year);
+        const criminalNumber = await numberService.generateCriminalNumber(client, year);
+
         const caseInsert = await client.query(
             `INSERT INTO cases (
                 complainant_name, complainant_id_number, complainant_phone, complainant_address,
                 complainant_age, complainant_occupation, complainant_ta, complainant_village, complainant_gender,
-                category_id, branch_id, priority, incident_datetime, incident_location, incident_details, recorded_by, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                category_id, branch_id, priority, incident_datetime, incident_location, incident_details,
+                recorded_by, status, classification, workflow_branch,
+                ob_number, criminal_number, numbers_assigned_by, numbers_assigned_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, NOW())
             RETURNING *`,
             [
                 complainant_name,
@@ -426,12 +485,17 @@ async function createCase(recordingOfficerId, body) {
                 complainant_gender || 'Other',
                 category_id,
                 branch.branchId,
-                priority || 'Medium',
+                branch.priority,
                 incident_datetime || null,
                 incident_location,
                 incident_details,
                 recordingOfficerId,
-                'Registered'
+                CASE_STATUSES.CLASSIFIED,
+                branch.classification,
+                branch.workflowBranch,
+                obNumber,
+                criminalNumber,
+                recordingOfficerId
             ]
         );
 
@@ -477,6 +541,8 @@ async function createCase(recordingOfficerId, body) {
 
         return {
             caseId: caseItem.id,
+            obNumber: caseItem.ob_number,
+            criminalNumber: caseItem.criminal_number,
             suspectName,
             complainantName: caseItem.complainant_name,
             createdParties
@@ -681,7 +747,7 @@ async function getCaseDetail(caseId, user) {
         canForwardToCourt: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
         canApproveOnline: caseItem.source === 'Online'
             && caseItem.complaint_status === 'Pending'
-            && roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.RECORDS_OFFICER, ROLES.ADMIN])
+            && roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.ADMIN])
     };
 
     return ok({
@@ -891,11 +957,6 @@ async function getPersonalDashboard(user) {
         return ok({ variant: 'redirect', role: user.role, target: '/supervisor/dashboard' });
     }
 
-    if (roleIn(user, [ROLES.RECORDS_OFFICER])) {
-        const recordsService = require('./recordsService');
-        return recordsService.getRecordsDashboard(user);
-    }
-
     const assigned = await getAssignedCasesForUser(user.id);
 
     return ok({
@@ -903,6 +964,62 @@ async function getPersonalDashboard(user) {
         role: user.role,
         ...assigned
     });
+}
+
+
+async function loadCaseAccess(caseId, user) {
+    const [rows] = await db.execute(
+        'SELECT id, ob_number, workflow_branch FROM cases WHERE id = ?',
+        [caseId]
+    );
+    if (rows.length === 0) {
+        return { error: fail(404, 'Case record not found.') };
+    }
+
+    const caseItem = rows[0];
+    if (roleIn(user, BRANCH_ROLES) && (!user.branch || caseItem.workflow_branch !== user.branch)) {
+        return { error: fail(403, 'You can only access cases from your own branch.') };
+    }
+
+    return { caseItem };
+}
+
+
+async function listSmsNotifications(caseId, user) {
+    const access = await loadCaseAccess(caseId, user);
+    if (access.error) return access.error;
+
+    const notifications = await smsService.listNotifications(caseId);
+    const canResend = roleIn(user, [ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.PROSECUTOR]);
+
+    return ok({ notifications, canResend });
+}
+
+
+async function resendSmsNotification(caseId, notificationId, user) {
+    if (!roleIn(user, [ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.PROSECUTOR])) {
+        return fail(403, 'Only Station Officers, Branch Officers and Prosecutors can resend assignment SMS messages.');
+    }
+
+    const access = await loadCaseAccess(caseId, user);
+    if (access.error) return access.error;
+
+    const notification = await smsService.getNotification(caseId, notificationId);
+    if (!notification) {
+        return fail(404, 'SMS notification not found.');
+    }
+
+    const result = await smsService.notifyAssignment({
+        officerId: notification.officer_id,
+        caseId,
+        role: notification.role
+    });
+
+    if (!result.sent) {
+        return fail(502, result.error || 'The SMS could not be resent.');
+    }
+
+    return ok({ result, message: 'SMS resent successfully.' });
 }
 
 
@@ -922,5 +1039,7 @@ module.exports = {
     logEvidence,
     requestExternalReport,
     getAssignedCasesForUser,
-    getPersonalDashboard
+    getPersonalDashboard,
+    listSmsNotifications,
+    resendSmsNotification
 };
