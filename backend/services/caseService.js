@@ -30,6 +30,24 @@ function intOrNull(value) {
 }
 
 
+// The public form draws the signature on a canvas and submits it as a base64
+// image data URL. Only the two raster formats a canvas can produce are accepted,
+// and the length cap keeps a hostile request from stuffing the cases row.
+const SIGNATURE_DATA_URL = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/;
+const MAX_SIGNATURE_LENGTH = 200 * 1024;
+
+function parseSignature(value) {
+    const signature = typeof value === 'string' ? value.trim() : '';
+    if (!signature) {
+        return fail(400, 'Please provide your signature before submitting the complaint.');
+    }
+    if (signature.length > MAX_SIGNATURE_LENGTH || !SIGNATURE_DATA_URL.test(signature)) {
+        return fail(400, 'The signature could not be read. Please clear it and sign again.');
+    }
+    return ok({ signature });
+}
+
+
 const OVERDUE_DAYS_THRESHOLD = 14;
 
 const SUPERVISOR_ROLES = [ROLES.STATION_OFFICER, ROLES.ADMIN];
@@ -122,6 +140,7 @@ async function listPendingOnlineComplaints() {
     const [rows] = await db.execute(`
         SELECT
             c.id, c.complainant_name, c.complainant_phone, c.complainant_gender,
+            c.complainant_signature,
             c.incident_location, c.incident_details, c.priority, c.created_at,
             c.source, c.complaint_status,
             cc.name AS crime_category,
@@ -199,6 +218,7 @@ async function submitOnlineComplaint(body) {
         complainant_ta,
         complainant_village,
         complainant_gender,
+        complainant_signature,
         category_id,
         priority,
         incident_datetime,
@@ -227,6 +247,11 @@ async function submitOnlineComplaint(body) {
         return branch;
     }
 
+    const signature = parseSignature(complainant_signature);
+    if (!signature.ok) {
+        return signature;
+    }
+
     const suspectFirstName = (suspect_first_name || '').trim();
     const suspectLastName = (suspect_last_name || '').trim();
     const suspectSectionUsed = suspectFirstName || suspectLastName || suspect_alias ||
@@ -243,9 +268,9 @@ async function submitOnlineComplaint(body) {
             `INSERT INTO cases (
                 complainant_name, complainant_id_number, complainant_phone, complainant_address,
                 complainant_age, complainant_occupation, complainant_ta, complainant_village, complainant_gender,
-                category_id, branch_id, priority, incident_datetime, incident_location, incident_details,
+                complainant_signature, category_id, branch_id, priority, incident_datetime, incident_location, incident_details,
                 recorded_by, status, source, complaint_status, classification, workflow_branch
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
             RETURNING *`,
             [
                 complainant_name,
@@ -257,6 +282,7 @@ async function submitOnlineComplaint(body) {
                 textOrNull(complainant_ta),
                 textOrNull(complainant_village),
                 complainant_gender || 'Other',
+                signature.signature,
                 category_id,
                 branch.branchId,
                 branch.priority,

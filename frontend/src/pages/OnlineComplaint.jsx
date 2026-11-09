@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useApiData } from '../hooks/useApiData';
 import { Alert, Spinner } from '../components/ui';
+import SignaturePad from '../components/SignaturePad';
 import usePageTitle from '../hooks/usePageTitle';
 
 
@@ -27,6 +28,7 @@ const EMPTY = {
     complainant_ta: '',
     complainant_village: '',
     complainant_address: '',
+    complainant_signature: '',
     category_id: '',
     incident_datetime: '',
     incident_location: '',
@@ -69,6 +71,13 @@ export default function OnlineComplaint() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setFormError(null);
+
+        if (!form.complainant_signature) {
+            setFormError('Please sign in the signature box before submitting the complaint.');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -77,6 +86,7 @@ export default function OnlineComplaint() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (err) {
             setFormError(err.message);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setSubmitting(false);
         }
@@ -347,6 +357,19 @@ export default function OnlineComplaint() {
                                         </div>
                                     ))
                                 )}
+
+                                <hr className="my-4" />
+
+                                <h6 className="fw-bold text-navy mb-2">
+                                    <i className="bi bi-pen-fill me-2" />Your signature <span className="text-danger">*</span>
+                                </h6>
+                                <p className="text-muted small mb-2">
+                                    Sign in the box below to confirm that the information you have given is true.
+                                </p>
+                                <SignaturePad
+                                    disabled={submitting}
+                                    onChange={(value) => setForm(prev => ({ ...prev, complainant_signature: value }))}
+                                />
 
                                 <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-4">
                                     <Link to="/login" className="btn btn-outline-navy">

@@ -94,6 +94,7 @@ export default function PendingComplaints() {
                             <tr>
                                 <th>Reference</th>
                                 <th>Complainant</th>
+                                <th>Signature</th>
                                 <th>Offence</th>
                                 <th>Branch</th>
                                 <th>Priority</th>
@@ -104,7 +105,7 @@ export default function PendingComplaints() {
                         <tbody>
                             {complaints.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7">
+                                    <td colSpan="8">
                                         <EmptyState
                                             icon="bi-check2-circle"
                                             message="No complaints are waiting for approval."
@@ -120,6 +121,18 @@ export default function PendingComplaints() {
                                         <td>
                                             <div className="fw-semibold small">{item.complainant_name}</div>
                                             <div className="text-muted small">{item.complainant_phone}</div>
+                                        </td>
+                                        <td>
+                                            {item.complainant_signature ? (
+                                                <img
+                                                    src={item.complainant_signature}
+                                                    alt={`Signature of ${item.complainant_name}`}
+                                                    className="border rounded bg-white"
+                                                    style={{ maxWidth: 140, height: 'auto' }}
+                                                />
+                                            ) : (
+                                                <span className="text-muted small">—</span>
+                                            )}
                                         </td>
                                         <td className="small">{item.crime_category || '—'}</td>
                                         <td className="small text-muted">{item.branch_name || '—'}</td>

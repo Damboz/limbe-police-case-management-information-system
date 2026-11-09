@@ -324,6 +324,17 @@ export default function CaseDetail() {
                                 ))
                             )}
                         </div>
+                        {caseItem.complainant_signature ? (
+                            <div className="col-12">
+                                <Label>Complainant Signature</Label>
+                                <img
+                                    src={caseItem.complainant_signature}
+                                    alt={`Signature of ${caseItem.complainant_name}`}
+                                    className="border rounded bg-white d-block"
+                                    style={{ maxWidth: 320, width: '100%', height: 'auto' }}
+                                />
+                            </div>
+                        ) : null}
                     </div>
                 </div>
             </div>

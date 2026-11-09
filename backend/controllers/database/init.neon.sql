@@ -143,6 +143,7 @@ CREATE TABLE cases (
   complainant_ta         varchar(100) DEFAULT NULL,
   complainant_village    varchar(100) DEFAULT NULL,
   complainant_gender     varchar(10) DEFAULT 'Other',
+  complainant_signature  text,
   category_id            int NOT NULL,
   branch_id              int NOT NULL,
   priority               varchar(10) DEFAULT 'Medium',
