@@ -157,6 +157,49 @@ async function listPendingOnlineComplaints() {
 }
 
 
+// The receipt shown to the complainant is ONL-000123, which is just the case id
+// padded. Staff at the counter can quote that reference to pull the complaint up
+// whatever its state, including after it has been approved or rejected.
+async function lookupOnlineComplaint(reference) {
+    const raw = String(reference || '').trim();
+    const match = /^(?:ONL[-\s]?)?0*(\d+)$/i.exec(raw);
+    if (!match) {
+        return fail(400, 'Enter a valid reference such as ONL-000123.');
+    }
+
+    const caseId = Number(match[1]);
+    if (!Number.isInteger(caseId) || caseId <= 0) {
+        return fail(400, 'Enter a valid reference such as ONL-000123.');
+    }
+
+    const [rows] = await db.execute(`
+        SELECT
+            c.id, c.complainant_name, c.complainant_phone, c.complainant_gender,
+            c.incident_location, c.incident_details, c.priority, c.status,
+            c.source, c.complaint_status, c.ob_number, c.criminal_number,
+            c.created_at, c.approved_at,
+            cc.name AS crime_category,
+            su.name AS branch_name
+        FROM cases c
+        LEFT JOIN crime_categories cc ON c.category_id = cc.id
+        LEFT JOIN station_branch su ON c.branch_id = su.id
+        WHERE c.id = ? AND c.source = 'Online'
+    `, [caseId]);
+
+    if (rows.length === 0) {
+        return fail(404, 'No online complaint matches that reference.');
+    }
+
+    const complaint = rows[0];
+    return ok({
+        complaint: {
+            ...complaint,
+            reference: `ONL-${String(complaint.id).padStart(6, '0')}`
+        }
+    });
+}
+
+
 async function getCaseFormOptions() {
     const [categories] = await db.execute('SELECT id, name, severity_level FROM crime_categories ORDER BY name ASC');
     return { categories };
@@ -1086,6 +1129,7 @@ module.exports = {
     OVERDUE_DAYS_THRESHOLD,
     listCasesForUser,
     listPendingOnlineComplaints,
+    lookupOnlineComplaint,
     getCaseFormOptions,
     caseExists,
     submitOnlineComplaint,

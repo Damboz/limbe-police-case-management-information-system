@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
 import { useToast } from '../../context/ToastContext';
-import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner } from '../../components/ui';
+import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../../components/ui';
 import { formatDateTime } from '../../lib/format';
 import usePageTitle from '../../hooks/usePageTitle';
 
@@ -16,8 +16,41 @@ export default function PendingComplaints() {
     const [actionError, setActionError] = useState(null);
     const [rejecting, setRejecting] = useState(null);
     const [reason, setReason] = useState('');
+    const [lookupRef, setLookupRef] = useState('');
+    const [lookupResult, setLookupResult] = useState(null);
+    const [lookupError, setLookupError] = useState(null);
+    const [lookupBusy, setLookupBusy] = useState(false);
 
     const complaints = data?.complaints || [];
+
+    const lookup = async (e) => {
+        e.preventDefault();
+        const ref = lookupRef.trim();
+        if (!ref) {
+            setLookupError('Enter a complaint reference such as ONL-000123.');
+            setLookupResult(null);
+            return;
+        }
+
+        setLookupBusy(true);
+        setLookupError(null);
+
+        try {
+            const res = await api.lookupOnlineComplaint(ref);
+            setLookupResult(res.data.complaint);
+        } catch (err) {
+            setLookupError(err.message);
+            setLookupResult(null);
+        } finally {
+            setLookupBusy(false);
+        }
+    };
+
+    const clearLookup = () => {
+        setLookupRef('');
+        setLookupResult(null);
+        setLookupError(null);
+    };
 
     const approve = async (complaint) => {
         if (!window.confirm(`Approve the complaint from ${complaint.complainant_name}? It will enter the case register.`)) {
@@ -80,6 +113,72 @@ export default function PendingComplaints() {
             />
 
             <Alert variant="danger" message={actionError} onDismiss={() => setActionError(null)} />
+
+            <div className="card border-0 shadow-sm mb-4">
+                <div className="card-body">
+                    <form className="row g-2 align-items-end" onSubmit={lookup}>
+                        <div className="col-12 col-md-8">
+                            <label htmlFor="lookup_ref" className="form-label small fw-semibold">
+                                Find a complaint by reference
+                            </label>
+                            <input
+                                id="lookup_ref"
+                                type="text"
+                                className="form-control font-monospace"
+                                placeholder="ONL-000123"
+                                value={lookupRef}
+                                onChange={(e) => setLookupRef(e.target.value)}
+                            />
+                        </div>
+                        <div className="col-12 col-md-4 d-flex gap-2">
+                            <button type="submit" className="btn btn-navy flex-grow-1" disabled={lookupBusy}>
+                                <i className="bi bi-search me-1" />{lookupBusy ? 'Searching…' : 'Find Complaint'}
+                            </button>
+                            {(lookupResult || lookupError) && (
+                                <button type="button" className="btn btn-outline-navy" onClick={clearLookup} aria-label="Clear lookup">
+                                    <i className="bi bi-x-lg" />
+                                </button>
+                            )}
+                        </div>
+                    </form>
+
+                    <Alert variant="danger" message={lookupError} onDismiss={() => setLookupError(null)} />
+
+                    {lookupResult && (
+                        <div className="border rounded p-3 mt-3">
+                            <div className="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                <div>
+                                    <div className="fw-bold font-monospace" style={{ color: 'var(--mps-navy)' }}>
+                                        {lookupResult.reference}
+                                    </div>
+                                    <div className="small text-muted">
+                                        {lookupResult.complainant_name} · {lookupResult.complainant_phone}
+                                    </div>
+                                </div>
+                                <div className="text-end">
+                                    <StatusBadge status={lookupResult.complaint_status} />
+                                    {lookupResult.complaint_status === 'Approved' && lookupResult.ob_number && (
+                                        <div className="small text-muted mt-1">
+                                            OB {lookupResult.ob_number}
+                                            {lookupResult.criminal_number ? ` · ${lookupResult.criminal_number}` : ''}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="row small text-muted mt-2 g-2">
+                                <div className="col-md-4"><strong>Offence:</strong> {lookupResult.crime_category || '—'}</div>
+                                <div className="col-md-4"><strong>Branch:</strong> {lookupResult.branch_name || '—'}</div>
+                                <div className="col-md-4"><strong>Submitted:</strong> {formatDateTime(lookupResult.created_at)}</div>
+                            </div>
+                            <div className="mt-3">
+                                <Link to={`/cases/${lookupResult.id}`} className="btn btn-sm btn-outline-navy">
+                                    <i className="bi bi-eye-fill me-1" />Open complaint
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
 
             <div className="card border-0 shadow-sm">
                 <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">

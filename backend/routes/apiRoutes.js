@@ -61,6 +61,7 @@ router.get('/cases', isAuthenticated, denyAdmin, caseApi.list);
 router.get('/cases/new', isAuthenticated, denyAdmin, caseApi.formOptions);
 router.post('/cases', isAuthenticated, denyAdmin, caseApi.create);
 router.get('/cases/search', isAuthenticated, denyAdmin, caseApi.search);
+router.get('/cases/reference', isAuthenticated, denyAdmin, caseApi.lookupOnline);
 router.get(
     '/cases/online/pending',
     isAuthenticated,

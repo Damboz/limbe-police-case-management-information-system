@@ -172,6 +172,7 @@ export const api = {
     complaintFormOptions: (signal) => request('/public/complaint-options', { signal }),
     submitOnlineComplaint: (body) => request('/public/complaints', { method: 'POST', body }),
     pendingOnlineComplaints: (signal) => request('/cases/online/pending', { signal }),
+    lookupOnlineComplaint: (ref, signal) => request(`/cases/reference?ref=${encodeURIComponent(ref)}`, { signal }),
     approveOnlineComplaint: (id) => request(`/cases/${id}/approve-online`, { method: 'POST' }),
     rejectOnlineComplaint: (id, reason) => request(`/cases/${id}/reject-online`, { method: 'POST', body: { reason } }),
 

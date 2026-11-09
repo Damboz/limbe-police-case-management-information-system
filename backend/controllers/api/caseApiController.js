@@ -34,6 +34,21 @@ exports.pendingOnline = async (req, res, next) => {
 };
 
 
+exports.lookupOnline = async (req, res, next) => {
+    try {
+        const result = await caseService.lookupOnlineComplaint(req.query.ref);
+
+        if (!result.ok) {
+            return res.status(result.status).json({ success: false, error: result.error });
+        }
+
+        res.json({ success: true, data: result });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
 exports.create = async (req, res, next) => {
     try {
         const user = req.session.user;
