@@ -11,7 +11,6 @@ const ROLE_OPTIONS = [
     { value: '', label: 'All Roles' },
     { value: '10', label: 'Branch Officer' },
     { value: '9', label: 'Station Officer' },
-    { value: '8', label: 'Records Officer' },
     { value: '7', label: 'Police Officer' },
     { value: '6', label: 'Prosecutor' },
     { value: '1', label: 'Admin' }

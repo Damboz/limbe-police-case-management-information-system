@@ -54,21 +54,16 @@ const LEGACY_ROLE_ALIASES = {
     'Investigation Branch Officer': ROLES.BRANCH_OFFICER,
     'investigation branch officer': ROLES.BRANCH_OFFICER,
     'Prosecution Officer': ROLES.PROSECUTOR,
-    'prosecution officer': ROLES.PROSECUTOR,
-    'Records Officer': ROLES.POLICE_OFFICER,
-    'records officer': ROLES.POLICE_OFFICER
+    'prosecution officer': ROLES.PROSECUTOR
 };
 
 
 // Legacy role ids map to the new role ids for the same reason.
-// Records Officer (8) was retired and its duties now belong to
-// Police Officers, so existing rows log in as Police Officers.
 const LEGACY_ROLE_ID_MAP = {
     2: ROLE_IDS.STATION_OFFICER,
     3: ROLE_IDS.POLICE_OFFICER,
     4: ROLE_IDS.POLICE_OFFICER,
-    5: ROLE_IDS.BRANCH_OFFICER,
-    8: ROLE_IDS.POLICE_OFFICER
+    5: ROLE_IDS.BRANCH_OFFICER
 };
 
 

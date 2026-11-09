@@ -13,8 +13,7 @@ const ROLE_OPTIONS = [
     { value: 'Police Officer', label: 'Police Officer' },
     { value: 'CID Branch Officer', label: 'CID Branch Officer' },
     { value: 'Investigation Branch Officer', label: 'Investigation Branch Officer' },
-    { value: 'Prosecutor', label: 'Prosecution Officer' },
-    { value: 'Records Officer', label: 'Records Officer' }
+    { value: 'Prosecutor', label: 'Prosecution Officer' }
 ];
 
 

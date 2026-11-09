@@ -24,10 +24,6 @@ function getRoleMapping(roleInput) {
         case 'investigator':
         case 'investigating officer':
             return { role: ROLES.POLICE_OFFICER, role_id: ROLE_IDS.POLICE_OFFICER };
-        case 'records officer':
-            // Records Officer was retired; numbering now happens at
-            // registration, so legacy accounts become Police Officers.
-            return { role: ROLES.POLICE_OFFICER, role_id: ROLE_IDS.POLICE_OFFICER };
         case 'station officer':
         case 'station officers':
         case 'station commander':

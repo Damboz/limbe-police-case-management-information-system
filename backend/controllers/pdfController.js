@@ -373,59 +373,6 @@ exports.exportBranchCasesPDF = async (req, res, next) => {
 };
 
 
-// Records Officer: the station's numbering register and pending queue.
-exports.exportNumberingRegisterPDF = async (req, res, next) => {
-    try {
-        const period = resolvePeriod(req.query.period);
-        const { summary, numbered, pending } = await reportsService.getNumberingRegisterForReport(period);
-
-        const doc = new PDFDocument({ margin: 50, size: 'A4' });
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${reportFileName('Records_Numbering_Register', period)}"`);
-        doc.pipe(res);
-
-        drawReportHeader(doc, 'Records Numbering Register', period);
-
-        drawSectionTitle(doc, 'Overview');
-        doc.text(`Cases Numbered (All Time): ${summary.total_numbered}`);
-        doc.text(`Awaiting OB / Criminal Numbers: ${summary.pending_count}`);
-        doc.text(`Numbered in Selected Period: ${numbered.length}`);
-
-        drawSectionTitle(doc, 'Numbered Cases');
-        if (numbered.length === 0) {
-            doc.text('No cases were numbered during the selected period.');
-        } else {
-            numbered.forEach(n => {
-                doc.font('Helvetica-Bold').text(`${n.ob_number || '—'}  |  ${n.criminal_number || '—'}`);
-                doc.font('Helvetica').text(`   ${n.complainant_name || 'Unknown complainant'} — ${n.crime_category || 'Uncategorised'}`);
-                doc.font('Helvetica').text(
-                    `   Assigned: ${n.numbers_assigned_at ? new Date(n.numbers_assigned_at).toLocaleDateString('en-GB') : '—'}${n.assigned_by_name ? ' | By: ' + n.assigned_by_name : ''}`
-                );
-                doc.moveDown(0.4);
-            });
-        }
-
-        drawSectionTitle(doc, 'Pending Numbering Queue');
-        if (pending.length === 0) {
-            doc.text('No cases are awaiting OB and criminal numbers.');
-        } else {
-            pending.forEach(p => {
-                doc.font('Helvetica-Bold').text(`${p.complainant_name || 'Unknown complainant'} — ${p.priority} priority`);
-                doc.font('Helvetica').text(
-                    `   ${p.crime_category || 'Uncategorised'} | Status: ${p.status} | Registered: ${p.created_at ? new Date(p.created_at).toLocaleDateString('en-GB') : '—'}`
-                );
-                doc.moveDown(0.3);
-            });
-        }
-
-        drawRestrictedFooter(doc);
-        doc.end();
-    } catch (err) {
-        next(err);
-    }
-};
-
-
 // Prosecutor: the station's prosecution caseload and court outcomes.
 exports.exportProsecutionCasesPDF = async (req, res, next) => {
     try {

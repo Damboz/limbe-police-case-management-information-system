@@ -31,8 +31,8 @@ function buildSuspectInvitationPdf({ caseItem, suspect, user, appearanceDate, ap
         ? new Date(caseItem.incident_datetime).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         : 'Not recorded';
     const suspectFullName = `${suspect.first_name} ${suspect.last_name}`;
-    // A case can be invited before the Records Officer has assigned its OB
-    // and criminal numbers, so the letter works either way: it shows both
+    // A case can be invited before its OB and criminal numbers are assigned,
+    // so the letter works either way: it shows both
     // when available, and falls back to the internal Case ID when not.
     const obNumber = caseItem.ob_number || null;
     const criminalNumber = caseItem.criminal_number || null;

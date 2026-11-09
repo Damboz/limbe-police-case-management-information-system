@@ -95,7 +95,7 @@ async function getOccurrenceBook(user, filters = {}) {
 // cleared so the case starts the workflow again from a clean slate.
 async function reopenCase(user, caseId, data = {}) {
     if (!roleIn(user, BOOK_ROLES)) {
-        return fail(403, 'Only Records and Station Officers can reopen a closed case.');
+        return fail(403, 'Only Police and Station Officers can reopen a closed case.');
     }
 
     const id = Number(caseId);

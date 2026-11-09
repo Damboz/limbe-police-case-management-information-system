@@ -170,52 +170,6 @@ async function getBranchCasesForReport(user, period) {
 }
 
 
-// Records Officer: the numbering register — cases numbered in the window plus
-// the current queue still awaiting an OB / criminal number.
-async function getNumberingRegisterForReport(period) {
-    const window = periodAnd(period, 'c.numbers_assigned_at');
-
-    const [[[summary]], [numbered], [pending]] = await Promise.all([
-        db.execute(`
-            SELECT
-                COUNT(*) FILTER (WHERE c.ob_number IS NULL) AS pending_count,
-                COUNT(*) FILTER (WHERE c.ob_number IS NOT NULL) AS total_numbered
-            FROM cases c
-        `),
-
-        db.execute(`
-            SELECT c.ob_number, c.criminal_number, c.complainant_name, c.numbers_assigned_at,
-                   cc.name AS crime_category,
-                   CONCAT(u.rank_title, ' ', u.first_name, ' ', u.last_name) AS assigned_by_name
-            FROM cases c
-            LEFT JOIN crime_categories cc ON c.category_id = cc.id
-            LEFT JOIN users u ON c.numbers_assigned_by = u.id
-            WHERE c.ob_number IS NOT NULL ${window.sql}
-            ORDER BY c.numbers_assigned_at DESC NULLS LAST
-            LIMIT 200
-        `, window.params),
-
-        db.execute(`
-            SELECT c.complainant_name, c.priority, c.status, c.created_at,
-                   cc.name AS crime_category
-            FROM cases c
-            LEFT JOIN crime_categories cc ON c.category_id = cc.id
-            WHERE c.ob_number IS NULL
-            ORDER BY CASE c.priority
-                        WHEN 'Critical' THEN 1
-                        WHEN 'High' THEN 2
-                        WHEN 'Medium' THEN 3
-                        WHEN 'Low' THEN 4
-                        ELSE 5
-                     END, c.created_at ASC
-            LIMIT 200
-        `)
-    ]);
-
-    return { summary, numbered, pending };
-}
-
-
 // Prosecutor: the station's prosecution caseload and court outcomes.
 async function getProsecutionCasesForReport(period) {
     const window = periodAnd(period, 'c.forwarded_at');
@@ -340,7 +294,6 @@ module.exports = {
     getMyAnalytics,
     getCasesForReport,
     getBranchCasesForReport,
-    getNumberingRegisterForReport,
     getProsecutionCasesForReport,
     getSystemReport,
     prepareSuspectInvitation

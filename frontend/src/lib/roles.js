@@ -39,16 +39,14 @@ const LEGACY_ROLE_ALIASES = {
     'cid officer': ROLES.BRANCH_OFFICER,
     'investigation branch officer': ROLES.BRANCH_OFFICER,
     'investigation officer': ROLES.BRANCH_OFFICER,
-    'prosecution officer': ROLES.PROSECUTOR,
-    'records officer': ROLES.POLICE_OFFICER
+    'prosecution officer': ROLES.PROSECUTOR
 };
 
 const LEGACY_ROLE_ID_MAP = {
     2: ROLE_IDS.STATION_OFFICER,
     3: ROLE_IDS.POLICE_OFFICER,
     4: ROLE_IDS.POLICE_OFFICER,
-    5: ROLE_IDS.BRANCH_OFFICER,
-    8: ROLE_IDS.POLICE_OFFICER
+    5: ROLE_IDS.BRANCH_OFFICER
 };
 
 export function canonicalRole(user) {
