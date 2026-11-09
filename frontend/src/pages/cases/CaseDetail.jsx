@@ -60,6 +60,7 @@ export default function CaseDetail() {
     const evidenceCapture = useSubmitter();
     const approval = useSubmitter();
     const smsResend = useSubmitter();
+    const courtFile = useSubmitter();
     const sms = useApiData((signal) => api.caseSmsNotifications(id, signal), [id]);
 
     const [noteText, setNoteText] = useState('');
@@ -135,6 +136,13 @@ export default function CaseDetail() {
             reload();
         });
     };
+
+    const downloadCourtFile = (format) => courtFile.run(async () => {
+        const res = format === 'zip'
+            ? await api.courtCaseFileZip(id)
+            : await api.courtCaseFilePdf(id);
+        toast.success(`${res.fileName} downloaded.`);
+    });
 
     const submitParty = async (e) => {
         e.preventDefault();
@@ -247,11 +255,35 @@ export default function CaseDetail() {
                 title={caseItem.ob_number ? `Case ${caseItem.ob_number}` : `Case #${caseItem.id} (Unnumbered)`}
                 subtitle={`${caseItem.incident_location} • Registered ${formatDate(caseItem.created_at)}`}
                 actions={
-                    <Link to="/cases" className="btn btn-outline-navy btn-sm">
-                        <i className="bi bi-arrow-left me-1" />Back to Case Register
-                    </Link>
+                    <div className="d-flex flex-wrap gap-2">
+                        {permissions?.canDownloadCourtFile && (
+                            <>
+                                <button
+                                    type="button"
+                                    className="btn btn-navy btn-sm"
+                                    disabled={courtFile.busy}
+                                    onClick={() => downloadCourtFile('pdf')}
+                                >
+                                    <i className="bi bi-file-earmark-pdf me-1" />Court File PDF
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-outline-navy btn-sm"
+                                    disabled={courtFile.busy}
+                                    onClick={() => downloadCourtFile('zip')}
+                                >
+                                    <i className="bi bi-file-earmark-zip me-1" />Case File + Evidence
+                                </button>
+                            </>
+                        )}
+                        <Link to="/cases" className="btn btn-outline-navy btn-sm">
+                            <i className="bi bi-arrow-left me-1" />Back to Case Register
+                        </Link>
+                    </div>
                 }
             />
+
+            {courtFile.error && <Alert variant="danger" message={courtFile.error} />}
 
             {isPendingComplaint && (
                 <div className="alert alert-warning border-0 shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-3">

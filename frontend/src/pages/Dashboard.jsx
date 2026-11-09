@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { useApiData } from '../hooks/useApiData';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../components/ui';
 import CaseEvidenceButton from '../components/CaseEvidenceButton';
+import CourtAssignmentsPanel from '../components/CourtAssignmentsPanel';
 import usePageTitle from '../hooks/usePageTitle';
 
 
@@ -42,7 +43,7 @@ function DashboardSearchBar() {
 
 
 function InvestigatorDashboard({ data }) {
-    const { kpi, assignedCases, overdueDaysThreshold } = data;
+    const { kpi, assignedCases, courtCases = [], overdueDaysThreshold } = data;
 
     return (
         <>
@@ -51,6 +52,8 @@ function InvestigatorDashboard({ data }) {
                 subtitle="Active investigations, evidence, and case timelines assigned to you."
                 actions={<DashboardSearchBar />}
             />
+
+            <CourtAssignmentsPanel courtCases={courtCases} />
 
             <div className="card border-0 shadow-sm">
                 <div className="card-header bg-navy text-white d-flex align-items-center justify-content-between py-3">

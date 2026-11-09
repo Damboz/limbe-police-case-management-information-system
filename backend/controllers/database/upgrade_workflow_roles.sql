@@ -2,8 +2,8 @@
 -- Limbe Police CMS - Workflow Roles Migration
 --
 -- Introduces the revised station workflow:
---   * New roles: Police Officer (7), Records Officer (8),
---     Station Officer (9), Branch Officer (10)
+--   * New roles: Police Officer (7), Station Officer (9),
+--     Branch Officer (10)
 --   * Legacy users are remapped:
 --       Counter/Intake Officer + Investigating Officer -> Police Officer
 --       Station Commander -> Station Officer
@@ -11,8 +11,8 @@
 --       Admin and Prosecutor are unchanged
 --   * users.branch: workflow branch, required for Branch Officer
 --   * cases: recorded_by/recorded_at replace intake_officer_id,
---     ob_number becomes nullable (assigned later by the Records
---     Officer), plus criminal_number, classification,
+--     ob_number becomes nullable (assigned during registration),
+--     plus criminal_number, classification,
 --     workflow_branch, classification and assignment audit columns
 --   * New tables: case_assignments (assignment history),
 --     case_file_movements (file movement log),
@@ -37,7 +37,6 @@
 -- 1. New roles ------------------------------------------------------------
 INSERT INTO roles (id, name, description) VALUES
 (7,  'Police Officer',  'Records and registers cases; investigates assigned cases'),
-(8,  'Records Officer', 'Assigns OB and criminal numbers to registered cases'),
 (9,  'Station Officer', 'Classifies cases, reviews files, approves closure, forwards to prosecution'),
 (10, 'Branch Officer',  'Assigns investigating officers within a workflow branch')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description;
@@ -73,7 +72,6 @@ WHERE role = 'Branch Officer' AND branch IS NULL;
 ALTER TABLE users ADD CONSTRAINT chk_users_role CHECK (role IN (
     'Admin', 'admin',
     'Police Officer', 'police officer',
-    'Records Officer', 'records officer',
     'Station Officer', 'station officer',
     'Branch Officer', 'branch officer',
     'Prosecutor', 'prosecutor'
@@ -169,8 +167,8 @@ WHERE branch_review_status = 'Pending Review' AND requested_status IS NOT NULL;
 UPDATE cases SET status = 'Submitted for Review', branch_review_status = 'Pending Review'
 WHERE branch_review_status = 'Recommended' AND requested_status IS NOT NULL;
 
--- New cases are created without an OB number; the Records Officer
--- assigns it later. PostgreSQL UNIQUE allows multiple NULLs.
+-- New cases are created without an OB number; it is assigned during
+-- registration. PostgreSQL UNIQUE allows multiple NULLs.
 ALTER TABLE cases ALTER COLUMN ob_number DROP NOT NULL;
 
 ALTER TABLE cases ADD CONSTRAINT chk_cases_status CHECK (status IN (
@@ -231,8 +229,8 @@ CREATE TABLE IF NOT EXISTS case_file_movements (
 CREATE INDEX IF NOT EXISTS idx_case_file_movements_case ON case_file_movements (case_id);
 
 -- 8. OB / criminal number sequences ---------------------------------------
--- The Records Officer's numbering service draws from these counters,
--- one per year and type ('OB' and 'CR'), so numbers never collide.
+-- The numbering service draws from these counters, one per year and
+-- type ('OB' and 'CR'), so numbers never collide.
 CREATE TABLE IF NOT EXISTS number_sequences (
     year        int NOT NULL,
     type        varchar(10) NOT NULL,

@@ -13,6 +13,7 @@ const prosecutorApi = require('../controllers/api/prosecutorApiController');
 const occurrenceBookApi = require('../controllers/api/occurrenceBookApiController');
 const reportsApi = require('../controllers/api/reportsApiController');
 const generalApi = require('../controllers/api/generalApiController');
+const courtFileApi = require('../controllers/api/courtFileApiController');
 
 const { isAuthenticated, isAdmin, denyAdmin, authorizeRoles } = require('../middleware/authMiddleware');
 const { ROLES, roleIn } = require('../roles');
@@ -82,6 +83,13 @@ router.post(
     denyAdmin,
     reportsApi.suspectInvitation
 );
+
+
+// The officer standing with a case in court downloads the case file (PDF) or
+// the case file plus every uploaded evidence file (ZIP). Authorization is
+// per-case (court officer assignment), so it is enforced in the service.
+router.get('/cases/:id/court-file.pdf', isAuthenticated, courtFileApi.downloadPdf);
+router.get('/cases/:id/court-file.zip', isAuthenticated, courtFileApi.downloadZip);
 
 
 // Evidence Ledger (new)

@@ -5,6 +5,8 @@ const {
     roleIn,
     WORKFLOW_BRANCHES,
     CASE_STATUSES,
+    ASSIGNMENT_ROLE_TYPES,
+    ASSIGNMENT_STATUSES,
     severityLevel,
     classificationForSeverity,
     branchForSeverity,
@@ -757,6 +759,18 @@ async function getCaseDetail(caseId, user) {
     const isBranchOfficer = roleIn(user, BRANCH_ROLES);
     const isProsecutor = roleIn(user, PROSECUTOR_ROLES);
 
+    let isCourtOfficer = Number(caseItem.court_officer_id) === Number(user.id);
+    if (!isCourtOfficer) {
+        const [courtAssignments] = await db.execute(
+            `SELECT 1 FROM case_assignments
+             WHERE case_id = ? AND assigned_to = ?
+               AND role_type = ? AND status = ?
+             LIMIT 1`,
+            [caseId, user.id, ASSIGNMENT_ROLE_TYPES.COURT_STANDING_OFFICER, ASSIGNMENT_STATUSES.ACTIVE]
+        );
+        isCourtOfficer = courtAssignments.length > 0;
+    }
+
     const permissions = {
         canAddNote: isAssignedInvestigatorFlag,
         canSubmitForReview: isAssignedInvestigatorFlag
@@ -771,6 +785,7 @@ async function getCaseDetail(caseId, user) {
             && caseItem.status === 'Submitted for Review'
             && caseItem.branch_review_status === 'Pending Review',
         canForwardToCourt: isProsecutor && caseItem.status === 'Forwarded to Prosecution',
+        canDownloadCourtFile: isCourtOfficer || isProsecutor || roleIn(user, [ROLES.ADMIN]),
         canApproveOnline: caseItem.source === 'Online'
             && caseItem.complaint_status === 'Pending'
             && roleIn(user, [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER, ROLES.BRANCH_OFFICER, ROLES.ADMIN])
@@ -925,7 +940,7 @@ async function requestExternalReport(caseId, user, data) {
 // investigation sees those cases on their own dashboard even when their role
 // has its own landing page.
 async function getAssignedCasesForUser(userId) {
-    const [[[kpi]], [assignedCases]] = await Promise.all([
+    const [[[kpi]], [assignedCases], [courtCases]] = await Promise.all([
         db.execute(`
         SELECT
             COUNT(DISTINCT c.id) AS total_assigned,
@@ -949,7 +964,24 @@ async function getAssignedCasesForUser(userId) {
         WHERE ci.investigator_id = ?
         GROUP BY c.id, cc.name
         ORDER BY CASE c.priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, c.created_at ASC
-    `, [userId])
+    `, [userId]),
+
+        db.execute(`
+        SELECT DISTINCT
+            c.id, c.ob_number, c.criminal_number, c.court_date,
+            c.incident_details AS title, cc.name AS crime_category,
+            c.priority, c.status, c.created_at,
+            CURRENT_DATE - c.created_at::date AS days_open
+        FROM cases c
+        LEFT JOIN crime_categories cc ON c.category_id = cc.id
+        LEFT JOIN case_assignments ca
+               ON ca.case_id = c.id
+              AND ca.assigned_to = ?
+              AND ca.role_type = ?
+              AND ca.status = ?
+        WHERE c.court_officer_id = ? OR ca.id IS NOT NULL
+        ORDER BY c.court_date ASC NULLS LAST, c.created_at ASC
+    `, [userId, ASSIGNMENT_ROLE_TYPES.COURT_STANDING_OFFICER, ASSIGNMENT_STATUSES.ACTIVE, userId])
     ]);
 
     return {
@@ -961,7 +993,8 @@ async function getAssignedCasesForUser(userId) {
             closed: kpi.closed_count || 0,
             pendingRequest: kpi.pending_request_count || 0
         },
-        assignedCases
+        assignedCases,
+        courtCases
     };
 }
 
