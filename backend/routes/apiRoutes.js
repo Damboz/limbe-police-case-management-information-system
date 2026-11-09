@@ -594,7 +594,7 @@ router.post('/branch/external-reports/:reportId/received', isAuthenticated, auth
 
 
 router.get('/occurrence-book', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER), occurrenceBookApi.list);
-router.post('/occurrence-book/:id/reopen', isAuthenticated, authorizeRoles(ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER), occurrenceBookApi.reopen);
+router.post('/occurrence-book/:id/reopen', isAuthenticated, authorizeRoles(ROLES.STATION_OFFICER), occurrenceBookApi.reopen);
 
 
 router.get('/prosecution/dashboard', isAuthenticated, authorizeRoles(ROLES.PROSECUTOR), prosecutorApi.dashboard);

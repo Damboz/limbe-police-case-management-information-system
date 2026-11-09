@@ -4,6 +4,7 @@ const { ROLES, roleIn } = require('../roles');
 
 
 const BOOK_ROLES = [ROLES.POLICE_OFFICER, ROLES.STATION_OFFICER];
+const REOPEN_ROLES = [ROLES.STATION_OFFICER];
 
 const CASE_STATUSES = [
     'Registered', 'Numbered', 'Classified', 'Assigned', 'Under Investigation',
@@ -94,8 +95,8 @@ async function getOccurrenceBook(user, filters = {}) {
 // request, review decision and court scheduling from the previous cycle is
 // cleared so the case starts the workflow again from a clean slate.
 async function reopenCase(user, caseId, data = {}) {
-    if (!roleIn(user, BOOK_ROLES)) {
-        return fail(403, 'Only Police and Station Officers can reopen a closed case.');
+    if (!roleIn(user, REOPEN_ROLES)) {
+        return fail(403, 'Only a Station Officer can reopen a closed case from the Occurrence Book.');
     }
 
     const id = Number(caseId);

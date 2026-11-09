@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useApiData } from '../../hooks/useApiData';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { roleFlags } from '../../lib/roles';
 import { Alert, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from '../../components/ui';
 import { formatDate, formatDateTime } from '../../lib/format';
 import usePageTitle from '../../hooks/usePageTitle';
@@ -37,6 +39,8 @@ export default function OccurrenceBook() {
     usePageTitle('Occurrence Book');
 
     const toast = useToast();
+    const { user } = useAuth();
+    const { isStationOfficer } = roleFlags(user);
 
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('');
@@ -215,7 +219,7 @@ export default function OccurrenceBook() {
                                             <Link to={`/cases/${item.id}`} className="btn btn-sm btn-outline-navy">
                                                 <i className="bi bi-eye-fill me-1" />View
                                             </Link>
-                                            {item.status === 'Closed' && (
+                                            {item.status === 'Closed' && isStationOfficer && (
                                                 <button
                                                     type="button"
                                                     className="btn btn-sm btn-outline-warning ms-1"
