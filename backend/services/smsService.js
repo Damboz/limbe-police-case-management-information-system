@@ -31,6 +31,11 @@ function normalisePhone(raw) {
 }
 
 
+function getSystemUrl() {
+    return (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
+}
+
+
 function formatCourtDate(value) {
     const raw = String(value || '').trim();
     if (!raw) return null;
@@ -56,7 +61,7 @@ function buildMessage(role, obNumber, officerName, courtDate) {
     const date = formatCourtDate(courtDate);
     if (date) message += ` Court date: ${date}.`;
 
-    message += ' Please log in to review.';
+    message += ` Log in at ${getSystemUrl()} to review.`;
     return message;
 }
 
